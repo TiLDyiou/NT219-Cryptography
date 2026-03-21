@@ -1,4 +1,5 @@
 # 1. Tại sao không dùng Monolith mà lại chia Microservices?
+
 ---
 
 ## 1. Lý do cốt lõi: **Đề tài yêu cầu mật mã cho giao tiếp giữa các dịch vụ**
@@ -6,6 +7,7 @@
 Đây là lý do **mạnh nhất** và **khó phản bác nhất**:
 
 Đề tài môn Cryptography yêu cầu triển khai và đánh giá:
+
 - **mTLS** (mutual TLS) cho giao tiếp service-to-service
 - **HMAC signing** cho request giữa các dịch vụ
 - **API Gateway** làm điểm kiểm soát trung tâm
@@ -69,19 +71,19 @@ Với monolith, tất cả module chạy dưới **cùng một identity / cùng 
 
 5 thí nghiệm của đề tài hầu hết cần **nhiều thực thể riêng biệt giao tiếp qua mạng**:
 
-| Thí nghiệm | Cần microservices vì... |
-|---|---|
-| Token replay | Cần API Gateway riêng để validate/reject token |
-| Payment fraud | Cần Payment Service riêng gọi PSP qua mạng → có thể intercept, test 3DS |
-| API abuse | Cần rate limiting **tại API Gateway** — monolith không có gateway |
-| Key rotation | Cần nhiều service dùng chung KMS → test xem service nào bị ảnh hưởng khi xoay khóa |
-| Supply chain | Cần **nhiều container image** riêng biệt để test artifact signing |
+| Thí nghiệm    | Cần microservices vì...                                                            |
+| ------------- | ---------------------------------------------------------------------------------- |
+| Token replay  | Cần API Gateway riêng để validate/reject token                                     |
+| Payment fraud | Cần Payment Service riêng gọi PSP qua mạng → có thể intercept, test 3DS            |
+| API abuse     | Cần rate limiting **tại API Gateway** — monolith không có gateway                  |
+| Key rotation  | Cần nhiều service dùng chung KMS → test xem service nào bị ảnh hưởng khi xoay khóa |
+| Supply chain  | Cần **nhiều container image** riêng biệt để test artifact signing                  |
 
 ---
 
 ## 5. Nhưng cũng phải thành thật: **Trade-off**
 
-Nếu giáo viên hỏi tiếp *"Microservices có nhược điểm gì không?"*:
+Nếu giáo viên hỏi tiếp _"Microservices có nhược điểm gì không?"_:
 
 | Nhược điểm của Microservices                                        | Cách đề tài xử lý                                                                                       |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -89,13 +91,16 @@ Nếu giáo viên hỏi tiếp *"Microservices có nhược điểm gì không?"
 | **Latency cao hơn** vì giao tiếp qua mạng thay vì function call     | Đề tài đo latency này như một phần thí nghiệm hiệu năng (mục 8.3) — đây chính là trade-off cần đánh giá |
 | **Quản lý dữ liệu** phân tán, khó đảm bảo consistency               | Dùng saga pattern / idempotency key cho payment flow                                                    |
 | **Tốn tài nguyên** hơn (nhiều container, mỗi cái có overhead riêng) | Chấp nhận được trong phạm vi lab (k3s đủ nhẹ)                                                           |
-> **Câu trả lời mẫu:** "Em nhận thức được microservices phức tạp hơn monolith về vận hành. Tuy nhiên trong ngữ cảnh đề tài Cryptography, sự phức tạp này chính là **đối tượng nghiên cứu** — em cần đánh giá trade-off giữa bảo mật tăng thêm và chi phí hiệu năng/vận hành. Nếu dùng monolith, em sẽ không thể thực hiện được các thí nghiệm này."
----
-## Tóm tắt câu trả lời hoàn chỉnh cho giáo viên
 
-> *"Lý do chính là đề tài yêu cầu triển khai và đánh giá mTLS, HMAC, API Gateway cho giao tiếp giữa các thành phần — những cơ chế mật mã này chỉ có ý nghĩa khi các thành phần giao tiếp qua mạng, tức microservices. Ngoài ra, microservices cho phép cách ly vùng bảo mật (đặc biệt Payment Service theo yêu cầu PCI-DSS) và áp dụng nguyên tắc least privilege cho từng service. Em cũng nhận thức rằng microservices tạo thêm phức tạp và latency, nhưng đây chính là trade-off mà đề tài yêu cầu em đo lường và đánh giá."*
+> **Câu trả lời mẫu:** "Em nhận thức được microservices phức tạp hơn monolith về vận hành. Tuy nhiên trong ngữ cảnh đề tài Cryptography, sự phức tạp này chính là **đối tượng nghiên cứu** — em cần đánh giá trade-off giữa bảo mật tăng thêm và chi phí hiệu năng/vận hành. Nếu dùng monolith, em sẽ không thể thực hiện được các thí nghiệm này."
+
+---
+
+## Tóm tắt
+
+> _"Lý do chính là đề tài yêu cầu triển khai và đánh giá mTLS, HMAC, API Gateway cho giao tiếp giữa các thành phần — những cơ chế mật mã này chỉ có ý nghĩa khi các thành phần giao tiếp qua mạng, tức microservices. Ngoài ra, microservices cho phép cách ly vùng bảo mật (đặc biệt Payment Service theo yêu cầu PCI-DSS) và áp dụng nguyên tắc least privilege cho từng service. Em cũng nhận thức rằng microservices tạo thêm phức tạp và latency, nhưng đây chính là trade-off mà đề tài yêu cầu em đo lường và đánh giá."_
+
 # 2. Tech-stack
-## Bảng tổng hợp
 
 |        Thành phần        |                    Chọn                     | Lý do chọn cái này                                                                                                                                           |
 | :----------------------: | :-----------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -113,15 +118,8 @@ Nếu giáo viên hỏi tiếp *"Microservices có nhược điểm gì không?"
 | **Dependency Scanning**  |                 Dependabot                  | Dependabot tích hợp sẵn GitHub (miễn phí).                                                                                                                   |
 |  **Ngôn ngữ services**   |          **Tùy (Python/FastAPI)**           | Tài liệu để mở                                                                                                                                               |
 |       **Frontend**       |          **cái này thì vibe code**          | Chỉ cần đủ demo là được                                                                                                                                      |
+
 # 3. Timeline
-## Tuần 1: Nền tảng
-![[Pasted image 20260321140234.png]]
-## Tuần 2 và 3: Code Core Services
-![[Pasted image 20260321140355.png]]
-## Tuần 4: Encryption + 3 services phụ
-![[Pasted image 20260321140502.png]]
-## Tuần 5: Monitoring + Anti-Fraud
-![[Pasted image 20260321140527.png]]
-## Tuần 6: ![[Pasted image 20260321140553.png]]
-![[Pasted image 20260321140605.png]]
-## Tuần 8: ![[Pasted image 20260321140641.png]]
+
+https://docs.google.com/spreadsheets/d/12WVoKp0I9Uedm6IfrUanZMRU9E2irAEoN4HYKG37a90/edit?usp=sharing
+
