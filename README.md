@@ -123,3 +123,30 @@ Nếu giáo viên hỏi tiếp _"Microservices có nhược điểm gì không?"
 
 https://docs.google.com/spreadsheets/d/12WVoKp0I9Uedm6IfrUanZMRU9E2irAEoN4HYKG37a90/edit?usp=sharing
 
+# 4 Cấu trúc Repo
+
+```
+.
+├── benchmark                              # Apache JMeter
+├── deployments                            # k3s
+├── docs
+│   └── ADRs   # hồ sơ quyết định kiến ​​trúc, chứa câu trả lời cho các câu hỏi vì sao
+├── experiments                            # chứa kịch bản tấn công
+├── frontend
+├── .github                                # CI/CD, dependabot và OWASP ZAP
+├── infra                                  # DevOps
+│   ├── gateway        # Envoy
+│   ├── idp            # Keycloak
+│   ├── observability  # ELK, Prometheus, Grafana
+│   ├── readme.md
+│   └── vault          # HashiCorp Vault
+├── README.md
+└── services                               # backend services
+    ├── cart-service
+    ├── catalog-service
+    ├── inventory-service
+    ├── noti-service
+    ├── order-service
+    ├── payment-service
+    └── shipping-service
+```
