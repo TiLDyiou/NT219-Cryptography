@@ -1,0 +1,6 @@
+server.name: kibana
+server.host: "0.0.0.0"
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+monitoring.kibana.collection.enabled: false
+telemetry.enabled: false
+logging.root.level: warn

@@ -1,0 +1,66 @@
+# =============================================================================
+# NT219 Crypto Capstone — Envoy API Gateway Bootstrap Config
+# Week 1: Minimal passthrough configuration — starts cleanly, health check works
+#
+# Week 3-4 additions (do not add yet):
+#   - JWT/OIDC filter (validate Keycloak-issued tokens)
+#   - Rate limiting filter (credential stuffing protection)
+#   - HMAC request signing verification
+#   - mTLS for upstream service-to-service connections
+#   - Routes to microservice clusters (catalog, cart, order, payment)
+# =============================================================================
+
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 10000
+
+static_resources:
+  listeners:
+    - name: listener_api
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 8081
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: gateway
+                      domains: ["*"]
+                      routes:
+                        # Health check endpoint (used by docker healthcheck)
+                        - match:
+                            prefix: "/health"
+                          direct_response:
+                            status: 200
+                            body:
+                              inline_string: '{"status":"OK","gateway":"envoy","week":1}'
+                        # Placeholder: microservice routes added in Week 3-4
+                        - match:
+                            prefix: "/"
+                          direct_response:
+                            status: 503
+                            body:
+                              inline_string: '{"error":"No services registered yet","note":"Microservice routes added in Week 3-4"}'
+
+  clusters: []
+  # Clusters (upstream microservices) added in Week 3-4:
+  # - catalog-service:8000
+  # - cart-service:8000
+  # - order-service:8000
+  # - payment-service:8000
