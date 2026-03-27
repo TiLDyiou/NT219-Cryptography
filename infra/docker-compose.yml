@@ -210,7 +210,7 @@ services:
   # Week 1: PLAINTEXT (no auth) — add SASL/SSL in Week 5-6
   # ---------------------------------------------------------------------------
   zookeeper:
-    image: bitnami/zookeeper:3.9.2
+    image: bitnamilegacy/zookeeper:3.9.2
     container_name: nt219-zookeeper
     restart: unless-stopped
     environment:
@@ -230,7 +230,7 @@ services:
       start_period: 15s
 
   kafka:
-    image: bitnami/kafka:3.7.0
+    image: bitnamilegacy/kafka:3.7.0
     container_name: nt219-kafka
     restart: unless-stopped
     environment:
