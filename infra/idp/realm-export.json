@@ -99,6 +99,21 @@
       "secret": "payment-client-secret-changeme",
       "protocol": "openid-connect",
       "attributes": {}
+    },
+    {
+      "clientId": "test-cli",
+      "name": "Test CLI",
+      "description": "Dev/test only — password grant for script-based token testing. REMOVE in production.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "access.token.lifespan": "300"
+      }
     }
   ],
   "roles": {

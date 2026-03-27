@@ -1,0 +1,117 @@
+Cường,,,Trạng thái,Đại,Trạng thái
+Tuần 1,,Vẽ Architecture Diagram,Đã xong,Viết Threat Model (STRIDE),Đang hoàn thiện
+,,"Setup Docker Compose:
+- K3s Cluster
+- Keycloak
+- PostgreSQL
+- Vault (dev mode)",Đang hoàn thiện,"Viết Security Design Doc:
+- Key hiearchy Diagram
+- Data flow
+- Token flow (OAuth2)
+- Payment flow (Stripe)
+",Đang hoàn thiện
+,,,,Thiết kế Database Schema,Đang hoàn thiện
+,,"Keycloak: tạo realm, client, test user, test lấy token",Đang hoàn thiện,Github Repo,Đã xong
+Tuần 2,,"Setup Envoy/Istio trên K3s
+- TLS termination
+- JWT validation plugin
+- Rate limiting",Đang hoàn thiện,"Catalog Service:
+- GET products
+- Kết nối DB (postgreSQL)
+- JWT validation middleware",Đang hoàn thiện
+,,"Setup Nginx/Varnish làm local CDN cho static assets
++ cấu hình các rules Cache-Control đảm bảo không cache private data",Đang hoàn thiện,,
+,,Tích hợp WAF plugin cho Envoy/Istio,Đang hoàn thiện,,
+,,Cấu hình mTLS tự động giữa các services (Istio),Đang hoàn thiện,"Cart Service:
+- POST GET cart
+- Authenticated Endpoints",Đang hoàn thiện
+Tuần 3,,"Vault Transit Engine:
+- Encryption as Service
+- Tạo policies cho từng Service
+",Đang hoàn thiện,"Order Service:
+- POST checkout
+- Orchestrate Cart -> Payment",Đang hoàn thiện
+,,,,,Đang hoàn thiện
+,,"Code Web SPA Frontend
+",Đang hoàn thiện,Tích hợp luồng OAuth2 Authorization Code + PKCE tại Frontend,Đang hoàn thiện
+,,"Vault PKI Engine:
+- CA nội bộ cho mTLS
+- Auto cert rotation
+",Đang hoàn thiện,"Payment Service:
+- Stripe sandbox
+- Tokenization flow
+- 3DS test flow
+- Idempotency key",Đang hoàn thiện
+"Chạy được flow hoàn chỉnh: Login - Browse Catalog - Add to cart - Checkout - Pay, tất cả qua Envoy, mTLS, authenticated bằng JWT",,,,,
+Tuần 4,,PostgreSQL TDE Setup,Đang hoàn thiện,Inventory Service,Đang hoàn thiện
+,,Field-level encryption cho PII qua Vault Transit,Đang hoàn thiện,Shipping Service,Đang hoàn thiện
+,,Backup Encryption (keys managed via Vault) ,Đang hoàn thiện,Notification Service,Đang hoàn thiện
+,,,,"Viết script Data Seeding (Faker/Python) để tự động bơm dữ liệu mẫu vào PostgreSQL 
++ Implement Anti-Brute Force cho flow Login",Đang hoàn thiện
+,,HMAC request signing giữa các services,Đang hoàn thiện,Implement RBAC (OAuth2 cho mỗi services),Đang hoàn thiện
+Dữ liệu nhạy cảm được mã hóa at-rest. 7 services chạy. HMAC signing hoạt động,,,,,
+Tuần 5,,"Thêm Kafka vào cluster 
+- checkout-events 
+- fraud-alerts 
+- audit-logs",Đang hoàn thiện,"ML Fraud Scoring stub 
+- scikit-learn model đơn giản hoặc rule-based 
+- Consume từ Kafka 
+- Output: risk score",Đang hoàn thiện
+,,"Setup ELK Stack 
+- Elastic search 
+- Logstash (collect từ tất cả services) 
+- Kibana dashboards",Đang hoàn thiện,"Signed audit logs 
+- Mỗi event được ký số 
+- Append-only vào Kafka",Đang hoàn thiện
+,,,,Implement Web Device Binding,Đang hoàn thiện
+,,"Setup Prometheus + Grafana 
+- Metrics từ services 
+- Dashboard checkout latency",Đang hoàn thiện,Chạy baseline functional test: end-to-end flow hoạt động đúng,Đang hoàn thiện
+Production-ready. Grafana dashboard đẹp. Kibana có log. Fraud scoring chạy.,,,,,
+Tuần 6,,"Experiment 4: Key Compromise & Rotation Drill
+- Xoay master key
+- Verify rollback
+- Đo downtime",Đang hoàn thiện,"Experiment 1: Token Replay & Binding 
+- Lấy token hợp lệ 
+- Replay từ device khác 
+- Ghi: bị chặn? log?",Đang hoàn thiện
+,,"Experiment 5: Supply Chain Tamper 
+- Inject modified image 
+- Test artifact verify 
+- CI/CD gating",Đang hoàn thiện,"Experiment 2: Payment Fraud Simulation 
+- Duplicate payment request 
+- Test idempotency 
+- Test fraud scoring block",Đang hoàn thiện
+,,,,Viết script DB Teardown/Reset để dọn dẹp hệ thống sau mỗi lần chạy test gian lận.,Đang hoàn thiện
+,,,Đã xong,"Experiment 3: API Abuse & Rate Limiting 
+- Credential stuffing 
+- Đo: bao nhiêu req bị chặn, response time",Đang hoàn thiện
+Tuần 7,,"Operational drills: 
+- Key rotation procedure 
+- Incident response runbook 
+- MTTR measurement",Đang hoàn thiện,"JMeter load tests:
+  - Checkout latency median/p95/p99
+  - Throughput under load",Đang hoàn thiện
+,,"Cost analysis: 
+- KMS calls/10k req 
+- HSM rental estimate 
+- So sánh software key vs HSM",Đang hoàn thiện,"Ablation studies: 
+- Có mTLS vs không: latency 
+- Vault encrypt vs local: overhead? 
+- Rate limiting on vs off: throughput?",Đang hoàn thiện
+,,"CI/CD pipeline: 
+- GitHub Actions 
+- Code signing 
+- Dependabot - SBOM generation",Đang hoàn thiện,Tổng hợp tất cả kết quả thí nghiệm vào CSV/bảng,Đang hoàn thiện
+Đầy đủ số liệu cho report. Runbooks viết xong. CI/CD pipeline hoạt động.,,,,,
+Tuần cuối,,"Đóng gói repo: 
+- Docker Compose chạy 1 lệnh 
+- Helm chart cho k3s 
+- README hướng dẫn reproduce",Đang hoàn thiện,"Viết Final Report: 
+- Design & architecture 
+- Experiments & results 
+- Mitigations & runbooks 
+- Cost analysis 
+- Kết luận & recommend chính sách",Đang hoàn thiện
+,,Quay Demo Video,Đang hoàn thiện,Làm Slides,Đang hoàn thiện
+,,Chạy OWASP ZAP scan -> thêm kết quả vào report,Đang hoàn thiện,Review toàn bộ code + docs lần cuối,Đang hoàn thiện
