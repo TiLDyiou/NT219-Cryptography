@@ -1,0 +1,167 @@
+{
+  "realm": "nt219",
+  "enabled": true,
+  "displayName": "NT219 Ecommerce",
+  "displayNameHtml": "<b>NT219 Ecommerce</b>",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "accessTokenLifespan": 300,
+  "accessTokenLifespanForImplicitFlow": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "refreshTokenMaxReuse": 0,
+  "revokeRefreshToken": true,
+  "clients": [
+    {
+      "clientId": "frontend-spa",
+      "name": "Frontend SPA",
+      "description": "Web single-page application (OAuth2 PKCE flow)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3001/*",
+        "http://localhost:8081/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3001",
+        "http://localhost:8081"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "300",
+        "client.session.idle.timeout": "1800"
+      }
+    },
+    {
+      "clientId": "catalog-service",
+      "name": "Catalog Service",
+      "description": "Catalog microservice — client credentials flow",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "catalog-client-secret-changeme",
+      "protocol": "openid-connect",
+      "attributes": {}
+    },
+    {
+      "clientId": "cart-service",
+      "name": "Cart Service",
+      "description": "Cart microservice — client credentials flow",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "cart-client-secret-changeme",
+      "protocol": "openid-connect",
+      "attributes": {}
+    },
+    {
+      "clientId": "order-service",
+      "name": "Order Service",
+      "description": "Order microservice — client credentials flow",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "order-client-secret-changeme",
+      "protocol": "openid-connect",
+      "attributes": {}
+    },
+    {
+      "clientId": "payment-service",
+      "name": "Payment Service",
+      "description": "Payment microservice (PCI-DSS isolated) — client credentials flow",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "payment-client-secret-changeme",
+      "protocol": "openid-connect",
+      "attributes": {}
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Regular customer — can browse, add to cart, checkout"
+      },
+      {
+        "name": "admin",
+        "description": "Store administrator — full access"
+      },
+      {
+        "name": "analyst",
+        "description": "Fraud/BI analyst — read-only access to analytics data"
+      }
+    ]
+  },
+  "users": [
+    {
+      "username": "testuser",
+      "enabled": true,
+      "email": "testuser@nt219.local",
+      "firstName": "Test",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "testpass123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "admin_store",
+      "enabled": true,
+      "email": "admin@nt219.local",
+      "firstName": "Store",
+      "lastName": "Admin",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "adminpass123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin", "user"]
+    },
+    {
+      "username": "fraud_analyst",
+      "enabled": true,
+      "email": "analyst@nt219.local",
+      "firstName": "Fraud",
+      "lastName": "Analyst",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "analystpass123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["analyst"]
+    }
+  ]
+}

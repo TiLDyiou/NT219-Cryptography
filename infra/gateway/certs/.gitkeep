@@ -1,0 +1,8 @@
+# TLS certificates go here (generated in Week 3-4)
+# See infra/.gitignore — *.pem, *.crt, *.key are excluded from git
+#
+# Week 3-4 script will generate:
+#   ca.pem           — Local CA certificate
+#   envoy.crt        — Envoy TLS cert (signed by CA)
+#   envoy.key        — Envoy TLS private key
+#   service-ca.pem   — mTLS CA for service-to-service

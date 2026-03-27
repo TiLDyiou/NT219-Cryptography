@@ -1,0 +1,363 @@
+# =============================================================================
+# NT219 Cryptography Capstone — Local Dev Infrastructure
+# Week 1: Infra provisioning (no microservice skeletons yet)
+#
+# Usage:
+#   cp .env.example .env
+#   docker compose up -d
+#   bash vault/scripts/init-vault.sh
+#
+# UIs:
+#   Keycloak:   http://localhost:8080  (admin / see .env)
+#   Vault:      http://localhost:8200  (token: dev-root-token)
+#   Grafana:    http://localhost:3000  (admin / see .env)
+#   Kibana:     http://localhost:5601
+#   Prometheus: http://localhost:9090
+# =============================================================================
+
+name: nt219-crypto
+
+networks:
+  # Internal network: containers can talk to each other but cannot reach the internet
+  # Mirrors the security boundary model (least privilege, PCI-DSS isolation)
+  backend:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+  # Public-facing network: only services with UI or ingress points are here
+  frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+
+volumes:
+  postgres_data:
+  vault_data:
+  vault_logs:
+  kafka_data:
+  zookeeper_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # DATABASE — PostgreSQL 16
+  # Single instance; each microservice gets its own DB + user (see init SQL)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16.3-alpine
+    container_name: nt219-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_dev}
+      POSTGRES_DB: keycloak
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # IDENTITY PROVIDER — Keycloak 24
+  # Dev mode: HTTP, no build step needed, auto-imports realm on first boot
+  # Production switch: replace `start-dev` with `start --optimized` in Week 3+
+  # ---------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5
+    container_name: nt219-keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD:-changeme_dev}
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_changeme}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_FEATURES: "token-exchange,admin-fine-grained-authz"
+      KC_LOG_LEVEL: INFO
+    volumes:
+      - ./idp/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health/ready"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+  # ---------------------------------------------------------------------------
+  # KEY MANAGEMENT — HashiCorp Vault 1.17
+  # Dev mode: auto-unsealed, root token known — fine for Week 1 infra provisioning
+  # Switch to file/raft backend in Week 5 (key rotation experiment)
+  # ---------------------------------------------------------------------------
+  vault:
+    image: hashicorp/vault:1.17.3
+    container_name: nt219-vault
+    restart: unless-stopped
+    command: server -dev -dev-root-token-id=${VAULT_DEV_ROOT_TOKEN:-dev-root-token}
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_DEV_ROOT_TOKEN:-dev-root-token}
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_LOG_LEVEL: info
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault_data:/vault/data
+      - vault_logs:/vault/logs
+      - ./vault/policies:/vault/policies:ro
+      - ./vault/scripts:/vault/scripts:ro
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "vault", "status", "-address=http://127.0.0.1:8200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # API GATEWAY — Envoy
+  # Week 1: minimal bootstrap (passthrough + health endpoint)
+  # Week 3-4: add JWT/OIDC filter, rate limiting, HMAC verification, mTLS
+  # ---------------------------------------------------------------------------
+  envoy:
+    image: envoyproxy/envoy:v1.31.0
+    container_name: nt219-envoy
+    restart: unless-stopped
+    command: ["-c", "/etc/envoy/envoy.yaml", "--log-level", "info"]
+    volumes:
+      - ./gateway/envoy.yaml:/etc/envoy/envoy.yaml:ro
+      - ./gateway/certs:/etc/envoy/certs:ro
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "8081:8081"    # API listener (microservices traffic routed here)
+      - "10000:10000"  # Envoy admin interface
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:10000/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # EVENT STREAMING — Zookeeper + Kafka (Bitnami)
+  # Week 1: PLAINTEXT (no auth) — add SASL/SSL in Week 5-6
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    image: bitnami/zookeeper:3.9.2
+    container_name: nt219-zookeeper
+    restart: unless-stopped
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+      ZOO_LOG_LEVEL: WARN
+    volumes:
+      - zookeeper_data:/bitnami/zookeeper
+    networks:
+      - backend
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "echo ruok | nc -w 2 localhost 2181 | grep imok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  kafka:
+    image: bitnami/kafka:3.7.0
+    container_name: nt219-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,INTERNAL://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:9093
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_LOG_RETENTION_HOURS: "24"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_LOG_LEVEL: WARN
+    volumes:
+      - kafka_data:/bitnami/kafka
+    networks:
+      - backend
+    ports:
+      - "9092:9092"
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 2>/dev/null | grep -q 'id:'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # OBSERVABILITY — Prometheus + Grafana
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.53.1
+    container_name: nt219-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - backend
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:10.4.5
+    container_name: nt219-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-grafana_changeme}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      GF_LOG_LEVEL: warn
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # OBSERVABILITY — ELK Stack
+  # Memory-limited for local dev (macOS Docker Desktop needs >= 8GB RAM allocated)
+  # Week 7-8: enable xpack.security, add Filebeat/Metricbeat agents
+  # ---------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    container_name: nt219-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.security.enrollment.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - backend
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=10s'"]
+      interval: 15s
+      timeout: 15s
+      retries: 8
+      start_period: 60s
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.14.3
+    container_name: nt219-logstash
+    restart: unless-stopped
+    environment:
+      LS_JAVA_OPTS: "-Xms256m -Xmx256m"
+      LOG_LEVEL: warn
+    volumes:
+      - ./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./observability/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+    networks:
+      - backend
+    ports:
+      - "5044:5044"  # Beats input
+      - "5000:5000"  # TCP/JSON input
+      - "9600:9600"  # Logstash monitoring API
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9600"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    container_name: nt219-kibana
+    restart: unless-stopped
+    volumes:
+      - ./observability/kibana/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status | grep -q 'available'"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s

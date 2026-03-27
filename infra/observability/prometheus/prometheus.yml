@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: nt219-local
+    env: development
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: prometheus
+    static_configs:
+      - targets: [localhost:9090]
+
+  # Keycloak metrics (KC_METRICS_ENABLED=true exposes /realms/master/metrics)
+  - job_name: keycloak
+    metrics_path: /realms/master/metrics
+    static_configs:
+      - targets: [keycloak:8080]
+
+  # Vault metrics (via sys/metrics endpoint, requires token)
+  - job_name: vault
+    metrics_path: /v1/sys/metrics
+    params:
+      format: [prometheus]
+    bearer_token: "dev-root-token"
+    static_configs:
+      - targets: [vault:8200]
+
+  # Envoy admin metrics
+  - job_name: envoy
+    metrics_path: /stats/prometheus
+    static_configs:
+      - targets: [envoy:10000]
+
+  # Microservice placeholder jobs — uncomment when services are added (Week 3-4)
+  # - job_name: catalog-service
+  #   static_configs:
+  #     - targets: [catalog-service:8000]
+  # - job_name: cart-service
+  #   static_configs:
+  #     - targets: [cart-service:8000]
+  # - job_name: order-service
+  #   static_configs:
+  #     - targets: [order-service:8000]
+  # - job_name: payment-service
+  #   static_configs:
+  #     - targets: [payment-service:8000]
+
+  # Exporters — add in Week 7-8 when monitoring experiments begin
+  # - job_name: postgres-exporter
+  #   static_configs:
+  #     - targets: [postgres-exporter:9187]
+  # - job_name: kafka-exporter
+  #   static_configs:
+  #     - targets: [kafka-exporter:9308]
