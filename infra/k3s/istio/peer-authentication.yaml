@@ -1,0 +1,45 @@
+# =============================================================================
+# NT219 Crypto Capstone — Istio PeerAuthentication
+# Week 2: Enforce STRICT mTLS for all service-to-service communication
+#
+# What this does:
+#   - ALL pods in 'default' namespace MUST use mTLS
+#   - Plaintext connections are REJECTED (not just upgraded)
+#   - Each pod's Envoy sidecar automatically handles certificate provisioning
+#     and rotation via Istio's built-in CA (citadel)
+#
+# Modes:
+#   DISABLE    — No mTLS (plaintext)
+#   PERMISSIVE — Accept both mTLS and plaintext (migration mode)
+#   STRICT     — Only mTLS allowed (production mode)
+#
+# Reference: https://istio.io/latest/docs/reference/config/security/peer_authentication/
+# =============================================================================
+
+# ── Mesh-wide STRICT mTLS (applies to ALL namespaces) ──
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default-strict-mtls
+  namespace: istio-system  # mesh-wide policy
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/week: "2"
+spec:
+  mtls:
+    mode: STRICT
+
+---
+
+# ── Namespace-level policy for 'default' (redundant but explicit) ──
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default-ns-strict-mtls
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/week: "2"
+spec:
+  mtls:
+    mode: STRICT
