@@ -1,0 +1,115 @@
+// ============================================================
+// DATABASE: enmerce_notification
+// Email/SMS/Push notification logs, templates, preferences
+// Visualize: paste vào https://dbdiagram.io
+// ============================================================
+
+Project enmerce_notification {
+  database_type: 'PostgreSQL'
+  Note: '''
+    # Notification Database
+    Multi-channel notification system with i18n templates.
+    Full delivery tracking and retry mechanism.
+  '''
+}
+
+Table notification_channels {
+  id         uuid [pk, default: `gen_random_uuid()`]
+  code       varchar(30) [unique, not null, note: 'email|sms|push|in_app|webhook']
+  name       varchar(100) [not null]
+  provider   varchar(50) [note: 'gmail_smtp|twilio|firebase_fcm']
+  is_active  boolean [not null, default: true]
+  config     jsonb [default: '{}', note: 'channel config (masked secrets)']
+  rate_limit jsonb [default: '{}', note: '{"max_per_minute":100}']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table notification_templates {
+  id        uuid [pk, default: `gen_random_uuid()`]
+  code      varchar(100) [unique, not null, note: 'order_confirmed|payment_received|shipment_tracking']
+  channel_id uuid [not null, ref: > notification_channels.id]
+  category  varchar(50) [not null, note: 'order|payment|shipping|marketing|security']
+  is_active boolean [not null, default: true]
+  variables jsonb [default: '[]', note: '["order_number","customer_name","total_amount"]']
+  metadata  jsonb [default: '{}']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+
+Table user_notification_preferences {
+  id         uuid [pk, default: `gen_random_uuid()`]
+  user_id    uuid [not null]
+  channel_id uuid [not null, ref: > notification_channels.id]
+  category   varchar(50) [not null, note: 'order|marketing|security']
+  is_enabled boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id, channel_id, category) [unique]
+    (user_id) [name: 'idx_unp_user']
+  }
+}
+
+// ─── NOTIFICATION LOG (Core Business Table) ─────────────────
+// Không phải audit log — đây là bản ghi business của mỗi notification đã gửi.
+
+Table notification_log {
+  id              uuid [pk, default: `gen_random_uuid()`]
+  user_id         uuid [not null]
+  channel_id      uuid [not null, ref: > notification_channels.id]
+  template_id     uuid [ref: > notification_templates.id]
+  category        varchar(50) [not null, note: 'order|payment|shipping|marketing|security']
+  subject         varchar(500)
+  content_hash    varchar(64) [note: 'SHA-256 of content — không lưu PII trong log']
+  recipient_masked varchar(255) [note: 't***y@gmail.com — display only, không lưu full PII']
+  status          varchar(20) [not null, default: 'queued', note: 'queued|sending|sent|delivered|failed|bounced']
+  reference_type  varchar(30) [note: 'order|payment|shipment']
+  reference_id    uuid [note: 'cross-service ref: order_id, payment_id, shipment_id']
+  priority        varchar(10) [not null, default: 'normal', note: 'low|normal|high|urgent']
+  attempt_count   int [not null, default: 0]
+  max_attempts    int [not null, default: 3]
+  last_attempt_at timestamptz
+  delivered_at    timestamptz
+  failed_at       timestamptz
+  next_retry_at   timestamptz
+  error_code      varchar(100)
+  metadata        jsonb [default: '{}']
+  created_at      timestamptz [not null, default: `now()`]
+  updated_at      timestamptz [not null, default: `now()`]
+  expires_at      timestamptz [default: `now() + interval '72 hours'`, note: 'ngừng retry sau 72h']
+
+  indexes {
+    (user_id, created_at) [name: 'idx_nl_user']
+    (reference_type, reference_id) [name: 'idx_nl_reference']
+    (status) [name: 'idx_nl_status', note: 'WHERE status IN (queued, sending, failed)']
+    (next_retry_at) [name: 'idx_nl_retry', note: 'WHERE status = failed AND attempt_count < max_attempts']
+    (category, created_at) [name: 'idx_nl_category']
+  }
+
+  Note: '''
+    Core notification tracking table — NOT an audit log.
+    Business record: notification nào gửi cho user nào, qua channel nào, kết quả ra sao.
+    Audit logging cho Notification DB → ELK Stack (không cần *_audit_log table riêng).
+    Partitioned by RANGE(created_at) monthly.
+  '''
+}
+
+// ─── DELIVERY ATTEMPTS ──────────────────────────────────────
+
+Table notification_delivery_attempts {
+  id              uuid [pk, default: `gen_random_uuid()`]
+  notification_id uuid [not null, ref: > notification_log.id]
+  attempt_number  int [not null]
+  status          varchar(20) [not null]
+  provider_response jsonb
+  error_code      varchar(100)
+  error_message   text
+  attempted_at    timestamptz [not null, default: `now()`]
+
+  indexes {
+    (notification_id) [name: 'idx_nda_notif']
+  }
+}
