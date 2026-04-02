@@ -6,7 +6,7 @@
 
 Đây là lý do **mạnh nhất** và **khó phản bác nhất**:
 
-Đề tài môn Cryptography yêu cầuffd triển khai và đánh giá:
+Đề tài môn Cryptography yêu cầu triển khai và đánh giá:
 
 - **mTLS** (mutual TLS) cho giao tiếp service-to-service
 - **HMAC signing** cho request giữa các dịch vụ
