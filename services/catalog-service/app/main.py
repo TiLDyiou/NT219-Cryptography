@@ -8,12 +8,14 @@ from app.core.database import init_db
 from app.api.v1.router import api_router
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Khởi tạo DB khi boot 
+    # Khởi tạo DB khi boot
     await init_db()
     yield
     # Cleanup khi shutdown
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -21,13 +23,15 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url=None,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
+    # Khi nào deploy thật thì điền domain của frontend vào allow_origins
     allow_origins=["*"],
+    # Cơ chế cho phép đăng nhập thông qua cookies
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,13 +40,16 @@ app.add_middleware(
 # Exception handlers
 app.add_exception_handler(CatalogException, custom_exception_handler)
 
-# Routers
+# Routers, mount the API router under the API_V1_STR prefix (/api/v1)
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/health", tags=["System"])
 def health_check():
     return {"status": "ok", "service": settings.PROJECT_NAME}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
