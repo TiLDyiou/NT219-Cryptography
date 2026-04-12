@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+
+# TLS certificates generated locally
+gateway/certs/*.pem
+gateway/certs/*.crt
+gateway/certs/*.key
+gateway/certs/*.csr
+gateway/certs/*.srl
+gateway/certs/*.cnf
+
+# Vault tokens
+vault/.vault-token
+
+# K3s kubeconfig (contains cluster credentials)
+k3s/kubeconfig.yaml
+
+# Istio binary downloads
+k3s/istio-*/
+k3s/bin/
