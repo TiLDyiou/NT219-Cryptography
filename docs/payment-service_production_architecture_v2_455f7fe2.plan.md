@@ -65,20 +65,19 @@ todos:
 isProject: false
 ---
 
-
 # Payment-Service Production Architecture (v2 — race & migration hardened)
 
 ## 0. Decisions locked
 
-| Decision | Choice | Implication |
-|---|---|---|
-| Stripe mode | **Elements (client tokenize)** | Backend never sees PAN. PCI SAQ-A. |
-| 3DS flow | **Hybrid sync + async webhook** | Sync `/charge` returns `accepted` or `rejected_now`; truthful state via webhook only. |
-| Event publishing | **Strict: webhook handler is sole publisher** | Sync handler never publishes Kafka. Order saga ALWAYS waits for `PaymentCompleted` event. Tradeoff: ~50-200ms extra latency even for frictionless. Gain: zero dual-publish race. |
-| Race handling | **State machine + row lock + atomic dedup + Stripe re-fetch + outbox** | All 6 race cases mitigated by design. |
-| DB migration | **Alembic from day 1** | Required for partition (audit_log) + trigger + future ALTER. No `create_all`. |
-| Scope | Full (charge + refund + webhook + settlement cron + reconciliation) | 8 tables per dbml/04_payment.dbml |
-| Webhook delivery | ngrok tunnel | Public URL → Stripe Dashboard |
+| Decision         | Choice                                                                 | Implication                                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stripe mode      | **Elements (client tokenize)**                                         | Backend never sees PAN. PCI SAQ-A.                                                                                                                                               |
+| 3DS flow         | **Hybrid sync + async webhook**                                        | Sync `/charge` returns `accepted` or `rejected_now`; truthful state via webhook only.                                                                                            |
+| Event publishing | **Strict: webhook handler is sole publisher**                          | Sync handler never publishes Kafka. Order saga ALWAYS waits for `PaymentCompleted` event. Tradeoff: ~50-200ms extra latency even for frictionless. Gain: zero dual-publish race. |
+| Race handling    | **State machine + row lock + atomic dedup + Stripe re-fetch + outbox** | All 6 race cases mitigated by design.                                                                                                                                            |
+| DB migration     | **Alembic from day 1**                                                 | Required for partition (audit_log) + trigger + future ALTER. No `create_all`.                                                                                                    |
+| Scope            | Full (charge + refund + webhook + settlement cron + reconciliation)    | 8 tables per dbml/04_payment.dbml                                                                                                                                                |
+| Webhook delivery | ngrok tunnel                                                           | Public URL → Stripe Dashboard                                                                                                                                                    |
 
 ---
 
@@ -113,6 +112,7 @@ Old saga: `ProcessPayment → if success advance`
 New saga: `ProcessPayment → ALWAYS persist pending_payment + suspend → resume via Kafka PaymentCompleted/PaymentFailed`
 
 Files to modify in order-service:
+
 - [services/order-service/app/domain/value_objects/order_status.py](services/order-service/app/domain/value_objects/order_status.py) — add `PENDING_PAYMENT`
 - [services/order-service/app/application/saga/orchestrator.py](services/order-service/app/application/saga/orchestrator.py) — never advance on charge response; suspend after `accepted`
 - [services/order-service/app/infrastructure/messaging/kafka_consumer.py](services/order-service/app/infrastructure/messaging/kafka_consumer.py) — wire in main.py; subscribe `payment.events`; resume saga by `order_id` correlation
@@ -198,7 +198,14 @@ redis:
   image: redis:7.4-alpine
   ports: ["6379:6379"]
   networks: [backend]
-  command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+  command:
+    [
+      "redis-server",
+      "--maxmemory",
+      "256mb",
+      "--maxmemory-policy",
+      "allkeys-lru",
+    ]
 ```
 
 ### 3.2 `infra/vault/policies/payment-svc.hcl` — add missing
@@ -311,6 +318,7 @@ else:
 - `0001_initial_schema.py` — autogen from models for 7 standard tables (payment_methods, payment_transactions, idempotency_keys, psp_webhook_log, merchant_settlements, settlement_items + `payment_outbox`). Indexes per dbml.
 - `0002_outbox_table.py` — `payment_outbox`: `id uuid pk, aggregate_type, aggregate_id, event_type, payload jsonb, created_at, published_at, attempt_count, last_error, status (pending|published|failed)`. Index `(status, created_at) WHERE status='pending'`.
 - `0003_audit_log_partitioned.py` — raw SQL (Alembic `op.execute`):
+
   ```sql
   CREATE TABLE payment_audit_log (
       id uuid NOT NULL,
@@ -319,12 +327,13 @@ else:
       ...
       PRIMARY KEY (id, created_at)
   ) PARTITION BY RANGE (created_at);
-  
+
   -- initial 3 months partitions
   CREATE TABLE payment_audit_log_2026_05 PARTITION OF payment_audit_log
       FOR VALUES FROM ('2026-05-01') TO ('2026-06-01');
   -- ... etc
   ```
+
 - `0004_audit_trigger.py` — `CREATE FUNCTION audit_payment_changes()` + triggers on payment_methods, payment_transactions, merchant_settlements (AFTER INSERT/UPDATE/DELETE).
 - `0005_monthly_partition_helper.py` — `CREATE FUNCTION create_next_month_partition()` + APScheduler calls monthly.
 
@@ -368,7 +377,7 @@ class PaymentStatus(str, Enum):
     REFUND_PENDING     = "refund_pending"
     REFUNDED           = "refunded"
     PARTIALLY_REFUNDED = "partially_refunded"
-    
+
     # Allowed forward transitions — anything else is REJECTED at app layer
     _ALLOWED: ClassVar[dict] = {
         "pending":         {"processing", "requires_action", "succeeded", "failed", "cancelled"},
@@ -381,7 +390,7 @@ class PaymentStatus(str, Enum):
         "cancelled":       set(),
         "refunded":        set(),
     }
-    
+
     @classmethod
     def can_transition(cls, current: "PaymentStatus", target: "PaymentStatus") -> bool:
         return target.value in cls._ALLOWED[current.value]
@@ -391,14 +400,14 @@ class PaymentStatus(str, Enum):
 
 ### 5.2 Stripe status → PaymentStatus mapping
 
-| Stripe `pi.status` | PaymentStatus | When emitted |
-|---|---|---|
-| `requires_payment_method` | `failed` | Card decline |
-| `requires_action` | `requires_action` | 3DS challenge |
-| `processing` | `processing` | Stripe internal |
-| `succeeded` | `succeeded` | Charge captured |
-| `canceled` | `cancelled` | Explicit cancel |
-| `requires_capture` | `processing` | 2-step capture (not used here) |
+| Stripe `pi.status`        | PaymentStatus     | When emitted                   |
+| ------------------------- | ----------------- | ------------------------------ |
+| `requires_payment_method` | `failed`          | Card decline                   |
+| `requires_action`         | `requires_action` | 3DS challenge                  |
+| `processing`              | `processing`      | Stripe internal                |
+| `succeeded`               | `succeeded`       | Charge captured                |
+| `canceled`                | `cancelled`       | Explicit cancel                |
+| `requires_capture`        | `processing`      | 2-step capture (not used here) |
 
 ### 5.3 Domain events (published via outbox)
 
@@ -414,14 +423,14 @@ class PaymentStatus(str, Enum):
 
 ### 6.1 Six race cases & their fixes
 
-| # | Race | Fix | Where implemented |
-|---|---|---|---|
-| **R1** | Webhook arrives before sync handler commits | Sync handler holds `SELECT FOR UPDATE` on payment_transactions row until commit; webhook waits | `ChargeUseCase`, `HandleWebhookUseCase` |
-| **R2** | Stripe retries webhook → concurrent handlers same `event_id` | `INSERT ... ON CONFLICT (psp_provider, event_id) DO NOTHING RETURNING id` atomic | `PgWebhookLogRepository.insert_if_new()` |
-| **R3** | Out-of-order webhook downgrades state | `PaymentStatus.can_transition()` check before UPDATE; illegal = silent NO-OP | `HandleWebhookUseCase` |
-| **R4** | Dual publish (sync + webhook) | **Strict rule**: only webhook handler inserts into outbox; sync handler never publishes | `ChargeUseCase` does NOT publish |
-| **R5** | Concurrent same idempotency_key | Redis `SET key NX EX 86400` atomic claim; loser polls for cached response | `RedisIdempotencyStore.claim_or_wait()` |
-| **R6** | Webhook reads stale state | (1) Row lock per R1. (2) Webhook handler ALWAYS calls `stripe.PaymentIntent.retrieve()` to get canonical status before UPDATE | `HandleWebhookUseCase` |
+| #      | Race                                                         | Fix                                                                                                                           | Where implemented                        |
+| ------ | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **R1** | Webhook arrives before sync handler commits                  | Sync handler holds `SELECT FOR UPDATE` on payment_transactions row until commit; webhook waits                                | `ChargeUseCase`, `HandleWebhookUseCase`  |
+| **R2** | Stripe retries webhook → concurrent handlers same `event_id` | `INSERT ... ON CONFLICT (psp_provider, event_id) DO NOTHING RETURNING id` atomic                                              | `PgWebhookLogRepository.insert_if_new()` |
+| **R3** | Out-of-order webhook downgrades state                        | `PaymentStatus.can_transition()` check before UPDATE; illegal = silent NO-OP                                                  | `HandleWebhookUseCase`                   |
+| **R4** | Dual publish (sync + webhook)                                | **Strict rule**: only webhook handler inserts into outbox; sync handler never publishes                                       | `ChargeUseCase` does NOT publish         |
+| **R5** | Concurrent same idempotency_key                              | Redis `SET key NX EX 86400` atomic claim; loser polls for cached response                                                     | `RedisIdempotencyStore.claim_or_wait()`  |
+| **R6** | Webhook reads stale state                                    | (1) Row lock per R1. (2) Webhook handler ALWAYS calls `stripe.PaymentIntent.retrieve()` to get canonical status before UPDATE | `HandleWebhookUseCase`                   |
 
 ### 6.2 Charge flow (final, strict event-sourcing)
 
@@ -439,18 +448,18 @@ sequenceDiagram
 
     FE->>O: POST /checkout {pm_id, idempotency_key}
     O->>P: POST /api/v1/payments/charge (HMAC signed)
-    
+
     Note over P,R: R5 — atomic idempotency claim
     P->>R: SET idemp:{user}:{key} = "processing" NX EX 86400
     alt key already claimed (race loser)
         P->>R: poll for "completed:{response}" up to 30s
         P-->>O: return cached or 409
     end
-    
+
     P->>DB: BEGIN TRANSACTION
     P->>DB: INSERT payment_transactions (status=pending)
     P->>S: PaymentIntent.create(confirm=true,<br/>idempotency_key={our_internal_key})
-    
+
     alt Stripe declines immediately (4xx with decline_code)
         S-->>P: error: card_declined
         P->>DB: UPDATE status=failed
@@ -468,7 +477,7 @@ sequenceDiagram
         P-->>O: 200 {status: "accepted", next_action: ...}
         Note over O: Saga marks order=PENDING_PAYMENT, suspends
     end
-    
+
     Note over S,P: ~50ms to several minutes later
     S->>P: POST /webhooks/stripe (payment_intent.succeeded)
     P->>P: verify Stripe-Signature
@@ -491,7 +500,7 @@ sequenceDiagram
         P->>DB: COMMIT
     end
     P-->>S: 200 OK
-    
+
     Note over OB,K: Continuously
     OB->>DB: SELECT * FROM outbox WHERE status=pending<br/>FOR UPDATE SKIP LOCKED LIMIT 100
     OB->>K: produce events (acks=all, idempotent producer)
@@ -533,7 +542,7 @@ async def claim_or_wait(self, user_id, key, request_hash, wait_timeout=30):
     )
     if claimed:
         return IdempotencyClaim.NEW
-    
+
     # Race loser: poll for completion
     deadline = time.monotonic() + wait_timeout
     while time.monotonic() < deadline:
@@ -563,7 +572,7 @@ async def run_outbox_worker():
                     .with_for_update(skip_locked=True)
                 )
                 events = rows.scalars().all()
-                
+
                 for ev in events:
                     try:
                         await kafka_publisher.publish(
@@ -579,7 +588,7 @@ async def run_outbox_worker():
                         if ev.attempt_count >= MAX_ATTEMPTS:
                             ev.status = 'failed'  # DLQ-like
                             await alert_ops(ev)
-            
+
             if not events:
                 await asyncio.sleep(0.5)
         except Exception:
@@ -593,20 +602,20 @@ async def run_outbox_worker():
 
 ## 7. Phase 4 — STRIDE mitigations (updated with race threats)
 
-| STRIDE ID | Threat | Implementation |
-|---|---|---|
-| **S-PAY-01** | Spoofed webhook | `stripe.Webhook.construct_event(payload, sig, secret, tolerance=300)` |
-| **S-PAY-02** | Replay charge | (1) Inbound HMAC + nonce middleware (Redis SET NX). (2) Atomic Redis idempotency claim. (3) Stripe Idempotency-Key passed downstream. |
-| **T-PAY-01** | Amount tampering | Server-side amount from order DB; HMAC signs full body; verify `pi.amount == order.total` |
-| **T-PAY-02** | Token substitution | Verify `pm.customer == user.psp_customer_id` lookup |
-| **T-PAY-03 (NEW)** | State regression via out-of-order webhook | `PaymentStatus.can_transition()` guard + canonical Stripe re-fetch in webhook handler |
-| **S-PAY-03 (NEW)** | Duplicate webhook causes double Kafka publish → order confirmed twice | Atomic `ON CONFLICT DO NOTHING` on `psp_webhook_log`; outbox single-publisher pattern |
-| **R-PAY-01** | Chargeback | Force 3DS via `payment_method_options.card.request_three_d_secure="any"`; HMAC-chained `payment_audit_log` retained 7y; IP + device fingerprint |
-| **I-PAY-01** | PAN exposure | Stripe Elements client-tokenize; CSP allow only `js.stripe.com` |
-| **I-PAY-02** | Log leakage | `mask_psp_response()` before persist/log (strip card.last4, exp_*, fingerprint) |
-| **D-PAY-01** | PSP outage | `tenacity` retry exp backoff max 3; outbox retry; circuit breaker |
-| **D-PAY-02** | Charge flood | Envoy rate limit 10rps/user; Redis token bucket |
-| **E-PAY-01** | PSP secret leak | Vault AppRole least-privilege; distroless container; no logging of `api_key` |
+| STRIDE ID          | Threat                                                                | Implementation                                                                                                                                  |
+| ------------------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S-PAY-01**       | Spoofed webhook                                                       | `stripe.Webhook.construct_event(payload, sig, secret, tolerance=300)`                                                                           |
+| **S-PAY-02**       | Replay charge                                                         | (1) Inbound HMAC + nonce middleware (Redis SET NX). (2) Atomic Redis idempotency claim. (3) Stripe Idempotency-Key passed downstream.           |
+| **T-PAY-01**       | Amount tampering                                                      | Server-side amount from order DB; HMAC signs full body; verify `pi.amount == order.total`                                                       |
+| **T-PAY-02**       | Token substitution                                                    | Verify `pm.customer == user.psp_customer_id` lookup                                                                                             |
+| **T-PAY-03 (NEW)** | State regression via out-of-order webhook                             | `PaymentStatus.can_transition()` guard + canonical Stripe re-fetch in webhook handler                                                           |
+| **S-PAY-03 (NEW)** | Duplicate webhook causes double Kafka publish → order confirmed twice | Atomic `ON CONFLICT DO NOTHING` on `psp_webhook_log`; outbox single-publisher pattern                                                           |
+| **R-PAY-01**       | Chargeback                                                            | Force 3DS via `payment_method_options.card.request_three_d_secure="any"`; HMAC-chained `payment_audit_log` retained 7y; IP + device fingerprint |
+| **I-PAY-01**       | PAN exposure                                                          | Stripe Elements client-tokenize; CSP allow only `js.stripe.com`                                                                                 |
+| **I-PAY-02**       | Log leakage                                                           | `mask_psp_response()` before persist/log (strip card.last4, exp\_\*, fingerprint)                                                               |
+| **D-PAY-01**       | PSP outage                                                            | `tenacity` retry exp backoff max 3; outbox retry; circuit breaker                                                                               |
+| **D-PAY-02**       | Charge flood                                                          | Envoy rate limit 10rps/user; Redis token bucket                                                                                                 |
+| **E-PAY-01**       | PSP secret leak                                                       | Vault AppRole least-privilege; distroless container; no logging of `api_key`                                                                    |
 
 ---
 
@@ -615,6 +624,7 @@ async def run_outbox_worker():
 ### 8.1 `generate_settlement` (weekly cron — APScheduler in-process for MVP)
 
 For each merchant_id:
+
 - Query `payment_transactions` WHERE `merchant_id=X AND status=succeeded AND order.delivered_at BETWEEN period`
 - Compute: `total_sales`, `total_psp_fee` (sum from PSP fee column), `commission = total_sales × commission_rate (snapshot)`, `net = total_sales - commission - total_psp_fee`
 - INSERT `merchant_settlements` (status=pending)
@@ -639,12 +649,12 @@ For each merchant_id:
 
 ### 9.1 Stripe test cards
 
-| Card | Scenario |
-|---|---|
-| `4242424242424242` | Frictionless success |
-| `4000000000003220` | 3DS required → auto-pass |
-| `4000000000003063` | 3DS required → user fails |
-| `4000000000009995` | Declined `insufficient_funds` |
+| Card               | Scenario                                     |
+| ------------------ | -------------------------------------------- |
+| `4242424242424242` | Frictionless success                         |
+| `4000000000003220` | 3DS required → auto-pass                     |
+| `4000000000003063` | 3DS required → user fails                    |
+| `4000000000009995` | Declined `insufficient_funds`                |
 | `4000000000000341` | Attach OK, charge fails async (webhook test) |
 
 ### 9.2 Race condition tests (pytest-asyncio with mocked Stripe)
