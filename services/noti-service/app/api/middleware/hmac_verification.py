@@ -1,0 +1,41 @@
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from app.core.config import settings
+from app.infrastructure.container import get_container
+
+
+class HmacVerificationMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if not settings.REQUIRE_INBOUND_HMAC:
+            return await call_next(request)
+        if request.url.path in {"/health", "/ready", "/metrics", "/docs", "/openapi.json", "/redoc"}:
+            return await call_next(request)
+
+        signature = request.headers.get("X-Signature")
+        timestamp = request.headers.get("X-Timestamp")
+        nonce = request.headers.get("X-Nonce")
+        if not signature or not timestamp or not nonce:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": {"code": "MISSING_SIGNATURE_HEADERS"}},
+            )
+
+        body = await request.body()
+
+        async def receive():
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        request._receive = receive
+        valid = await get_container().crypto_service.verify_request(
+            request.method,
+            request.url.path,
+            body,
+            timestamp,
+            nonce,
+            signature,
+        )
+        if not valid:
+            return JSONResponse(status_code=401, content={"success": False, "error": {"code": "INVALID_SIGNATURE"}})
+        return await call_next(request)
