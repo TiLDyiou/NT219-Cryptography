@@ -15,6 +15,7 @@ from app.core.config import Settings, settings
 from app.domain.ports.audit_logger import AuditLogger
 from app.domain.ports.crypto_service import CryptoService
 from app.domain.ports.event_publisher import EventPublisher
+from app.domain.ports.inventory_gateway import InventoryGateway
 from app.domain.ports.nonce_store import NonceStore
 from app.domain.ports.payment_gateway import PaymentGateway
 from app.infrastructure.audit.kafka_audit_logger import KafkaAuditLogger
@@ -25,6 +26,7 @@ from app.infrastructure.crypto.hmac_signer import HmacSigner
 from app.infrastructure.crypto.vault_client import VaultClient
 from app.infrastructure.crypto.vault_crypto_service import LocalDevCryptoService, VaultCryptoService
 from app.infrastructure.crypto.vault_transit import VaultTransit
+from app.infrastructure.external.inventory_client import InventoryHttpClient, StubInventoryGateway
 from app.infrastructure.external.payment_client import PaymentHttpClient, StubPaymentGateway
 from app.infrastructure.messaging.kafka_producer import (
     KafkaEventPublisher,
@@ -45,13 +47,16 @@ class AppContainer:
     event_publisher: EventPublisher
     audit_logger: AuditLogger
     payment_gateway: PaymentGateway
+    inventory_gateway: InventoryGateway
     vault_client: VaultClient | None = None
     redis_client: Redis | None = None
     kafka_producer: object | None = None
 
     def checkout_use_case(self, session: AsyncSession) -> CheckoutUseCase:
         repo = PgOrderRepository(session)
-        saga = CheckoutSagaOrchestrator(repo, self.payment_gateway, self.event_publisher)
+        saga = CheckoutSagaOrchestrator(
+            repo, self.payment_gateway, self.inventory_gateway, self.event_publisher
+        )
         return CheckoutUseCase(
             order_repository=repo,
             crypto_service=self.crypto_service,
@@ -133,6 +138,14 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
         except Exception:
             payment_gateway = StubPaymentGateway()
 
+    if cfg.inventory.base_url and cfg.inventory.dev_stub_on_failure is False:
+        inventory_gateway = InventoryHttpClient(cfg.inventory, crypto_service)
+    else:
+        try:
+            inventory_gateway = InventoryHttpClient(cfg.inventory, crypto_service)
+        except Exception:
+            inventory_gateway = StubInventoryGateway()
+
     audit_logger = KafkaAuditLogger(
         session_factory=AsyncSessionLocal,
         crypto_service=crypto_service,
@@ -148,6 +161,7 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
         event_publisher=event_publisher,
         audit_logger=audit_logger,
         payment_gateway=payment_gateway,
+        inventory_gateway=inventory_gateway,
         vault_client=vault_client,
         redis_client=redis_client,
         kafka_producer=kafka_producer,
@@ -176,6 +190,9 @@ async def shutdown_container() -> None:
 
     if isinstance(_container.payment_gateway, PaymentHttpClient):
         await _container.payment_gateway.close()
+
+    if isinstance(_container.inventory_gateway, InventoryHttpClient):
+        await _container.inventory_gateway.close()
 
     if _container.redis_client is not None:
         await _container.redis_client.aclose()

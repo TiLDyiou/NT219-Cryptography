@@ -40,6 +40,16 @@ class PaymentServiceConfig(BaseModel):
     dev_stub_on_failure: bool = True
 
 
+class InventoryServiceConfig(BaseModel):
+    base_url: str = "http://localhost:8005"
+    timeout_seconds: int = 30
+    mtls_enabled: bool = False
+    client_cert_path: str | None = None
+    client_key_path: str | None = None
+    ca_cert_path: str | None = None
+    dev_stub_on_failure: bool = True
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Order Service"
     API_V1_STR: str = "/api/v1"
@@ -112,6 +122,19 @@ class Settings(BaseSettings):
         os.getenv("PAYMENT_DEV_STUB_ON_FAILURE", "true").lower() == "true"
     )
 
+    INVENTORY_SERVICE_URL: str = os.getenv(
+        "INVENTORY_SERVICE_URL", "http://localhost:8005"
+    )
+    INVENTORY_MTLS_ENABLED: bool = (
+        os.getenv("INVENTORY_MTLS_ENABLED", "false").lower() == "true"
+    )
+    INVENTORY_CLIENT_CERT: str | None = os.getenv("INVENTORY_CLIENT_CERT")
+    INVENTORY_CLIENT_KEY: str | None = os.getenv("INVENTORY_CLIENT_KEY")
+    INVENTORY_CA_CERT: str | None = os.getenv("INVENTORY_CA_CERT")
+    INVENTORY_DEV_STUB_ON_FAILURE: bool = (
+        os.getenv("INVENTORY_DEV_STUB_ON_FAILURE", "true").lower() == "true"
+    )
+
     LOCAL_CRYPTO_SECRET: str = os.getenv(
         "LOCAL_CRYPTO_SECRET", "local-dev-order-crypto-key-32b!"
     )
@@ -160,6 +183,18 @@ class Settings(BaseSettings):
             client_key_path=self.PAYMENT_CLIENT_KEY,
             ca_cert_path=self.PAYMENT_CA_CERT,
             dev_stub_on_failure=self.PAYMENT_DEV_STUB_ON_FAILURE,
+        )
+
+    @property
+    def inventory(self) -> InventoryServiceConfig:
+        return InventoryServiceConfig(
+            base_url=self.INVENTORY_SERVICE_URL,
+            timeout_seconds=self.CHECKOUT_REQUEST_TIMEOUT_SECONDS,
+            mtls_enabled=self.INVENTORY_MTLS_ENABLED,
+            client_cert_path=self.INVENTORY_CLIENT_CERT,
+            client_key_path=self.INVENTORY_CLIENT_KEY,
+            ca_cert_path=self.INVENTORY_CA_CERT,
+            dev_stub_on_failure=self.INVENTORY_DEV_STUB_ON_FAILURE,
         )
 
 

@@ -22,17 +22,19 @@ async def list_my_active_carts(
     user_id: str = Depends(get_current_user_id),
 ):
     carts = await crud_cart.list_active_carts_of_user(db, user_id=user_id)
-    return APIResponse(success=True, data=[CartResponse.model_validate(c) for c in carts])
+    return APIResponse(
+        success=True, data=[CartResponse.model_validate(c) for c in carts]
+    )
 
 
-@router.get("/{merchant_id}", response_model=APIResponse[CartResponse])
-async def get_or_create_my_cart(
-    merchant_id: str,
-    db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(get_current_user_id),
-):
-    cart = await crud_cart.get_or_create_active_cart(db, user_id=user_id, merchant_id=merchant_id)
-    return APIResponse(success=True, data=CartResponse.model_validate(cart))
+# @router.get("/{merchant_id}", response_model=APIResponse[CartResponse])
+# async def get_or_create_my_cart(
+#     merchant_id: str,
+#     db: AsyncSession = Depends(get_db),
+#     user_id: str = Depends(get_current_user_id),
+# ):
+#     cart = await crud_cart.get_or_create_active_cart(db, user_id=user_id, merchant_id=merchant_id)
+#     return APIResponse(success=True, data=CartResponse.model_validate(cart))
 
 
 @router.post("/{merchant_id}/items", response_model=APIResponse[CartResponse])
@@ -70,7 +72,9 @@ async def update_item_quantity(
     return APIResponse(success=True, data=CartResponse.model_validate(cart))
 
 
-@router.delete("/{merchant_id}/items/{item_id}", response_model=APIResponse[CartResponse])
+@router.delete(
+    "/{merchant_id}/items/{item_id}", response_model=APIResponse[CartResponse]
+)
 async def remove_item(
     merchant_id: str,
     item_id: str,

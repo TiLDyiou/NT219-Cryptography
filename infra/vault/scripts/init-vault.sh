@@ -69,6 +69,19 @@ vault write -f transit/keys/payment-audit-key type=aes256-gcm96 \
   && echo "    Created: payment-audit-key (AES-256-GCM96)" \
   || echo "    payment-audit-key already exists — skipping."
 
+# Inventory service keys
+vault write -f transit/keys/inventory-fle-key type=aes256-gcm96 \
+  && echo "    Created: inventory-fle-key (AES-256-GCM96)" \
+  || echo "    inventory-fle-key already exists — skipping."
+
+vault write -f transit/keys/inventory-sign-key type=ecdsa-p256 \
+  && echo "    Created: inventory-sign-key (ECDSA P-256)" \
+  || echo "    inventory-sign-key already exists — skipping."
+
+vault write -f transit/keys/inventory-audit-key type=aes256-gcm96 \
+  && echo "    Created: inventory-audit-key (AES-256-GCM96)" \
+  || echo "    inventory-audit-key already exists — skipping."
+
 echo ""
 echo "==> [5/6] Writing initial secrets..."
 

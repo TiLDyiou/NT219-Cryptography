@@ -1,14 +1,58 @@
 from app.application.dto.checkout_dto import CheckoutContext, SagaStepResult
 from app.domain.entities.order_item import OrderEntity
-from app.domain.entities.saga import SagaStateEntity, SagaStatus
-from app.domain.ports.order_repository import OrderRepository
-from app.domain.ports.payment_gateway import PaymentChargeRequest
+from app.domain.ports.inventory_gateway import InventoryReserveRequest
 
 
 class ReserveInventoryStep:
+    def __init__(self, inventory_gateway):
+        self._inventory = inventory_gateway
+
     async def execute(self, order: OrderEntity, ctx: CheckoutContext) -> SagaStepResult:
-        # Inventory reservation is async via catalog-service; dev stub succeeds immediately.
-        return SagaStepResult(success=True, data={"reserved": True, "order_id": order.id})
+        try:
+            if order.items:
+                source_items = order.items
+                items = [
+                    {
+                        "product_id": item.product_id,
+                        "variant_id": item.variant_id,
+                        "merchant_id": item.merchant_id,
+                        "sku": item.sku,
+                        "quantity": item.quantity,
+                    }
+                    for item in source_items
+                ]
+            else:
+                merchant_id = order.merchant_id
+                items = [
+                    {
+                        "product_id": item.product_id,
+                        "variant_id": item.variant_id,
+                        "merchant_id": item.merchant_id,
+                        "sku": item.sku,
+                        "quantity": item.quantity,
+                    }
+                    for item in ctx.payload.items
+                    if not merchant_id or item.merchant_id == merchant_id
+                ]
+            result = await self._inventory.reserve(
+                InventoryReserveRequest(
+                    order_id=order.id,
+                    saga_id=getattr(order, "saga_id", None),
+                    idempotency_key=ctx.idempotency_key,
+                    items=items,
+                    correlation_id=ctx.correlation_id,
+                )
+            )
+            return SagaStepResult(
+                success=True,
+                data={
+                    "reserved": result.reserved,
+                    "order_id": result.order_id,
+                    "reservations": result.reservations,
+                },
+            )
+        except Exception as exc:
+            return SagaStepResult(success=False, error=str(exc), retryable=True)
 
 
 class FraudCheckStep:

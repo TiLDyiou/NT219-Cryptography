@@ -12,6 +12,7 @@ from app.domain.entities.order_item import OrderEntity
 from app.domain.entities.saga import CHECKOUT_STEPS, SagaStateEntity, SagaStatus
 from app.domain.events import order_status_changed
 from app.domain.ports.event_publisher import EventPublisher
+from app.domain.ports.inventory_gateway import InventoryConfirmRequest, InventoryGateway
 from app.domain.ports.order_repository import OrderRepository
 from app.domain.ports.payment_gateway import PaymentGateway
 from app.domain.value_objects.order_status import OrderStatus
@@ -24,18 +25,20 @@ class CheckoutSagaOrchestrator:
         self,
         order_repository: OrderRepository,
         payment_gateway: PaymentGateway,
+        inventory_gateway: InventoryGateway,
         event_publisher: EventPublisher,
     ):
         self._orders = order_repository
         self._events = event_publisher
+        self._inventory = inventory_gateway
         self._steps = {
-            "reserve_inventory": ReserveInventoryStep(),
+            "reserve_inventory": ReserveInventoryStep(inventory_gateway),
             "fraud_check": FraudCheckStep(),
             "process_payment": ProcessPaymentStep(payment_gateway),
             "confirm_order": ConfirmOrderStep(),
         }
         self._compensations = {
-            "release_inventory": ReleaseInventoryStep(),
+            "release_inventory": ReleaseInventoryStep(inventory_gateway),
             "refund_payment": RefundPaymentStep(payment_gateway),
         }
 
@@ -89,6 +92,21 @@ class CheckoutSagaOrchestrator:
 
         saga.complete()
         await self._orders.update_saga(saga)
+
+        if "reserve_inventory" in completed_steps:
+            try:
+                await self._inventory.confirm(
+                    InventoryConfirmRequest(
+                        order_id=order.id,
+                        saga_id=saga.id,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to confirm inventory after saga completion",
+                    extra={"order_id": order.id},
+                )
+
         return saga
 
     async def _compensate(

@@ -1,4 +1,6 @@
-/.cursor/*
-/.vscode/*
+.cursor/*
+.vscode/*
 .DS_Store
+**.env
+
 
