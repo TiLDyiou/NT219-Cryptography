@@ -23,7 +23,7 @@ class RedisConfig(BaseModel):
 
 
 class KafkaConfig(BaseModel):
-    bootstrap_servers: str = "localhost:9094"
+    bootstrap_servers: str = "localhost:9092"
     topic_checkout: str = "order.checkout"
     topic_audit: str = "audit-logs"
     consumer_group: str = "order-service"
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/enmerce_order",
+        "postgresql+asyncpg://uitstore:uitstore_dev@localhost:5432/order_db",
     )
     DATABASE_SQLITE_FALLBACK_URL: str = os.getenv(
         "DATABASE_SQLITE_FALLBACK_URL",
@@ -104,7 +104,7 @@ class Settings(BaseSettings):
     REDIS_NONCE_TTL_SECONDS: int = int(os.getenv("REDIS_NONCE_TTL_SECONDS", "600"))
 
     KAFKA_BOOTSTRAP_SERVERS: str = os.getenv(
-        "KAFKA_BOOTSTRAP_SERVERS", "localhost:9094"
+        "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
     )
     KAFKA_TOPIC_CHECKOUT: str = os.getenv("KAFKA_TOPIC_CHECKOUT", "order.checkout")
     KAFKA_TOPIC_AUDIT: str = os.getenv("KAFKA_TOPIC_AUDIT", "audit-logs")

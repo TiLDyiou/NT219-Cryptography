@@ -24,7 +24,7 @@ class RedisConfig(BaseModel):
 
 
 class KafkaConfig(BaseModel):
-    bootstrap_servers: str = "localhost:9094"
+    bootstrap_servers: str = "localhost:9092"
     topic_inventory: str = "inventory.events"
     topic_audit: str = "audit-logs"
     consumer_group: str = "inventory-service"
@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     REDIS_ENABLED: bool = os.getenv("REDIS_ENABLED", "true").lower() == "true"
     REDIS_NONCE_TTL_SECONDS: int = int(os.getenv("REDIS_NONCE_TTL_SECONDS", "600"))
 
-    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
+    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     KAFKA_TOPIC_INVENTORY: str = os.getenv("KAFKA_TOPIC_INVENTORY", "inventory.events")
     KAFKA_TOPIC_AUDIT: str = os.getenv("KAFKA_TOPIC_AUDIT", "audit-logs")
     KAFKA_CONSUMER_GROUP: str = os.getenv("KAFKA_CONSUMER_GROUP", "inventory-service")

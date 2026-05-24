@@ -12,7 +12,7 @@ echo "============================================="
 
 echo ""
 echo ">>> Kiểm tra NODE-2 (Service Mesh) sẵn sàng..."
-for PORT in 8001 8002 8003; do
+for PORT in 8001 8002 8003 8005 8007 8008; do
     nc -z -w3 "${VM2_IP}" "${PORT}" \
         && echo "  NODE-2 :${PORT} - OK" \
         || echo "  NODE-2 :${PORT} - KHÔNG KẾT NỐI!"
@@ -22,6 +22,31 @@ echo ""
 echo "[1/3] Keycloak..."
 systemctl start keycloak
 echo "  Keycloak đang khởi động (~30s)..."
+
+echo "  Đợi Keycloak sẵn sàng (~45s)..."
+for i in $(seq 1 15); do
+    sleep 3
+    HTTP=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:8080/health/ready" 2>/dev/null || echo "000")
+    [ "$HTTP" = "200" ] && break
+done
+
+if [ -f /tmp/realm-export-vm.json ]; then
+    TOKEN=$(curl -sf -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "client_id=admin-cli&grant_type=password&username=admin&password=admin123" \
+        2>/dev/null | jq -r '.access_token // empty')
+    if [ -n "$TOKEN" ]; then
+        HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/admin/realms" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/realm-export-vm.json)
+        [ "$HTTP" = "201" ] && echo "  Realm uitstore imported - OK" \
+            || echo "  Realm import HTTP ${HTTP} (có thể đã tồn tại)"
+    else
+        echo "  [WARNING] Keycloak chưa sẵn sàng, import realm thủ công:"
+        echo "  bash ${PROJECT_DIR}/infra/idp/test-token.sh"
+    fi
+fi
 
 echo ""
 echo "[2/3] Envoy Gateway..."

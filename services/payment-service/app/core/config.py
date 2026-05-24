@@ -23,7 +23,7 @@ class RedisConfig(BaseModel):
 
 
 class KafkaConfig(BaseModel):
-    bootstrap_servers: str = "localhost:9094"
+    bootstrap_servers: str = "localhost:9092"
     topic_payments: str = "payment.events"
     topic_audit: str = "audit-logs"
     consumer_group: str = "payment-service"
@@ -43,7 +43,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+asyncpg://payment_user:payment_dev_pass@localhost:5432/enmerce_payment",
+        "postgresql+asyncpg://uitstore:uitstore_dev@localhost:5432/payment_db",
     )
     DATABASE_SQLITE_FALLBACK_URL: str = os.getenv(
         "DATABASE_SQLITE_FALLBACK_URL",
@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     REDIS_ENABLED: bool = os.getenv("REDIS_ENABLED", "true").lower() == "true"
     REDIS_NONCE_TTL_SECONDS: int = int(os.getenv("REDIS_NONCE_TTL_SECONDS", "600"))
 
-    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
+    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     KAFKA_TOPIC_PAYMENTS: str = os.getenv("KAFKA_TOPIC_PAYMENTS", "payment.events")
     KAFKA_TOPIC_AUDIT: str = os.getenv("KAFKA_TOPIC_AUDIT", "audit-logs")
     KAFKA_CONSUMER_GROUP: str = os.getenv("KAFKA_CONSUMER_GROUP", "payment-service")

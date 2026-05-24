@@ -37,8 +37,8 @@ SERVICES=(
     ["cart-service"]="8002:cart_db"
     ["order-service"]="8003:order_db"
     ["inventory-service"]="8005:inventory_db"
-    ["shipping-service"]="8006:shipping_db"
-    ["notification-service"]="8007:notification_db"
+    ["shipping-service"]="8007:shipping_db"
+    ["noti-service"]="8008:notification_db"
 )
 
 for SVC_NAME in "${!SERVICES[@]}"; do
@@ -80,6 +80,10 @@ LOGSTASH_PORT=5044
 # JWT secret (lấy từ Keycloak trên NODE-1)
 AUTH_SECRET_KEY=super_secret_jwt_key_from_vault
 
+# Vault và Redis không có trên NODE-2
+VAULT_ENABLED=false
+REDIS_ENABLED=false
+
 ${EXTRA_ENV}
 ENVFILE
 
@@ -120,12 +124,12 @@ ufw default allow outgoing
 ufw allow 22/tcp
 
 # Services chỉ nhận từ NODE-1 (Envoy Gateway)
-for PORT in 8001 8002 8003 8005 8006 8007; do
+for PORT in 8001 8002 8003 8005 8007 8008; do
     ufw allow from "${NODE1_IP}" to any port ${PORT}
 done
 
 # Prometheus (NODE-4) scrape metrics
-for PORT in 8001 8002 8003 8005 8006 8007; do
+for PORT in 8001 8002 8003 8005 8007 8008; do
     ufw allow from "${VM4_IP}" to any port ${PORT}
 done
 

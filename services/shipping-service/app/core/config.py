@@ -24,7 +24,7 @@ class RedisConfig(BaseModel):
 
 
 class KafkaConfig(BaseModel):
-    bootstrap_servers: str = "localhost:9094"
+    bootstrap_servers: str = "localhost:9092"
     topic_shipping: str = "shipping.events"
     topic_order_confirmed: str = "order.confirmed"
     topic_audit: str = "audit-logs"
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     REDIS_ENABLED: bool = os.getenv("REDIS_ENABLED", "true").lower() == "true"
     REDIS_NONCE_TTL_SECONDS: int = int(os.getenv("REDIS_NONCE_TTL_SECONDS", "600"))
 
-    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
+    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     KAFKA_TOPIC_SHIPPING: str = os.getenv("KAFKA_TOPIC_SHIPPING", "shipping.events")
     KAFKA_TOPIC_ORDER_CONFIRMED: str = os.getenv("KAFKA_TOPIC_ORDER_CONFIRMED", "order.confirmed")
     KAFKA_TOPIC_AUDIT: str = os.getenv("KAFKA_TOPIC_AUDIT", "audit-logs")

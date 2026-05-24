@@ -12,6 +12,7 @@ set -euo pipefail
 VM2_IP="${VM2_IP:-192.168.64.12}"   # Service Mesh
 VM3_IP="${VM3_IP:-192.168.64.13}"   # PCI DSS (payment)
 VM1_IP="${VM1_IP:-192.168.64.11}"   # Ingress (Keycloak metrics)
+PROJECT_DIR="${PROJECT_DIR:-/opt/uitstore}"
 
 UITSTORE_PASS="UIT_NT219_SecurePass!"
 KAFKA_VERSION="3.7.1"
@@ -167,33 +168,49 @@ echo ">>> [4/7] Cài Kibana + Logstash..."
 
 apt install -y kibana logstash
 
-cat >> /etc/kibana/kibana.yml <<KIBCFG
-server.port: 5601
+cat > /etc/kibana/kibana.yml <<'KIBCFG'
+server.name: kibana
 server.host: "0.0.0.0"
+server.port: 5601
 elasticsearch.hosts: ["http://localhost:9200"]
+monitoring.kibana.collection.enabled: false
+telemetry.enabled: false
+logging.root.level: warn
 KIBCFG
 
-# Logstash nhận audit log từ VM-2 và VM-3
-cat > /etc/logstash/conf.d/uitstore-audit.conf <<LSCFG
+cat > /etc/logstash/logstash.yml <<'LSMAINCFG'
+http.host: "0.0.0.0"
+xpack.monitoring.enabled: false
+pipeline.ecs_compatibility: disabled
+log.level: warn
+LSMAINCFG
+
+cat > /etc/logstash/conf.d/uitstore-audit.conf <<'LSPIPELINE'
 input {
-  tcp {
-    port => 5044
-    codec => json_lines
-  }
+  beats { port => 5044 }
+  tcp   { port => 5000; codec => json_lines }
 }
+
 filter {
-  date {
-    match => ["timestamp", "ISO8601"]
-    target => "@timestamp"
+  if [service] {
+    mutate { add_field => { "[@metadata][index]" => "nt219-%{[service]}-%{+YYYY.MM.dd}" } }
+  } else {
+    mutate { add_field => { "[@metadata][index]" => "nt219-misc-%{+YYYY.MM.dd}" } }
+  }
+
+  if [type] == "vault-audit" {
+    json { source => "message"; target => "vault" }
+    mutate { add_tag => ["vault-audit"] }
   }
 }
+
 output {
   elasticsearch {
     hosts => ["http://localhost:9200"]
-    index => "uitstore-audit-%{+YYYY.MM.dd}"
+    index => "%{[@metadata][index]}"
   }
 }
-LSCFG
+LSPIPELINE
 
 systemctl enable kibana logstash
 echo "  Kibana + Logstash - OK (nhận log từ VM2, VM3 trên :5044)"
@@ -239,10 +256,10 @@ scrape_configs:
       - targets: ['${VM2_IP}:8005']
   - job_name: 'shipping-service'
     static_configs:
-      - targets: ['${VM2_IP}:8006']
+      - targets: ['${VM2_IP}:8007']
   - job_name: 'notification-service'
     static_configs:
-      - targets: ['${VM2_IP}:8007']
+      - targets: ['${VM2_IP}:8008']
 
   # NODE-3: PCI DSS
   - job_name: 'payment-service'
@@ -280,6 +297,35 @@ GRAF_PKG="grafana_${GRAFANA_VERSION}_amd64.deb"
 wget -q "https://dl.grafana.com/oss/release/${GRAF_PKG}"
 dpkg -i "${GRAF_PKG}" || apt install -f -y
 rm -f "${GRAF_PKG}"
+
+mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards
+
+cat > /etc/grafana/provisioning/datasources/prometheus.yaml <<'GRAFDS'
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://localhost:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+GRAFDS
+
+cat > /etc/grafana/provisioning/dashboards/provider.yaml <<'GRAFDB'
+apiVersion: 1
+providers:
+  - name: NT219
+    orgId: 1
+    folder: NT219 Crypto
+    type: file
+    disableDeletion: true
+    editable: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+GRAFDB
 
 systemctl enable grafana-server
 echo "  Grafana - OK"

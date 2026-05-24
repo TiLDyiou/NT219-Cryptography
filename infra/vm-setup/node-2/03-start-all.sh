@@ -20,8 +20,8 @@ nc -z -w3 "${VM3_IP}" 8004 && echo "  NODE-3 Payment    - OK" || echo "  NODE-3 
 echo ""
 echo ">>> Khởi động services..."
 
-SERVICES=(catalog-service cart-service order-service inventory-service shipping-service notification-service)
-PORTS=(8001 8002 8003 8005 8006 8007)
+SERVICES=(catalog-service cart-service order-service inventory-service shipping-service noti-service)
+PORTS=(8001 8002 8003 8005 8007 8008)
 
 for i in "${!SERVICES[@]}"; do
     SVC="${SERVICES[$i]}"
@@ -34,7 +34,7 @@ done
 
 echo ""
 echo ">>> Kiểm tra ports..."
-for PORT in 8001 8002 8003 8005 8006 8007; do
+for PORT in 8001 8002 8003 8005 8007 8008; do
     ss -tlnp 2>/dev/null | grep -q ":${PORT} " \
         && echo "  :${PORT} - OPEN" || echo "  :${PORT} - closed"
 done
@@ -42,7 +42,7 @@ done
 echo ""
 echo ">>> Health check..."
 sleep 3
-for PORT in 8001 8002 8003 8005 8006 8007; do
+for PORT in 8001 8002 8003 8005 8007 8008; do
     CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${PORT}/health" 2>/dev/null || echo "ERR")
     echo "  :${PORT}/health → ${CODE}"
 done

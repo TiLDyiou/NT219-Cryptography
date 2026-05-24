@@ -75,6 +75,57 @@ WantedBy=multi-user.target
 SVC
 
 systemctl enable vault
+
+# Vault policies (viết sẵn, áp dụng lúc init trong 03-start-all.sh)
+mkdir -p /etc/vault.d/policies
+
+cat > /etc/vault.d/policies/payment-svc.hcl <<'POLICY'
+path "transit/verify/order-hmac-key"    { capabilities = ["update"] }
+path "transit/sign/payment-sign-key"    { capabilities = ["update"] }
+path "transit/verify/payment-sign-key"  { capabilities = ["update"] }
+path "transit/encrypt/payment-fle-key"  { capabilities = ["update"] }
+path "transit/decrypt/payment-fle-key"  { capabilities = ["update"] }
+path "transit/rewrap/payment-fle-key"   { capabilities = ["update"] }
+path "transit/hmac/payment-audit-key"   { capabilities = ["update"] }
+path "transit/verify/payment-audit-key" { capabilities = ["update"] }
+path "transit/keys/payment-sign-key"    { capabilities = ["read"] }
+path "transit/keys/payment-fle-key"     { capabilities = ["read"] }
+path "transit/keys/payment-audit-key"   { capabilities = ["read"] }
+path "secret/data/payment/*"            { capabilities = ["read"] }
+path "*"                                { capabilities = ["deny"] }
+POLICY
+
+cat > /etc/vault.d/policies/order-svc.hcl <<'POLICY'
+path "transit/encrypt/order-fle-key"  { capabilities = ["update"] }
+path "transit/decrypt/order-fle-key"  { capabilities = ["update"] }
+path "transit/rewrap/order-fle-key"   { capabilities = ["update"] }
+path "transit/sign/order-sign-key"    { capabilities = ["update"] }
+path "transit/verify/order-sign-key"  { capabilities = ["update"] }
+path "transit/hmac/order-hmac-key"    { capabilities = ["update"] }
+path "transit/verify/order-hmac-key"  { capabilities = ["update"] }
+path "secret/data/order/*"            { capabilities = ["read"] }
+path "*"                              { capabilities = ["deny"] }
+POLICY
+
+cat > /etc/vault.d/policies/catalog-svc.hcl <<'POLICY'
+path "secret/data/catalog/*" { capabilities = ["read"] }
+path "*"                     { capabilities = ["deny"] }
+POLICY
+
+cat > /etc/vault.d/policies/shipping-svc.hcl <<'POLICY'
+path "transit/encrypt/shipping-fle-key"  { capabilities = ["update"] }
+path "transit/decrypt/shipping-fle-key"  { capabilities = ["update"] }
+path "transit/rewrap/shipping-fle-key"   { capabilities = ["update"] }
+path "transit/sign/shipping-sign-key"    { capabilities = ["update"] }
+path "transit/verify/shipping-sign-key"  { capabilities = ["update"] }
+path "transit/hmac/order-hmac-key"       { capabilities = ["update"] }
+path "transit/verify/order-hmac-key"     { capabilities = ["update"] }
+path "transit/hmac/shipping-audit-key"   { capabilities = ["update"] }
+path "transit/verify/shipping-audit-key" { capabilities = ["update"] }
+path "secret/data/shipping/*"            { capabilities = ["read"] }
+path "*"                                 { capabilities = ["deny"] }
+POLICY
+
 echo "  Vault - OK (local, chỉ payment-service dùng)"
 
 # =============================================================================

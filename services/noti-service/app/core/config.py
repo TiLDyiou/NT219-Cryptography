@@ -27,7 +27,7 @@ class RedisConfig(BaseModel):
 
 
 class KafkaConfig(BaseModel):
-    bootstrap_servers: str = "localhost:9094"
+    bootstrap_servers: str = "localhost:9092"
     topic_order_checkout: str = "order.checkout"
     topic_payment_events: str = "payment.events"
     topic_shipping_events: str = "shipping.events"
@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_TOKENS: int = int(os.getenv("RATE_LIMIT_TOKENS", "10"))
     RATE_LIMIT_WINDOW_SECONDS: int = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
-    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9094")
+    KAFKA_BOOTSTRAP_SERVERS: str = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
     KAFKA_TOPIC_ORDER_CHECKOUT: str = os.getenv("KAFKA_TOPIC_ORDER_CHECKOUT", "order.checkout")
     KAFKA_TOPIC_PAYMENT_EVENTS: str = os.getenv("KAFKA_TOPIC_PAYMENT_EVENTS", "payment.events")
     KAFKA_TOPIC_SHIPPING_EVENTS: str = os.getenv("KAFKA_TOPIC_SHIPPING_EVENTS", "shipping.events")
