@@ -63,6 +63,24 @@ class IdempotencyConflictException(OrderException):
         )
 
 
+class ReplayAttackError(OrderException):
+    def __init__(self, message: str = "Replay attack detected"):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code="REPLAY_ATTACK",
+        )
+
+
+class InvalidSignatureError(OrderException):
+    def __init__(self, message: str = "Invalid request signature"):
+        super().__init__(
+            message=message,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code="INVALID_SIGNATURE",
+        )
+
+
 async def custom_exception_handler(request: Request, exc: OrderException):
     return JSONResponse(
         status_code=exc.status_code,
@@ -76,4 +94,3 @@ async def custom_exception_handler(request: Request, exc: OrderException):
             "correlation_id": request.headers.get("X-Correlation-Id"),
         },
     )
-

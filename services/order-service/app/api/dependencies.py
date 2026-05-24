@@ -1,10 +1,25 @@
 from typing import Optional
 
-from fastapi import Header
+from fastapi import Depends, Header
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.dto.checkout_dto import (
+    AddressDTO,
+    CheckoutContext,
+    CheckoutInput,
+    CheckoutItemDTO,
+)
+from app.application.use_cases.checkout import (
+    CancelOrderUseCase,
+    CheckoutUseCase,
+    GetOrderUseCase,
+    ListOrdersUseCase,
+)
 from app.core.config import settings
-from app.core.database import get_db
 from app.core.exceptions import UnauthorizedException
+from app.infrastructure.container import get_container
+from app.infrastructure.persistence.database import get_db
+from app.schemas.order import CheckoutRequest
 
 
 async def get_current_user_id(
@@ -40,3 +55,69 @@ async def verify_internal_token(
     if x_internal_token != settings.INTERNAL_API_TOKEN:
         raise UnauthorizedException("Invalid internal token.")
 
+
+def _to_checkout_input(payload: CheckoutRequest) -> CheckoutInput:
+    return CheckoutInput(
+        cart_id=payload.cart_id,
+        payment_method_type=payload.payment_method_type,
+        shipping_fee=payload.shipping_fee,
+        customer_note=payload.customer_note,
+        items=[
+            CheckoutItemDTO(
+                product_id=item.product_id,
+                variant_id=item.variant_id,
+                merchant_id=item.merchant_id,
+                sku=item.sku,
+                product_name=item.product_name,
+                variant_label=item.variant_label,
+                image_url=item.image_url,
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+            )
+            for item in payload.items
+        ],
+        shipping_address=AddressDTO(
+            full_name=payload.shipping_address.full_name,
+            phone=payload.shipping_address.phone,
+            email=payload.shipping_address.email,
+            address_line1=payload.shipping_address.address_line1,
+            address_line2=None,
+            city=payload.shipping_address.city,
+            state_province=payload.shipping_address.state_province,
+            postal_code=payload.shipping_address.postal_code,
+        ),
+    )
+
+
+def get_checkout_use_case(db: AsyncSession = Depends(get_db)) -> CheckoutUseCase:
+    return get_container().checkout_use_case(db)
+
+
+def get_list_orders_use_case(db: AsyncSession = Depends(get_db)) -> ListOrdersUseCase:
+    return get_container().list_orders_use_case(db)
+
+
+def get_get_order_use_case(db: AsyncSession = Depends(get_db)) -> GetOrderUseCase:
+    return get_container().get_order_use_case(db)
+
+
+def get_cancel_order_use_case(db: AsyncSession = Depends(get_db)) -> CancelOrderUseCase:
+    return get_container().cancel_order_use_case(db)
+
+
+def build_checkout_context(
+    payload: CheckoutRequest,
+    user_id: str,
+    idempotency_key: str,
+    correlation_id: str | None,
+    ip_address: str | None,
+    user_agent: str | None,
+) -> CheckoutContext:
+    return CheckoutContext(
+        user_id=user_id,
+        idempotency_key=idempotency_key,
+        correlation_id=correlation_id,
+        ip_address=ip_address,
+        user_agent=user_agent,
+        payload=_to_checkout_input(payload),
+    )

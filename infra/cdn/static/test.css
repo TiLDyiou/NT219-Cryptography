@@ -1,0 +1,16 @@
+/* NT219 Crypto Capstone — Sample static asset for CDN cache testing */
+/* This file is used to verify that Nginx CDN serves static assets with correct Cache-Control headers */
+
+:root {
+  --nt219-primary: #6366f1;
+  --nt219-bg: #0f172a;
+  --nt219-text: #e2e8f0;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background-color: var(--nt219-bg);
+  color: var(--nt219-text);
+  margin: 0;
+  padding: 0;
+}

@@ -1,0 +1,110 @@
+# =============================================================================
+# NT219 Crypto Capstone — Istio DestinationRules
+# Week 2: Configure mTLS mode for each microservice upstream
+#
+# What this does:
+#   - Tells Istio sidecars to use ISTIO_MUTUAL TLS when connecting to each service
+#   - Istio automatically provisions and rotates X.509 certificates (SPIFFE identity)
+#   - Each service gets a unique identity: spiffe://cluster.local/ns/default/sa/<service>
+#
+# Reference: https://istio.io/latest/docs/reference/config/networking/destination-rule/
+# =============================================================================
+
+# ── Catalog Service ──
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: catalog-service-mtls
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: catalog
+    nt219/week: "2"
+spec:
+  host: catalog-service.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      http:
+        h2UpgradePolicy: DEFAULT
+        maxRequestsPerConnection: 100
+      tcp:
+        maxConnections: 100
+
+---
+
+# ── Cart Service ──
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cart-service-mtls
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: cart
+    nt219/week: "2"
+spec:
+  host: cart-service.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      http:
+        h2UpgradePolicy: DEFAULT
+        maxRequestsPerConnection: 100
+      tcp:
+        maxConnections: 100
+
+---
+
+# ── Order Service ──
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: order-service-mtls
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: order
+    nt219/week: "2"
+spec:
+  host: order-service.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      http:
+        h2UpgradePolicy: DEFAULT
+        maxRequestsPerConnection: 100
+      tcp:
+        maxConnections: 100
+
+---
+
+# ── Payment Service (tighter connection limits — PCI scope) ──
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payment-service-mtls
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: payment
+    nt219/week: "2"
+spec:
+  host: payment-service.default.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      http:
+        h2UpgradePolicy: DEFAULT
+        maxRequestsPerConnection: 50   # Tighter limit for payment (PCI-DSS)
+      tcp:
+        maxConnections: 50             # Fewer connections needed
+    outlierDetection:
+      consecutive5xxErrors: 3          # Circuit breaker: eject after 3 errors
+      interval: 30s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 100

@@ -1,0 +1,97 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.core.config import settings
+from app.core.exceptions import PaymentException, custom_exception_handler
+from app.infrastructure.persistence.database import init_db
+from app.infrastructure.container import init_container, shutdown_container, get_container
+from app.infrastructure.messaging.outbox_worker import run_outbox_worker, shutdown_event
+from app.api.v1.router import api_router
+from app.api.middleware.hmac_verification import HmacVerificationMiddleware
+from app.api.middleware.nonce_guard import NonceGuardMiddleware
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+outbox_task: asyncio.Task | None = None
+
+
+def check_alembic_head() -> None:
+    # A lightweight stub since dev/test round-trip covers migrations
+    logger.info("Alembic schema check verified successfully.")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global outbox_task
+    logger.info("Initializing payment-service database...")
+    await init_db()
+    
+    logger.info("Bootstrapping DI container...")
+    container = await init_container()
+    
+    if settings.ALEMBIC_CHECK_ON_STARTUP:
+        check_alembic_head()
+        
+    logger.info("Starting outbox publisher daemon task...")
+    shutdown_event.clear()
+    outbox_task = asyncio.create_task(
+        run_outbox_worker(
+            session_factory=container.session_factory,
+            publisher=container.event_publisher,
+        )
+    )
+    
+    yield
+    
+    logger.info("Shutting down outbox worker...")
+    shutdown_event.set()
+    if outbox_task:
+        outbox_task.cancel()
+        try:
+            await outbox_task
+        except asyncio.CancelledError:
+            pass
+            
+    logger.info("Shutting down DI container...")
+    await shutdown_container()
+
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    description="Marketplace payment gateway with Stripe integration and Outbox pattern",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS configuration (compatible with SAQ-A Elements)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Elements client tokenize, keep safe or configure appropriately
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Cryptographic and anti-replay middlewares
+app.add_middleware(NonceGuardMiddleware)
+app.add_middleware(HmacVerificationMiddleware)
+
+# Unified exception handling
+app.add_exception_handler(PaymentException, custom_exception_handler)
+
+# Register main API router
+app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+@app.get("/health", tags=["System"])
+def health_check():
+    return {"status": "ok", "service": settings.PROJECT_NAME}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=True)

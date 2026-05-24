@@ -1,0 +1,166 @@
+# =============================================================================
+# NT219 Crypto Capstone — Istio AuthorizationPolicies
+# Week 2: Least-privilege access control between services
+#
+# Principle: Each service can only be called by specific callers
+# This implements defense-in-depth: even if an attacker compromises one service,
+# they cannot call other services that aren't in the allowed list.
+#
+# Service call graph:
+#   Frontend → Envoy Gateway → Catalog (GET only)
+#   Frontend → Envoy Gateway → Cart (POST/GET/DELETE)
+#   Frontend → Envoy Gateway → Order (POST checkout)
+#   Order Service → Payment Service (internal only)
+#   Order Service → Cart Service (clear cart after checkout)
+#
+# Reference: https://istio.io/latest/docs/reference/config/security/authorization-policy/
+# =============================================================================
+
+# ── Default: DENY all traffic (whitelist approach) ──
+# This is applied first, then ALLOW policies override for specific paths
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-default
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/week: "2"
+spec:
+  # Empty spec = deny all traffic in namespace
+  {}
+
+---
+
+# ── Catalog Service: Allow GET from ingress gateway ──
+# Catalog is public-read — anyone with a valid JWT can browse products
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-catalog-read
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: catalog
+    nt219/week: "2"
+spec:
+  selector:
+    matchLabels:
+      app: catalog-service
+  action: ALLOW
+  rules:
+    # Allow GET from ingress gateway (public catalog browsing)
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/catalog/*", "/health"]
+    # Allow GET from other services (e.g., order service checking product info)
+    - from:
+        - source:
+            namespaces: ["default"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/catalog/*", "/health"]
+
+---
+
+# ── Cart Service: Allow from ingress gateway (authenticated users) ──
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-cart-access
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: cart
+    nt219/week: "2"
+spec:
+  selector:
+    matchLabels:
+      app: cart-service
+  action: ALLOW
+  rules:
+    # Allow from ingress gateway (user managing their cart)
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/cart/*", "/health"]
+    # Allow from order-service (clear cart after successful checkout)
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/order-service"]
+      to:
+        - operation:
+            methods: ["DELETE"]
+            paths: ["/api/cart/*"]
+
+---
+
+# ── Order Service: Allow from ingress gateway + cart service ──
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-order-access
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: order
+    nt219/week: "2"
+spec:
+  selector:
+    matchLabels:
+      app: order-service
+  action: ALLOW
+  rules:
+    # Allow from ingress gateway (user placing orders, viewing order history)
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/order/*", "/api/checkout", "/health"]
+
+---
+
+# ── Payment Service: Allow ONLY from order-service (PCI-DSS isolation) ──
+# This is the most critical policy: Payment Service should NEVER be called
+# directly from the internet or from any service other than order-service
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-payment-from-order-only
+  namespace: default
+  labels:
+    app.kubernetes.io/part-of: nt219-crypto
+    nt219/service: payment
+    nt219/week: "2"
+spec:
+  selector:
+    matchLabels:
+      app: payment-service
+  action: ALLOW
+  rules:
+    # ONLY order-service can call payment-service
+    - from:
+        - source:
+            principals: ["cluster.local/ns/default/sa/order-service"]
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/api/payment/charge", "/api/payment/refund", "/api/payment/verify"]
+    # Health check (from any internal service)
+    - from:
+        - source:
+            namespaces: ["default", "istio-system"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/health"]
