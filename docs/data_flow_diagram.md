@@ -98,9 +98,9 @@ flowchart LR
 
     %% ── TB2 <-> TB3: Edge to Services ──
     GW <-->|"HTTPS/REST"| IdP
-    GW -->|"mTLS"| Catalog
-    GW -->|"mTLS"| Cart
-    GW -->|"mTLS"| Order
+    GW <-->|"mTLS"| Catalog
+    GW <-->|"mTLS"| Cart
+    GW <-->|"mTLS"| Order
 
 
     %% ── TB3 -> TB4: Database-per-Service ──

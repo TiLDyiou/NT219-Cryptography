@@ -3,16 +3,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.middleware.hmac_verification import HmacVerificationMiddleware
+from app.api.middleware.nonce_guard import NonceGuardMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.database import init_db
 from app.core.exceptions import OrderException, custom_exception_handler
+from app.infrastructure.container import init_container, shutdown_container
+from app.infrastructure.persistence.database import init_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await init_container()
     yield
+    await shutdown_container()
 
 
 app = FastAPI(
@@ -31,6 +36,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(HmacVerificationMiddleware)
+app.add_middleware(NonceGuardMiddleware)
 
 app.add_exception_handler(OrderException, custom_exception_handler)
 app.include_router(api_router, prefix=settings.API_V1_STR)

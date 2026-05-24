@@ -110,6 +110,23 @@ services:
       start_period: 10s
 
   # ---------------------------------------------------------------------------
+  # CACHE & IDEMPOTENCY STORE — Redis
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.4-alpine
+    container_name: nt219-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
   # IDENTITY PROVIDER — Keycloak 24
   # Dev mode: HTTP, no build step needed, auto-imports realm on first boot
   # Production switch: replace `start-dev` with `start --optimized` in Week 3+

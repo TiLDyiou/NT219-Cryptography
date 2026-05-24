@@ -1,42 +1,25 @@
 # Vault Policy: payment-service
-# Payment Service is the most privileged microservice (PCI-DSS scope)
-# It can encrypt/decrypt via the Transit engine (KMS emulator) and read payment secrets
+# Payment Service is highly privileged (PCI-DSS scope)
+# It handles transit encryption for FLE, signing, HMAC, and Stripe KV secrets.
 
-# Transit engine — encrypt with payment key (for tokenization)
-path "transit/encrypt/payment-key" {
-  capabilities = ["update"]
-}
+# Transit keys
+path "transit/verify/order-hmac-key"   { capabilities = ["update"] }
+path "transit/sign/payment-sign-key"   { capabilities = ["update"] }
+path "transit/verify/payment-sign-key" { capabilities = ["update"] }
+path "transit/encrypt/payment-fle-key" { capabilities = ["update"] }
+path "transit/decrypt/payment-fle-key" { capabilities = ["update"] }
+path "transit/rewrap/payment-fle-key"  { capabilities = ["update"] }
+path "transit/hmac/payment-audit-key"   { capabilities = ["update"] }
+path "transit/verify/payment-audit-key" { capabilities = ["update"] }
 
-# Transit engine — decrypt with payment key (for de-tokenization)
-path "transit/decrypt/payment-key" {
-  capabilities = ["update"]
-}
+# Read metadata for these transit keys
+path "transit/keys/payment-sign-key" { capabilities = ["read"] }
+path "transit/keys/payment-fle-key"  { capabilities = ["read"] }
+path "transit/keys/payment-audit-key" { capabilities = ["read"] }
 
-# Transit engine — sign orders with ECDSA key (order integrity)
-path "transit/sign/order-sign-key" {
-  capabilities = ["update"]
-}
+# Stripe secrets
+path "secret/data/payment/*" { capabilities = ["read"] }
+path "secret/data/payment/stripe" { capabilities = ["read"] }
 
-# Transit engine — verify order signatures
-path "transit/verify/order-sign-key" {
-  capabilities = ["update"]
-}
-
-# Read key metadata (but NOT the key material itself)
-path "transit/keys/payment-key" {
-  capabilities = ["read"]
-}
-
-path "transit/keys/order-sign-key" {
-  capabilities = ["read"]
-}
-
-# Payment secrets (Stripe API keys, webhook secrets)
-path "secret/data/payment/*" {
-  capabilities = ["read"]
-}
-
-# Deny everything else
-path "*" {
-  capabilities = ["deny"]
-}
+# Deny everything else by default
+path "*" { capabilities = ["deny"] }
