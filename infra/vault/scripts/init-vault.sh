@@ -82,6 +82,19 @@ vault write -f transit/keys/inventory-audit-key type=aes256-gcm96 \
   && echo "    Created: inventory-audit-key (AES-256-GCM96)" \
   || echo "    inventory-audit-key already exists — skipping."
 
+# Shipping service keys
+vault write -f transit/keys/shipping-fle-key type=aes256-gcm96 \
+  && echo "    Created: shipping-fle-key (AES-256-GCM96)" \
+  || echo "    shipping-fle-key already exists — skipping."
+
+vault write -f transit/keys/shipping-sign-key type=ecdsa-p256 \
+  && echo "    Created: shipping-sign-key (ECDSA P-256)" \
+  || echo "    shipping-sign-key already exists — skipping."
+
+vault write -f transit/keys/shipping-audit-key type=aes256-gcm96 \
+  && echo "    Created: shipping-audit-key (AES-256-GCM96)" \
+  || echo "    shipping-audit-key already exists — skipping."
+
 echo ""
 echo "==> [5/6] Writing initial secrets..."
 
@@ -97,6 +110,12 @@ vault kv put secret/catalog/db  password="catalog_dev_pass"  && echo "    Writte
 vault kv put secret/cart/db     password="cart_dev_pass"     && echo "    Written: secret/cart/db"
 vault kv put secret/order/db    password="order_dev_pass"    && echo "    Written: secret/order/db"
 vault kv put secret/payment/db  password="payment_dev_pass"  && echo "    Written: secret/payment/db"
+vault kv put secret/shipping/db password="shipping_dev_pass" && echo "    Written: secret/shipping/db"
+
+vault kv put secret/shipping/ghn \
+  api_key="REPLACE_ME_WITH_GHN_SANDBOX_TOKEN" \
+  webhook_secret="dev-ghn-webhook-secret" \
+  && echo "    Written: secret/shipping/ghn"
 
 echo ""
 echo "==> [6/7] Applying least-privilege policies..."
@@ -104,6 +123,7 @@ echo "==> [6/7] Applying least-privilege policies..."
 vault policy write payment-svc /vault/policies/payment-svc.hcl && echo "    Applied: payment-svc"
 vault policy write catalog-svc /vault/policies/catalog-svc.hcl && echo "    Applied: catalog-svc"
 vault policy write order-svc   /vault/policies/order-svc.hcl   && echo "    Applied: order-svc"
+vault policy write shipping-svc /vault/policies/shipping-svc.hcl && echo "    Applied: shipping-svc"
 
 echo ""
 echo "==> [7/7] Enabling AppRole auth..."
@@ -137,6 +157,20 @@ PAYMENT_SECRET_ID=$(vault write -f -field=secret_id auth/approle/role/payment-se
 
 echo "    PAYMENT_VAULT_ROLE_ID=${PAYMENT_ROLE_ID}"
 echo "    PAYMENT_VAULT_SECRET_ID=${PAYMENT_SECRET_ID}"
+
+# AppRole shipping-service
+vault write auth/approle/role/shipping-service \
+  token_policies="shipping-svc" \
+  token_ttl=1h \
+  token_max_ttl=4h \
+  secret_id_ttl=0 \
+  && echo "    Created AppRole: shipping-service"
+
+SHIPPING_ROLE_ID=$(vault read -field=role_id auth/approle/role/shipping-service/role-id)
+SHIPPING_SECRET_ID=$(vault write -f -field=secret_id auth/approle/role/shipping-service/secret-id)
+
+echo "    SHIPPING_VAULT_ROLE_ID=${SHIPPING_ROLE_ID}"
+echo "    SHIPPING_VAULT_SECRET_ID=${SHIPPING_SECRET_ID}"
 
 echo ""
 echo "==> Vault initialization complete!"

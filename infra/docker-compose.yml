@@ -304,6 +304,52 @@ services:
       retries: 5
       start_period: 30s
 
+
+  # ---------------------------------------------------------------------------
+  # SHIPPING SERVICE — Async fulfillment and carrier integration
+  # ---------------------------------------------------------------------------
+  shipping-service:
+    build:
+      context: ../services/shipping-service
+    container_name: nt219-shipping-service
+    restart: unless-stopped
+    environment:
+      PROJECT_NAME: Shipping Service
+      PORT: "8007"
+      DATABASE_URL: postgresql+asyncpg://shipping_user:shipping_dev_pass@postgres:5432/shipping_db
+      REDIS_URL: redis://redis:6379/7
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_TOPIC_SHIPPING: shipping.events
+      KAFKA_TOPIC_ORDER_CONFIRMED: order.confirmed
+      KAFKA_TOPIC_AUDIT: audit-logs
+      KAFKA_CONSUMER_GROUP: shipping-service
+      VAULT_ADDR: http://vault:8200
+      VAULT_ENABLED: "false"
+      REDIS_ENABLED: "true"
+      KAFKA_ENABLED: "true"
+      CARRIER_FORCE_MOCK: "true"
+      CARRIER_PROVIDER: mock
+      LOCAL_CRYPTO_SECRET: local-dev-shipping-crypto-key-32!
+    networks:
+      - backend
+    ports:
+      - "8007:8007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8007/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # ---------------------------------------------------------------------------
   # OBSERVABILITY — Prometheus + Grafana
   # ---------------------------------------------------------------------------
