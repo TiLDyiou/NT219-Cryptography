@@ -1,8 +1,10 @@
 // UIT Store — Home & Product Detail screens
 
 // ─── Home Screen ─────────────────────────────────────────────────────
-const HomeScreen = ({ onProduct, onNav }) => {
+const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion }) => {
   const allProducts = window.PRODUCTS;
+  const catalogOk = apiStatus && apiStatus.catalog === 'ok';
+  const catalogErr = apiStatus && apiStatus.catalog === 'error';
 
   return (
     <div className="shop-container">
@@ -141,6 +143,26 @@ const HomeScreen = ({ onProduct, onNav }) => {
             </div>
           ))}
         </div>
+
+        {/* API connection status strip */}
+        {(catalogOk || catalogErr) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px',
+            background: catalogOk ? '#f0faf3' : '#fff7ed',
+            border: '1px solid ' + (catalogOk ? '#bde5ca' : '#fed7aa'),
+            borderRadius: 6, fontSize: 11, marginBottom: 8,
+          }}>
+            <Icon
+              name={catalogOk ? 'check-circle' : 'bell'}
+              size={13}
+              color={catalogOk ? 'var(--success)' : 'var(--warn)'}
+            />
+            {catalogOk
+              ? <span style={{ color: 'var(--success)' }}><b>Catalog Service</b> kết nối thành công · localhost:8001 · {allProducts.length} sản phẩm</span>
+              : <span style={{ color: '#a56700' }}><b>Catalog Service</b> chưa khởi động · Hiển thị dữ liệu tĩnh</span>
+            }
+          </div>
+        )}
 
         {/* Product grid */}
         <div className="section-head">

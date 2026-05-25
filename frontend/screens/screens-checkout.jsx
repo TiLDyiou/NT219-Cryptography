@@ -620,8 +620,8 @@ const ThreeDSModal = ({ amount, onComplete, onCancel }) => {
 };
 
 // ─── Order Success / Tracking ────────────────────────────────────────
-const OrderScreen = ({ orderTotal, onNav }) => {
-  const orderId = 'UIT-2026052401-A7F3';
+const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
+  const orderId = realOrderId || 'UIT-2026052401-A7F3';
   return (
     <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
       <div className="card" style={{
@@ -704,14 +704,14 @@ const OrderScreen = ({ orderTotal, onNav }) => {
           padding: 14, background: '#0F172A', borderRadius: 6,
           fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#E2E8F0', lineHeight: 1.7,
         }}>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:01.234]</span> <span style={{ color: '#4ADE80' }}>POST</span> /api/v1/checkout → Gateway · sig=hmac-sha256(✓)</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:01.341]</span> <span style={{ color: '#4ADE80' }}>POST</span> order-service.create() · mTLS=✓ · cert=spiffe://order</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:01.587]</span> <span style={{ color: '#4ADE80' }}>POST</span> payment-service.tokenize() → PSP · tok_1Ngk2H9c•••</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:02.103]</span> <span style={{ color: '#FCD34D' }}>3DS</span> challenge.required · ACS=vietcombank.com.vn</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:18.402]</span> <span style={{ color: '#4ADE80' }}>3DS</span> challenge.completed · CAVV=✓ · ECI=05</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:18.745]</span> <span style={{ color: '#4ADE80' }}>PAY</span> capture.success · amount={window.formatVND(orderTotal || 32480000)}</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:18.812]</span> <span style={{ color: '#4ADE80' }}>EVT</span> kafka.publish(order.paid) · sig=ed25519</div>
-          <div><span style={{ color: '#94A3B8' }}>[14:32:19.001]</span> <span style={{ color: '#4ADE80' }}>SVC</span> inventory.reserve() · mTLS=✓ · idempotency-key=ok</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>POST</span> localhost:8003/api/v1/user/orders/checkout · X-User-Id=✓</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>POST</span> order-service.create() · Idempotency-Key=✓</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>POST</span> payment-service.tokenize() → PSP · tok_1Ngk2H9c•••</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#FCD34D' }}>3DS</span> challenge.required · ACS=vietcombank.com.vn</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>3DS</span> challenge.completed · CAVV=✓ · ECI=05</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>PAY</span> capture.success · amount={window.formatVND(orderTotal || 32480000)}</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>EVT</span> kafka.publish(order.paid) · sig=ed25519</div>
+          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>SVC</span> order_id={orderId} · inventory.reserve() · idempotency-key=ok</div>
         </div>
       </div>
 
