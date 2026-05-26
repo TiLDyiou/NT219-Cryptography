@@ -498,17 +498,17 @@ static_resources:
                       domains: ["*"]
                       routes:
                         - match: { prefix: "/api/v1/catalog" }
-                          route: { cluster: catalog_service }
+                          route: { cluster: catalog_service, prefix_rewrite: "/api/v1" }
                         - match: { prefix: "/api/v1/cart" }
-                          route: { cluster: cart_service }
+                          route: { cluster: cart_service, prefix_rewrite: "/api/v1" }
                         - match: { prefix: "/api/v1/orders" }
-                          route: { cluster: order_service }
+                          route: { cluster: order_service, prefix_rewrite: "/api/v1" }
                         - match: { prefix: "/api/v1/inventory" }
-                          route: { cluster: inventory_service }
+                          route: { cluster: inventory_service, prefix_rewrite: "/api/v1" }
                         - match: { prefix: "/api/v1/shipping" }
-                          route: { cluster: shipping_service }
+                          route: { cluster: shipping_service, prefix_rewrite: "/api/v1" }
                         - match: { prefix: "/api/v1/notifications" }
-                          route: { cluster: notification_service }
+                          route: { cluster: notification_service, prefix_rewrite: "/api/v1" }
                 http_filters:
                   - name: envoy.filters.http.lua
                     typed_config:

@@ -148,13 +148,18 @@ API_V1_STR=/api/v1
 
 # DB trên NODE-4
 DATABASE_URL=postgresql+asyncpg://uitstore:${UITSTORE_PASS}@${VM4_IP}:5432/payment_db
+ENABLE_SQLITE_FALLBACK=false
 
 # Vault LOCAL (cùng node - PCI DSS isolation)
 VAULT_ADDR=http://127.0.0.1:8200
 VAULT_TOKEN=mock_token
 
-# Kafka trên NODE-4
+# Kafka trên NODE-4 (publish payment.events cho noti-service)
 KAFKA_BOOTSTRAP_SERVERS=${VM4_IP}:9092
+KAFKA_ENABLED=true
+
+# Redis không dùng trên NODE-3
+REDIS_ENABLED=false
 
 # Audit log → NODE-4 Logstash
 LOGSTASH_HOST=${VM4_IP}

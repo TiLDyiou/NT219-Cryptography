@@ -1,10 +1,12 @@
 // UIT Store — Backend API client
-// Kết nối đến các microservices: Catalog (8001), Cart (8002), Order (8003)
+// Đổi BACKEND_URL thành IP/domain của NODE-1 (Envoy ingress) khi deploy
+const BACKEND_URL = 'http://localhost:10000';
+
 (function () {
   const BASE = {
-    CATALOG: 'http://localhost:8001/api/v1',
-    CART:    'http://localhost:8002/api/v1',
-    ORDER:   'http://localhost:8003/api/v1',
+    CATALOG: BACKEND_URL + '/api/v1/catalog',
+    CART:    BACKEND_URL + '/api/v1/cart',
+    ORDER:   BACKEND_URL + '/api/v1/orders',
   };
 
   let _userId = 'user_demo_001';

@@ -57,10 +57,20 @@ for SVC_NAME in "${!SERVICES[@]}"; do
     "${SVC_DIR}/venv/bin/pip" install --quiet -r requirements.txt
     "${SVC_DIR}/venv/bin/pip" install --quiet asyncpg
 
-    # order-service cần biết địa chỉ payment-service (cross-zone)
+    # Config đặc thù theo từng service
     EXTRA_ENV=""
     if [ "${SVC_NAME}" = "order-service" ]; then
-        EXTRA_ENV="PAYMENT_SERVICE_URL=http://${VM3_IP}:8004"
+        # order gọi sang payment (NODE-3) và inventory (cùng NODE-2)
+        EXTRA_ENV="PAYMENT_SERVICE_URL=http://${VM3_IP}:8004
+INVENTORY_SERVICE_URL=http://localhost:8005
+KAFKA_ENABLED=false"
+    elif [ "${SVC_NAME}" = "noti-service" ]; then
+        # noti-service cần Kafka (nhận events) và Redis (rate-limit + idempotency)
+        EXTRA_ENV="KAFKA_ENABLED=true
+REDIS_ENABLED=true
+REDIS_URL=redis://${VM4_IP}:6379/8"
+    else
+        EXTRA_ENV="KAFKA_ENABLED=false"
     fi
 
     cat > "${SVC_DIR}/.env" <<ENVFILE
@@ -69,6 +79,7 @@ API_V1_STR=/api/v1
 
 # DB trên NODE-4
 DATABASE_URL=postgresql+asyncpg://uitstore:${UITSTORE_PASS}@${VM4_IP}:5432/${DB_NAME}
+ENABLE_SQLITE_FALLBACK=false
 
 # Kafka trên NODE-4
 KAFKA_BOOTSTRAP_SERVERS=${VM4_IP}:9092
@@ -80,8 +91,9 @@ LOGSTASH_PORT=5044
 # JWT secret (lấy từ Keycloak trên NODE-1)
 AUTH_SECRET_KEY=super_secret_jwt_key_from_vault
 
-# Vault và Redis không có trên NODE-2
+# Vault không có trên NODE-2
 VAULT_ENABLED=false
+# Redis mặc định tắt (noti-service tự bật lại qua EXTRA_ENV)
 REDIS_ENABLED=false
 
 ${EXTRA_ENV}
