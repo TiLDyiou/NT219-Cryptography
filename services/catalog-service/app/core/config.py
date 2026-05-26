@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     VAULT_ADDR: str = os.getenv("VAULT_ADDR", "http://127.0.0.1:8200")
     VAULT_TOKEN: str = os.getenv("VAULT_TOKEN", "mock_token")
 
+    # Admin token để tạo merchant (đổi trong .env khi deploy)
+    ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "admin_secret_dev")
+
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/1")
 
