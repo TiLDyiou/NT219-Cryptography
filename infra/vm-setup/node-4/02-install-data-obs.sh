@@ -9,12 +9,12 @@
 set -euo pipefail
 
 # ============================================================
-VM2_IP="${VM2_IP:-192.168.64.12}"   # Service Mesh
-VM3_IP="${VM3_IP:-192.168.64.13}"   # PCI DSS (payment)
-VM1_IP="${VM1_IP:-192.168.64.11}"   # Ingress (Keycloak metrics)
+VM2_IP="${VM2_IP:-192.168.64.12}" # Service Mesh
+VM3_IP="${VM3_IP:-192.168.64.13}" # PCI DSS (payment)
+VM1_IP="${VM1_IP:-192.168.64.11}" # Ingress (Keycloak metrics)
 PROJECT_DIR="${PROJECT_DIR:-/opt/uitstore}"
 
-UITSTORE_PASS="UIT_NT219_SecurePass!"
+UITSTORE_PASS="123456"
 KAFKA_VERSION="3.7.1"
 SCALA_VERSION="2.13"
 PROMETHEUS_VERSION="2.53.0"
@@ -35,11 +35,9 @@ echo ""
 echo ">>> [1/7] Cài PostgreSQL 15..."
 
 sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/postgresql.gpg
 apt update && apt install -y postgresql-15
-
 systemctl enable postgresql && systemctl start postgresql
-
 sudo -u postgres psql <<EOF
 CREATE USER uitstore WITH PASSWORD '${UITSTORE_PASS}';
 CREATE DATABASE catalog_db  OWNER uitstore;
@@ -65,7 +63,7 @@ PG_CONF="/etc/postgresql/15/main/postgresql.conf"
 sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$PG_CONF"
 
 # Cho phép VM-2 (services) và VM-3 (payment) kết nối
-cat >> "$PG_HBA" <<PGEOF
+cat >>"$PG_HBA" <<PGEOF
 # NODE-2: Service Mesh
 host    all    uitstore    ${VM2_IP}/32    md5
 # NODE-3: PCI DSS (payment-service)
@@ -96,7 +94,7 @@ sed -i "s|#advertised.listeners=PLAINTEXT://your.host.name:9092|advertised.liste
 sed -i "s|#listeners=PLAINTEXT://:9092|listeners=PLAINTEXT://0.0.0.0:9092|" \
     /opt/kafka/config/server.properties
 
-cat > /etc/systemd/system/zookeeper.service <<SVC
+cat >/etc/systemd/system/zookeeper.service <<SVC
 [Unit]
 Description=Apache Zookeeper
 After=network.target
@@ -111,7 +109,7 @@ RestartSec=10
 WantedBy=multi-user.target
 SVC
 
-cat > /etc/systemd/system/kafka.service <<SVC
+cat >/etc/systemd/system/kafka.service <<SVC
 [Unit]
 Description=Apache Kafka
 After=zookeeper.service
@@ -136,11 +134,11 @@ echo ""
 echo ">>> [3/7] Cài Elasticsearch..."
 
 wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elastic.gpg
-echo "deb [signed-by=/usr/share/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" \
-    | tee /etc/apt/sources.list.d/elastic-8.x.list
+echo "deb [signed-by=/usr/share/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" |
+    tee /etc/apt/sources.list.d/elastic-8.x.list
 apt update && apt install -y elasticsearch
 
-cat > /etc/elasticsearch/elasticsearch.yml <<ESCFG
+cat >/etc/elasticsearch/elasticsearch.yml <<ESCFG
 cluster.name: uitstore-audit
 node.name: node-1
 path.data: /var/lib/elasticsearch
@@ -152,7 +150,7 @@ xpack.security.enrollment.enabled: false
 ESCFG
 
 mkdir -p /etc/elasticsearch/jvm.options.d
-cat > /etc/elasticsearch/jvm.options.d/heap.options <<HEAP
+cat >/etc/elasticsearch/jvm.options.d/heap.options <<HEAP
 -Xms512m
 -Xmx512m
 HEAP
@@ -168,7 +166,7 @@ echo ">>> [4/7] Cài Kibana + Logstash..."
 
 apt install -y kibana logstash
 
-cat > /etc/kibana/kibana.yml <<'KIBCFG'
+cat >/etc/kibana/kibana.yml <<'KIBCFG'
 server.name: kibana
 server.host: "0.0.0.0"
 server.port: 5601
@@ -178,14 +176,14 @@ telemetry.enabled: false
 logging.root.level: warn
 KIBCFG
 
-cat > /etc/logstash/logstash.yml <<'LSMAINCFG'
+cat >/etc/logstash/logstash.yml <<'LSMAINCFG'
 http.host: "0.0.0.0"
 xpack.monitoring.enabled: false
 pipeline.ecs_compatibility: disabled
 log.level: warn
 LSMAINCFG
 
-cat > /etc/logstash/conf.d/uitstore-audit.conf <<'LSPIPELINE'
+cat >/etc/logstash/conf.d/uitstore-audit.conf <<'LSPIPELINE'
 input {
   beats { port => 5044 }
   tcp   { port => 5000; codec => json_lines }
@@ -231,7 +229,7 @@ if [ ! -d "/opt/prometheus" ]; then
     rm -f "prometheus-${PROMETHEUS_VERSION}.${PROM_ARCH}.tar.gz"
 fi
 
-cat > /opt/prometheus/prometheus.yml <<PROMCFG
+cat >/opt/prometheus/prometheus.yml <<PROMCFG
 global:
   scrape_interval: 15s
 
@@ -267,7 +265,7 @@ scrape_configs:
       - targets: ['${VM3_IP}:8004']
 PROMCFG
 
-cat > /etc/systemd/system/prometheus.service <<SVC
+cat >/etc/systemd/system/prometheus.service <<SVC
 [Unit]
 Description=Prometheus
 After=network.target
@@ -300,7 +298,7 @@ rm -f "${GRAF_PKG}"
 
 mkdir -p /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards
 
-cat > /etc/grafana/provisioning/datasources/prometheus.yaml <<'GRAFDS'
+cat >/etc/grafana/provisioning/datasources/prometheus.yaml <<'GRAFDS'
 apiVersion: 1
 datasources:
   - name: Prometheus
@@ -313,7 +311,7 @@ datasources:
       timeInterval: "15s"
 GRAFDS
 
-cat > /etc/grafana/provisioning/dashboards/provider.yaml <<'GRAFDB'
+cat >/etc/grafana/provisioning/dashboards/provider.yaml <<'GRAFDB'
 apiVersion: 1
 providers:
   - name: NT219
@@ -342,17 +340,17 @@ ufw default allow outgoing
 ufw allow 22/tcp
 
 # Observability - mở cho tất cả (demo access từ máy host)
-ufw allow 3000/tcp   # Grafana
-ufw allow 5601/tcp   # Kibana
-ufw allow 9090/tcp   # Prometheus
-ufw allow 9200/tcp   # Elasticsearch (admin)
+ufw allow 3000/tcp # Grafana
+ufw allow 5601/tcp # Kibana
+ufw allow 9090/tcp # Prometheus
+ufw allow 9200/tcp # Elasticsearch (admin)
 
 # Infrastructure - chỉ mở cho VM-2 và VM-3
-ufw allow from "${VM2_IP}" to any port 5432   # PostgreSQL
+ufw allow from "${VM2_IP}" to any port 5432 # PostgreSQL
 ufw allow from "${VM3_IP}" to any port 5432
-ufw allow from "${VM2_IP}" to any port 9092   # Kafka
+ufw allow from "${VM2_IP}" to any port 9092 # Kafka
 ufw allow from "${VM3_IP}" to any port 9092
-ufw allow from "${VM2_IP}" to any port 5044   # Logstash
+ufw allow from "${VM2_IP}" to any port 5044 # Logstash
 ufw allow from "${VM3_IP}" to any port 5044
 
 ufw reload

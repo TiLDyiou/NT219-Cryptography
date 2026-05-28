@@ -18,15 +18,15 @@
 
 ### So sánh 2 cách tunnel
 
-| | Ngrok Free | Cloudflare Quick Tunnel |
-|---|---|---|
-| Cài đặt | Dễ | Dễ |
-| URL cố định | Có (sau khi đăng ký account) | Không (đổi mỗi lần restart) |
-| Tốc độ | Tốt | Tốt |
-| Cần tài khoản | Có (free) | Không |
-| Cần domain | Không | Không |
-| Chi phí | Miễn phí | Miễn phí |
-| **Khuyến nghị** | **Dùng cái này** | Dùng khi không muốn đăng ký |
+|                 | Ngrok Free                   | Cloudflare Quick Tunnel     |
+| --------------- | ---------------------------- | --------------------------- |
+| Cài đặt         | Dễ                           | Dễ                          |
+| URL cố định     | Có (sau khi đăng ký account) | Không (đổi mỗi lần restart) |
+| Tốc độ          | Tốt                          | Tốt                         |
+| Cần tài khoản   | Có (free)                    | Không                       |
+| Cần domain      | Không                        | Không                       |
+| Chi phí         | Miễn phí                     | Miễn phí                    |
+| **Khuyến nghị** | **Dùng cái này**             | Dùng khi không muốn đăng ký |
 
 ---
 
@@ -40,8 +40,8 @@ ip addr show | grep "inet " | grep -v 127.0.0.1
 
 Ghi lại 4 IP:
 
-| Node   | Role            | IP ghi lại          |
-|--------|-----------------|---------------------|
+| Node   | Role            | IP ghi lại        |
+| ------ | --------------- | ----------------- |
 | NODE-1 | Ingress (Envoy) | `___.___.___.___` |
 | NODE-2 | Services        | `___.___.___.___` |
 | NODE-3 | Payment + Vault | `___.___.___.___` |
@@ -71,6 +71,7 @@ grep -r "NODE" .
 Thứ tự bắt buộc: **NODE-4 → NODE-3 → NODE-2 → NODE-1**
 
 ### NODE-4 (DB + Kafka + Observability)
+
 ```bash
 ssh user@<NODE4_IP>
 cd /opt/uitstore/infra/vm-setup/node-4
@@ -80,6 +81,7 @@ sudo bash 03-start-all.sh
 ```
 
 ### NODE-3 (Payment + Vault)
+
 ```bash
 ssh user@<NODE3_IP>
 cd /opt/uitstore/infra/vm-setup/node-3
@@ -89,6 +91,7 @@ sudo bash 03-start-all.sh
 ```
 
 ### NODE-2 (Microservices)
+
 ```bash
 ssh user@<NODE2_IP>
 cd /opt/uitstore/infra/vm-setup/node-2
@@ -98,6 +101,7 @@ sudo bash 03-start-all.sh
 ```
 
 ### NODE-1 (Ingress: Nginx + Envoy)
+
 ```bash
 ssh user@<NODE1_IP>
 cd /opt/uitstore/infra/vm-setup/node-1
@@ -110,12 +114,14 @@ VM1_IP=<NODE1_IP> VM2_IP=<NODE2_IP> sudo bash 02-setup-ingress.sh
 ## Bước 4 — Kiểm tra services đang chạy
 
 Trên **NODE-2**:
+
 ```bash
 systemctl status catalog-service cart-service order-service \
   inventory-service shipping-service noti-service
 ```
 
 Trên **NODE-1** — test Envoy routing:
+
 ```bash
 systemctl status envoy nginx
 
@@ -167,6 +173,7 @@ sleep 3 && curl -s http://localhost:4040/api/tunnels \
 ```
 
 Kết quả dạng:
+
 ```
 "public_url":"https://abc123.ngrok-free.app"
 ```
@@ -220,6 +227,7 @@ sleep 5 && grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' /tmp/cloudflared.log
 ```
 
 Kết quả dạng:
+
 ```
 https://random-name-here.trycloudflare.com
 ```
@@ -255,11 +263,12 @@ Trên **máy local**, mở [frontend/api.js](../frontend/api.js) và đổi dòn
 
 ```javascript
 // Dán URL lấy được từ Bước 5 vào đây
-const BACKEND_URL = 'https://abc123.ngrok-free.app';
+const BACKEND_URL = "https://abc123.ngrok-free.app";
 //                   hoặc 'https://random-name-here.trycloudflare.com'
 ```
 
 Sau đó commit:
+
 ```bash
 git add frontend/api.js
 git commit -m "config: set backend URL to tunnel"
@@ -285,6 +294,7 @@ vercel deploy       # deploy preview
 ```
 
 Khi được hỏi:
+
 - **Set up and deploy?** → `Y`
 - **Which scope?** → chọn account của bạn
 - **Project name** → `uit-store` (hoặc tên khác)
@@ -315,13 +325,13 @@ Vercel trả về URL dạng: `https://uit-store.vercel.app`
 
 ## Troubleshooting
 
-| Vấn đề | Nguyên nhân | Kiểm tra |
-|--------|-------------|----------|
-| `curl` NODE-1 trả về 404 | Envoy chưa start hoặc prefix_rewrite lỗi | `systemctl status envoy` |
-| Service không start | `.env` sai hoặc DB chưa sẵn sàng | `journalctl -u catalog-service -n 50` |
-| DB connection refused | `.env` có IP sai của NODE-4 | `grep DATABASE_URL services/*/.env` |
-| Ngrok tunnel disconnect | Mạng không ổn định | `systemctl restart ngrok` |
-| Cloudflare URL đổi | VM restart | Chạy lại B.2, cập nhật `api.js` |
-| Vercel gọi API lỗi CORS | — | CORS đang `["*"]` → không phải lỗi CORS |
-| Vercel 502 / 503 | Tunnel chết hoặc Envoy chết | Kiểm tra tunnel và `systemctl status envoy` |
-| Ngrok 429 Too Many Requests | Free tier giới hạn request | Dùng Cloudflare thay thế |
+| Vấn đề                      | Nguyên nhân                              | Kiểm tra                                    |
+| --------------------------- | ---------------------------------------- | ------------------------------------------- | --- |
+| `curl` NODE-1 trả về 404    | Envoy chưa start hoặc prefix_rewrite lỗi | `systemctl status envoy`                    |
+| Service không start         | `.env` sai hoặc DB chưa sẵn sàng         | `journalctl -u catalog-service -n 50`       |
+| DB connection refused       | `.env` có IP sai của NODE-4              | `grep DATABASE_URL services/*/.env`         |
+| Ngrok tunnel disconnect     | Mạng không ổn định                       | `systemctl restart ngrok`                   |
+| Cloudflare URL đổi          | VM restart                               | Chạy lại B.2, cập nhật `api.js`             |
+| Vercel gọi API lỗi CORS     | —                                        | CORS đang `["*"]` → không phải lỗi CORS     |
+| Vercel 502 / 503            | Tunnel chết hoặc Envoy chết              | Kiểm tra tunnel và `systemctl status envoy` |
+| Ngrok 429 Too Many Requests | Free tier giới hạn request               | Dùng Cloudflare thay thế                    | u   |
