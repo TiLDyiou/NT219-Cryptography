@@ -15,7 +15,10 @@ const LoginScreen = ({ onLogin, onNav }) => {
   const next = (target) => () => setStep(target);
 
   const handleCredentialsSubmit = async () => {
-    if (!window.UitAuth) { next('mfa-pick')(); return; }
+    if (!window.UitAuth) {
+      setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
+      return;
+    }
     setLoading(true);
     setLoginError('');
     const result = await window.UitAuth.loginWithPassword(email, password);
@@ -30,7 +33,10 @@ const LoginScreen = ({ onLogin, onNav }) => {
   };
 
   const handleTotpSubmit = async () => {
-    if (!window.UitAuth) { onLogin({ name: email.split('@')[0] || 'Người dùng', initial: (email[0] || 'U').toUpperCase(), email }); return; }
+    if (!window.UitAuth) {
+      setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
+      return;
+    }
     const otpCode = totp.join('');
     setLoading(true);
     setLoginError('');
@@ -58,13 +64,8 @@ const LoginScreen = ({ onLogin, onNav }) => {
   };
 
   const tryWebAuthn = () => {
-    // WebAuthn thật cần Keycloak hỗ trợ → demo animation, sau đó redirect
-    setWebAuthnState('prompting');
-    setTimeout(() => setWebAuthnState('signing'), 1200);
-    setTimeout(() => setWebAuthnState('success'), 2400);
-    setTimeout(() => {
-      if (window.UitAuth) window.UitAuth.loginRedirect();
-    }, 2800);
+    if (window.UitAuth) window.UitAuth.loginRedirect();
+    else setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
   };
 
   return (
@@ -146,7 +147,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
                    onClick={() => {
                      const url = window.UitAuth ? window.UitAuth.issuer + '/login-actions/reset-credentials' : null;
                      if (url) window.open(url, '_blank');
-                     else setLoginError('Tính năng khôi phục mật khẩu cần kết nối Keycloak. Hiện đang chạy demo mode.');
+                     else setLoginError('Tính năng khôi phục mật khẩu cần kết nối Keycloak.');
                    }}>
                   Quên mật khẩu?
                 </a>
@@ -181,30 +182,10 @@ const LoginScreen = ({ onLogin, onNav }) => {
                 <span>Mật khẩu được hash với <b>Argon2id</b> + per-user salt + server-side pepper. UIT Store không bao giờ lưu mật khẩu dưới dạng plain.</span>
               </div>
 
-              {/* Demo accounts panel */}
-              <div style={{ marginTop: 14, padding: 12, background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 6, fontSize: 11 }}>
-                <div style={{ fontWeight: 600, color: '#92400E', marginBottom: 8 }}>🧪 Tài khoản Demo — mật khẩu: <span style={{ fontFamily: 'monospace' }}>demo123</span></div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {[
-                    { email: 'merchant@uitstore.vn', role: 'Merchant · TechWorld Official Store', isMerchant: true },
-                    { email: 'tiki@uitstore.vn',     role: 'Merchant · Tiki Electronics',         isMerchant: true },
-                  ].map(acc => (
-                    <button key={acc.email} onClick={() => { setEmail(acc.email); setPassword('demo123'); }}
-                      style={{ textAlign: 'left', padding: '6px 8px', borderRadius: 4, border: '1px solid #FCD34D', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span>
-                        <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#92400E' }}>{acc.email}</span>
-                        <span style={{ color: '#78350F', marginLeft: 8 }}>— {acc.role}</span>
-                      </span>
-                      <span style={{ fontSize: 10, color: '#B45309', whiteSpace: 'nowrap' }}>Click để điền ↗</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
                 Chưa có tài khoản?{' '}
                 <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }}
-                   onClick={() => onNav('register')}>
+                   onClick={() => window.UitAuth && window.UitAuth.register()}>
                   Đăng ký ngay
                 </a>
               </div>
@@ -354,7 +335,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
               )}
               <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
                 disabled={smsOtp.some(d => !d) || loading}
-                onClick={() => { onLogin({ name: email.split('@')[0] || 'Người dùng', initial: (email[0] || 'U').toUpperCase(), email }); }}>
+                onClick={() => setLoginError('SMS OTP cần được xác thực bởi Keycloak trước khi đăng nhập.')}>
                 Xác nhận đăng nhập
               </button>
               <div style={{ marginTop: 12, fontSize: 12, color: 'var(--ink-500)', textAlign: 'center' }}>
@@ -437,24 +418,20 @@ const LoginScreen = ({ onLogin, onNav }) => {
 
 // ─── Merchant Dashboard ──────────────────────────────────────────────
 const MerchantScreen = ({ onNav, user }) => {
-  const [merchantsList, setMerchantsList] = React.useState(window.MERCHANTS || {});
-  const myMerchant = Object.values(merchantsList).find(m => m.owner_id === (user && user.id));
-  const isOwner   = !!myMerchant;
-  const merchantId = myMerchant && myMerchant.id;
-  const shopName = (myMerchant && myMerchant.name) || 'UIT Store';
+  const merchantId = user && user.id;
+  const shopName = user ? (user.name || user.email || 'Seller Center') : 'Seller Center';
   const products = (window.PRODUCTS || []).filter(p => p.merchant_id === merchantId).slice(0, 6);
   const [activeSection, setActiveSection] = React.useState('dash');
-  const [revPeriod, setRevPeriod] = React.useState('7 ngày');
-  const [showAddProduct, setShowAddProduct] = React.useState(false);
   const [orders, setOrders] = React.useState([]);
 
   React.useEffect(() => {
     if (!merchantId) return;
-    const BASE = (window.UitAPI && window.UitAPI.backendUrl) || 'http://localhost:10000';
+    const BASE = window.UitAPI && window.UitAPI.backendUrl;
+    if (!BASE) return;
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     const headers = t
       ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
-      : { 'Content-Type': 'application/json', 'X-User-Id': (user && user.id) || 'user_demo_001' };
+      : { 'Content-Type': 'application/json', 'X-User-Id': user && user.id };
 
     fetch(`${BASE}/api/v1/orders/merchant/orders?merchant_id=${merchantId}`, { headers })
       .then(r => r.json())
@@ -468,37 +445,6 @@ const MerchantScreen = ({ onNav, user }) => {
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
   const confirmedCount = orders.filter(o => o.status === 'confirmed').length;
-
-  const handleRegisterShop = () => {
-    if (!user) return;
-    const name = prompt('Nhập tên Shop của bạn:', (user.name || 'User') + ' Store');
-    if (!name) return;
-
-    const shopCode = 'm_' + (user.email ? user.email.split('@')[0] : Math.random().toString(36).substring(7));
-    const newMerchant = {
-      id: shopCode,
-      name: name,
-      code: shopCode,
-      rating: 5.0,
-      rating_count: 1,
-      is_verified: true,
-      since: 'Mới tạo',
-      followers: '0',
-      owner_id: user.id,
-      mfa_enabled: true,
-      mfa_method: 'WebAuthn (passkey)',
-      api_key_generated: true,
-      api_key_rotated: Date.now(),
-      audit_log_enabled: true
-    };
-
-    window.MERCHANTS = {
-      ...window.MERCHANTS,
-      [shopCode]: newMerchant
-    };
-
-    setMerchantsList(window.MERCHANTS);
-  };
 
   const SECTION_TITLES = {
     dash: 'Tổng quan', orders: 'Đơn hàng', products: 'Sản phẩm',
@@ -545,7 +491,6 @@ const MerchantScreen = ({ onNav, user }) => {
     { label: 'Doanh thu hôm nay', value: todayRevenue.toLocaleString('vi-VN') + 'đ', delta: 'Cập nhật', positive: true, icon: 'wallet' },
     { label: 'Đơn hàng', value: orders.length.toString(), delta: pendingCount > 0 ? `${pendingCount} chờ duyệt` : 'Đã xử lý', positive: pendingCount === 0, icon: 'package' },
     { label: 'Sản phẩm đang bán', value: productsCount.toString(), delta: 'Đang hoạt động', positive: true, icon: 'tag' },
-    { label: 'Lượt xem shop', value: ((productsCount * 15) + (orders.length * 25)).toString(), delta: 'Mô phỏng', positive: true, icon: 'eye' },
   ];
 
   // Dynamic Chart calculations
@@ -571,54 +516,24 @@ const MerchantScreen = ({ onNav, user }) => {
     const maxRev = Math.max(...data.map(i => i.realAmount), 1);
     return data.map(item => ({
       d: item.d,
-      v: Math.max(10, Math.round((item.realAmount / maxRev) * 100)),
+      v: Math.round((item.realAmount / maxRev) * 100),
       realAmount: item.realAmount
     }));
   };
   const chartData = getRevenueLast7Days();
 
-  // Tài khoản không có shop → hiển thị màn hình hướng dẫn
-  if (!isOwner) {
+  if (!user) {
     return (
       <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
         <div className="card" style={{ padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🏪</div>
-          <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Tài khoản này chưa có shop</div>
+          <Icon name="lock" size={40} color="var(--ink-400)" />
+          <div style={{ fontSize: 20, fontWeight: 600, margin: '12px 0 8px' }}>Cần đăng nhập người bán</div>
           <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 20, lineHeight: 1.6 }}>
-            Tài khoản <b>{user && user.email}</b> chưa được đăng ký làm người bán.
-            <br />Bạn có thể đăng ký mở shop mới ngay lập tức hoặc sử dụng tài khoản thử nghiệm bên dưới.
+            Seller Center chỉ hiển thị dữ liệu từ backend sau khi đăng nhập.
           </div>
-
-          <button onClick={handleRegisterShop} className="btn btn-primary" style={{ width: '100%', padding: '12px 20px', marginBottom: 20 }}>
-            Đăng ký mở shop ngay
-          </button>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, color: 'var(--ink-400)', fontSize: 12 }}>
-            <div style={{ flex: 1, height: 1, background: 'var(--ink-200)' }} />
-            Hoặc dùng tài khoản thử nghiệm
-            <div style={{ flex: 1, height: 1, background: 'var(--ink-200)' }} />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24, textAlign: 'left' }}>
-            {[
-              { email: 'merchant@uitstore.vn', shop: 'TechWorld Official Store', id: 'user_demo_001' },
-              { email: 'tiki@uitstore.vn',     shop: 'Tiki Electronics Official', id: 'user_tiki_001' },
-            ].map(acc => (
-              <div key={acc.email} style={{ padding: '12px 16px', background: 'var(--primary-tint)', border: '1px solid var(--primary-soft)', borderRadius: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
-                  {acc.shop[0]}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{acc.shop}</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--primary)', marginTop: 2 }}>{acc.email} / demo123</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button onClick={() => onNav('login')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
-              Đăng nhập tài khoản khác
+            <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} className="btn btn-outline" style={{ padding: '10px 24px' }}>
+              Đăng nhập
             </button>
             <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
               Về trang mua sắm
@@ -641,7 +556,7 @@ const MerchantScreen = ({ onNav, user }) => {
               <Icon name="check-circle" size={10}/> Mall
             </span>
             <span className="badge badge-primary" style={{ fontSize: 10 }}>
-              <Icon name="star" size={10}/> {myMerchant && myMerchant.rating}
+              <Icon name="key" size={10}/> Keycloak
             </span>
           </div>
           {user && (
@@ -689,28 +604,9 @@ const MerchantScreen = ({ onNav, user }) => {
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button className="btn btn-outline" style={{ padding: '8px 16px', fontSize: 13 }}
-              onClick={() => setShowAddProduct(true)}>
+              onClick={() => setActiveSection('products')}>
               <Icon name="plus" size={14}/> Thêm sản phẩm
             </button>
-            {showAddProduct && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 90 }}
-                onClick={() => setShowAddProduct(false)}>
-                <div style={{ background: 'white', borderRadius: 12, padding: 28, maxWidth: 400, width: '90%', boxShadow: 'var(--shadow-lg)' }}
-                  onClick={e => e.stopPropagation()}>
-                  <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>Thêm sản phẩm mới</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                    <input className="input" placeholder="Tên sản phẩm" />
-                    <input className="input" placeholder="Giá bán (VNĐ)" type="number" />
-                    <input className="input" placeholder="SKU" />
-                    <input className="input" placeholder="Số lượng tồn kho" type="number" />
-                  </div>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button className="btn btn-ghost" style={{ flex: 1, border: '1px solid var(--ink-200)' }} onClick={() => setShowAddProduct(false)}>Huỷ</button>
-                    <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => setShowAddProduct(false)}>Lưu sản phẩm (demo)</button>
-                  </div>
-                </div>
-              </div>
-            )}
             <button onClick={() => onNav('home')} className="btn btn-ghost" style={{ padding: '8px 16px', fontSize: 13, border: '1px solid var(--ink-200)' }}>
               ← Về trang mua sắm
             </button>
@@ -734,13 +630,7 @@ const MerchantScreen = ({ onNav, user }) => {
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>Shop của bạn đang bảo mật ở mức cao</div>
             <div style={{ fontSize: 12, color: 'var(--ink-600)', marginTop: 2 }}>
-              MFA: <b>{(myMerchant && myMerchant.mfa_method) || 'WebAuthn (passkey)'}</b> · API key: <b>{(() => {
-                if (!myMerchant || !myMerchant.api_key_rotated) return 'rotated 3 ngày trước';
-                const diffHours = Math.round((Date.now() - myMerchant.api_key_rotated) / 3600000);
-                if (diffHours < 1) return 'vừa được tạo';
-                if (diffHours < 24) return `rotated ${diffHours} giờ trước`;
-                return `rotated ${Math.round(diffHours/24)} ngày trước`;
-              })()}</b> · Email/phone: <b>field-encrypted</b> qua Vault Transit
+              MFA và API key được quản lý bởi Keycloak/backend. Email/phone: <b>field-encrypted</b> qua Vault Transit
             </div>
           </div>
           <button className="btn btn-outline" style={{ padding: '6px 14px', fontSize: 12 }}
@@ -776,36 +666,28 @@ const MerchantScreen = ({ onNav, user }) => {
           <div className="card" style={{ padding: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
               <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Doanh thu 7 ngày qua</h3>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {['7 ngày', '30 ngày', '90 ngày'].map((t) => (
-                  <button key={t} onClick={() => setRevPeriod(t)} style={{
-                    padding: '4px 10px', borderRadius: 4, fontSize: 11,
-                    background: revPeriod === t ? 'var(--primary-tint)' : 'transparent',
-                    color: revPeriod === t ? 'var(--primary)' : 'var(--ink-600)',
-                    border: '1px solid var(--ink-200)',
-                  }}>{t}</button>
+            </div>
+            {chartData.every(b => b.realAmount === 0) ? (
+              <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink-400)', fontSize: 12 }}>
+                Chưa có doanh thu từ backend.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, padding: '0 4px', overflowX: 'auto' }}>
+                {chartData.map((b) => (
+                  <div key={b.d} style={{ flex: 1, minWidth: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    <div style={{ fontSize: 10, color: 'var(--ink-600)', fontWeight: 600 }}>
+                      {b.realAmount.toLocaleString('vi-VN')}
+                    </div>
+                    <div style={{
+                      width: '100%', maxWidth: 40, height: `${Math.max(b.v * 1.4, 4)}px`,
+                      background: 'var(--primary-soft)',
+                      borderRadius: '4px 4px 0 0',
+                    }} />
+                    <div style={{ fontSize: 11, color: 'var(--ink-600)' }}>{b.d}</div>
+                  </div>
                 ))}
               </div>
-            </div>
-            {/* Simple bar chart */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, height: 180, padding: '0 4px', overflowX: 'auto' }}>
-              {[
-                { d: 'T2', v: 65 }, { d: 'T3', v: 88 }, { d: 'T4', v: 72 },
-                { d: 'T5', v: 95 }, { d: 'T6', v: 78 }, { d: 'T7', v: 100 }, { d: 'CN', v: 82 },
-              ].map((b, i) => (
-                <div key={b.d} style={{ flex: 1, minWidth: 32, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <div style={{ fontSize: 10, color: 'var(--ink-600)', fontWeight: 600 }}>
-                    {(b.v * 124800).toLocaleString('vi-VN')}
-                  </div>
-                  <div style={{
-                    width: '100%', maxWidth: 40, height: `${b.v * 1.4}px`,
-                    background: i === 5 ? 'var(--primary)' : 'var(--primary-soft)',
-                    borderRadius: '4px 4px 0 0',
-                  }} />
-                  <div style={{ fontSize: 11, color: 'var(--ink-600)' }}>{b.d}</div>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
 
           <div className="card" style={{ padding: 18 }}>
@@ -814,10 +696,7 @@ const MerchantScreen = ({ onNav, user }) => {
               {[
                 { n: pendingCount, l: 'Đơn chờ xác nhận', c: 'var(--warn)',    i: 'package',  section: 'orders'   },
                 { n: confirmedCount,  l: 'Đơn cần đóng gói', c: 'var(--primary)', i: 'gift',     section: 'orders'   },
-                { n: 1,  l: 'Yêu cầu trả hàng', c: 'var(--price)',   i: 'arrow-left', section: 'orders' },
-                { n: 2,  l: 'Sản phẩm sắp hết', c: 'var(--warn)',    i: 'bell',     section: 'products' },
-                { n: 1,  l: 'Khoá API sắp hết hạn', c: 'var(--price)', i: 'key',   section: 'security' },
-              ].map(t => (
+              ].filter(t => t.n > 0).map(t => (
                 <div key={t.l} onClick={() => setActiveSection(t.section)} style={{
                   padding: '10px 12px', borderRadius: 6, background: 'var(--ink-100)',
                   display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
@@ -838,7 +717,7 @@ const MerchantScreen = ({ onNav, user }) => {
         {/* Product table */}
         <div className="card" style={{ padding: 18 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Sản phẩm bán chạy</h3>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Sản phẩm từ catalog</h3>
             <button style={{ color: 'var(--primary)', fontSize: 12, fontWeight: 500 }}
               onClick={() => setActiveSection('products')}>Xem tất cả →</button>
           </div>
@@ -876,27 +755,17 @@ const MerchantScreen = ({ onNav, user }) => {
                   </div>
                   <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--ink-600)' }}>{p.sku}</span>
                   <span style={{ fontWeight: 600, color: 'var(--price)' }}>{window.formatVND(p.base_price)}</span>
-                  <span>{p.sold.toLocaleString()}</span>
-                  <span style={{ textAlign: 'center', color: p.sold < 500 ? 'var(--warn)' : 'var(--ink-700)' }}>{248 - (p.id.charCodeAt(2) % 100)}</span>
+                  <span>{typeof p.sold === 'number' ? p.sold.toLocaleString('vi-VN') : '—'}</span>
+                  <span style={{ textAlign: 'center' }}>{typeof p.stock === 'number' ? p.stock : '—'}</span>
                   <div style={{ textAlign: 'center' }}>
-                    <span className="badge badge-success" style={{ fontSize: 10 }}>● Active</span>
+                    {p.is_active === false
+                      ? <span className="badge" style={{ fontSize: 10, background: 'var(--ink-100)', color: 'var(--ink-500)' }}>Ẩn</span>
+                      : <span className="badge badge-success" style={{ fontSize: 10 }}>Active</span>
+                    }
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* Audit log strip */}
-        <div className="card" style={{ padding: 16, marginTop: 14 }}>
-          <h3 style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="shield-check" size={14} color="var(--primary)" /> Hoạt động bảo mật gần đây
-          </h3>
-          <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--ink-600)', lineHeight: 1.7 }}>
-            <div>10:42 · API key rotated · key-id=mch_techworld_v3 → v4 · by=auto-rotation</div>
-            <div>10:42 · WebAuthn challenge passed · device="MacBook Pro · Touch ID"</div>
-            <div>09:18 · Product update · sku=IP15PM-256-NTI · sig=hmac-sha256(✓) · field-encrypted fields untouched</div>
-            <div>08:55 · Login from new device · ip=14.224.x.x · risk-score=0.12 (low) · MFA=ok</div>
           </div>
         </div>
 
@@ -936,28 +805,12 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
   const handleSubmit = async () => {
     setError('');
-    if (!name.trim())          return setError('Vui lòng nhập họ tên');
-    if (!email.trim())         return setError('Vui lòng nhập email');
-    if (!/\S+@\S+\.\S+/.test(email)) return setError('Email không hợp lệ');
-    if (password.length < 8)   return setError('Mật khẩu phải ít nhất 8 ký tự');
-    if (password !== confirm)  return setError('Mật khẩu xác nhận không khớp');
-
-    setLoading(true);
-
-    // Thử Keycloak self-registration nếu có — fallback mock nếu không
-    var result;
     if (window.UitAuth) {
-      result = await window.UitAuth.registerMock(name.trim(), email.trim(), password);
-    } else {
-      result = { ok: false, error: 'UitAuth chưa khởi tạo' };
+      setLoading(true);
+      window.UitAuth.register();
+      return;
     }
-
-    setLoading(false);
-    if (result.ok) {
-      onLogin(result.user);
-    } else {
-      setError(result.error || 'Đăng ký thất bại');
-    }
+    setError('Dịch vụ xác thực chưa sẵn sàng.');
   };
 
   return (
@@ -979,14 +832,13 @@ const RegisterScreen = ({ onLogin, onNav }) => {
             </h2>
             <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.6, maxWidth: 340 }}>
               Mật khẩu được bảo vệ bằng <b>Argon2id</b> khi lưu trên Keycloak.
-              Trong demo, hash <b>SHA-256</b> được dùng để minh hoạ.
             </div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {[
-              { icon: 'shield-check', t: 'Mật khẩu không bao giờ lưu plain', s: 'Hash SHA-256 (demo) · Argon2id (production)' },
+              { icon: 'shield-check', t: 'Mật khẩu không bao giờ lưu plain', s: 'Argon2id · per-user salt · server-side pepper' },
               { icon: 'lock',         t: 'Phiên đăng nhập JWT 5 phút',        s: 'Refresh token rotation' },
-              { icon: 'check-circle', t: 'Tương thích Keycloak',              s: 'Tự động dùng Keycloak khi deploy' },
+              { icon: 'check-circle', t: 'Đăng ký qua Keycloak',              s: 'Không lưu tài khoản trong trình duyệt' },
             ].map(f => (
               <div key={f.t} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
                 <div style={{
@@ -1006,12 +858,12 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
         {/* Right form */}
         <div style={{ padding: 36, display: 'flex', flexDirection: 'column' }}>
-          <button onClick={() => onNav('login')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+          <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
             <Icon name="arrow-left" size={12} /> Quay lại đăng nhập
           </button>
 
           <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Tạo tài khoản mới</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 22 }}>Điền thông tin để bắt đầu mua sắm</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 22 }}>Tiếp tục trên Keycloak để tạo tài khoản</div>
 
           {/* Họ tên */}
           <div style={{ marginBottom: 14 }}>
@@ -1079,18 +931,12 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
           <button onClick={handleSubmit} disabled={loading} className="btn btn-primary"
             style={{ width: '100%', padding: 12, opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+            {loading ? 'Đang chuyển hướng...' : 'Tạo tài khoản trên Keycloak'}
           </button>
-
-          {/* Demo note */}
-          <div style={{ marginTop: 14, padding: 12, background: 'var(--ink-100)', borderRadius: 6, fontSize: 11, color: 'var(--ink-600)', lineHeight: 1.55 }}>
-            <b>Demo mode:</b> Tài khoản lưu trong localStorage của trình duyệt.
-            Khi Keycloak chạy, đăng ký sẽ tự động dùng Keycloak.
-          </div>
 
           <div style={{ marginTop: 14, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
             Đã có tài khoản?{' '}
-            <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }} onClick={() => onNav('login')}>
+            <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }} onClick={() => window.UitAuth && window.UitAuth.loginRedirect()}>
               Đăng nhập
             </a>
           </div>
@@ -1102,11 +948,10 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
 // ─── Account Screen ──────────────────────────────────────────────────
 const AccountScreen = ({ user, onNav, onLogout }) => {
-  if (!user) { onNav('login'); return null; }
+  if (!user) { window.UitAuth && window.UitAuth.loginRedirect(); return null; }
 
   const roles = (user.roles || []).filter(r => !['default-roles-nt219','offline_access','uma_authorization'].includes(r));
   const isAdmin = roles.includes('admin');
-  const isMock  = user.id && user.id.startsWith('mock_');
 
   return (
     <div style={{ maxWidth: 520, margin: '40px auto', padding: '0 16px' }}>
@@ -1129,9 +974,6 @@ const AccountScreen = ({ user, onNav, onLogout }) => {
                   ))
                 : <span className="badge" style={{ fontSize: 11, background: 'var(--ink-100)', color: 'var(--ink-600)' }}>user</span>
               }
-              {isMock && (
-                <span className="badge" style={{ fontSize: 11, background: '#FEF3C7', color: '#92400E' }}>Demo</span>
-              )}
             </div>
           </div>
         </div>
@@ -1147,13 +989,11 @@ const AccountScreen = ({ user, onNav, onLogout }) => {
             <Icon name="dashboard" size={18} /> Kênh người bán
           </button>
 
-          {!isMock && (
-            <button onClick={() => { if (window.UitAuth) window.location.href = window.UitAuth.issuer + '/account'; }}
-              className="btn btn-outline"
-              style={{ width: '100%', padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-start' }}>
-              <Icon name="lock" size={18} /> Đổi mật khẩu / Bảo mật
-            </button>
-          )}
+          <button onClick={() => { if (window.UitAuth) window.location.href = window.UitAuth.issuer + '/account'; }}
+            className="btn btn-outline"
+            style={{ width: '100%', padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-start' }}>
+            <Icon name="lock" size={18} /> Đổi mật khẩu / Bảo mật
+          </button>
 
           <button onClick={onLogout}
             style={{ width: '100%', padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-start', color: '#EF4444', border: '1px solid #FCA5A5', borderRadius: 6, background: 'white' }}>
@@ -1169,9 +1009,9 @@ const AccountScreen = ({ user, onNav, onLogout }) => {
         </div>
         <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--ink-600)', lineHeight: 1.8 }}>
           <div>sub: {user.id || '—'}</div>
-          <div>iss: {isMock ? 'mock://nt219-demo' : (window.UitAuth && window.UitAuth.issuer) || '—'}</div>
+          <div>iss: {(window.UitAuth && window.UitAuth.issuer) || '—'}</div>
           <div>exp: access_token TTL = 300s · refresh rotation ✓</div>
-          <div>alg: {isMock ? 'none (demo)' : 'RS256 (Keycloak)'}</div>
+          <div>alg: RS256 (Keycloak)</div>
         </div>
       </div>
     </div>

@@ -3,11 +3,12 @@
 // ─── Home Screen ─────────────────────────────────────────────────────
 const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery, activeCategory, onCategory }) => {
   const [sortMode, setSortMode] = React.useState('all');
+  const catalogLoading = !apiStatus || apiStatus.catalog === 'unknown' || apiStatus.catalog === 'loading';
   const catalogOk = apiStatus && apiStatus.catalog === 'ok';
   const catalogErr = apiStatus && apiStatus.catalog === 'error';
 
   const allProducts = React.useMemo(() => {
-    let products = window.PRODUCTS || [];
+    let products = catalogOk ? (window.PRODUCTS || []) : [];
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       products = products.filter(p =>
@@ -22,7 +23,7 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
     if (sortMode === 'rating')     products = [...products].sort((a, b) => b.rating - a.rating);
     return products;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, activeCategory, sortMode, productsVersion]);
+  }, [catalogOk, searchQuery, activeCategory, sortMode, productsVersion]);
 
   return (
     <div className="shop-container">
@@ -105,7 +106,8 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <button className="btn" style={{ background: '#FFD600', color: '#082F66', fontWeight: 600 }}
-                onClick={() => { const first = window.PRODUCTS && window.PRODUCTS[0]; if (first) onProduct(first.id); }}>
+                onClick={() => { const first = allProducts[0]; if (first) onProduct(first.id); }}
+                disabled={allProducts.length === 0}>
                 Khám phá ngay <Icon name="arrow-right" size={14}/>
               </button>
             </div>
@@ -168,22 +170,21 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
         </div>
 
         {/* API connection status strip */}
-        {(catalogOk || catalogErr) && (
+        {(catalogLoading || catalogOk || catalogErr) && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px',
-            background: catalogOk ? '#f0faf3' : '#fff7ed',
-            border: '1px solid ' + (catalogOk ? '#bde5ca' : '#fed7aa'),
+            background: catalogOk ? '#f0faf3' : (catalogLoading ? '#eff6ff' : '#fff7ed'),
+            border: '1px solid ' + (catalogOk ? '#bde5ca' : (catalogLoading ? '#bfdbfe' : '#fed7aa')),
             borderRadius: 6, fontSize: 11, marginBottom: 8,
           }}>
             <Icon
-              name={catalogOk ? 'check-circle' : 'bell'}
+              name={catalogOk ? 'check-circle' : (catalogLoading ? 'box' : 'bell')}
               size={13}
-              color={catalogOk ? 'var(--success)' : 'var(--warn)'}
+              color={catalogOk ? 'var(--success)' : (catalogLoading ? 'var(--primary)' : 'var(--warn)')}
             />
-            {catalogOk
-              ? <span style={{ color: 'var(--success)' }}><b>Catalog Service</b> kết nối thành công · {window.UitAPI.backendUrl} · {allProducts.length} sản phẩm</span>
-              : <span style={{ color: '#a56700' }}><b>Catalog Service</b> chưa khởi động · Hiển thị dữ liệu tĩnh</span>
-            }
+            {catalogOk && <span style={{ color: 'var(--success)' }}><b>Catalog Service</b> kết nối thành công · {window.UitAPI.backendUrl} · {allProducts.length} sản phẩm</span>}
+            {catalogLoading && <span style={{ color: 'var(--primary)' }}><b>Catalog Service</b> đang tải sản phẩm</span>}
+            {catalogErr && <span style={{ color: '#a56700' }}><b>Catalog Service</b> chưa trả dữ liệu sản phẩm</span>}
           </div>
         )}
 
@@ -194,7 +195,7 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
               ? `Kết quả cho "${searchQuery}" (${allProducts.length})`
               : activeCategory
                 ? `${(window.CATEGORIES || []).find(c => c.id === activeCategory)?.name || activeCategory} (${allProducts.length})`
-                : 'Gợi ý hôm nay'}
+                : 'Sản phẩm từ catalog'}
           </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {(searchQuery || activeCategory) && (
@@ -222,12 +223,18 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
           <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--ink-500)' }}>
             <Icon name="search" size={40} color="var(--ink-300)" />
             <div style={{ marginTop: 12, fontSize: 15 }}>
-              Không tìm thấy sản phẩm phù hợp
+              {catalogLoading
+                ? 'Đang đợi Catalog Service trả sản phẩm'
+                : catalogErr
+                  ? 'Catalog Service chưa trả dữ liệu sản phẩm'
+                  : 'Không tìm thấy sản phẩm phù hợp'}
             </div>
-            <button onClick={() => { setSortMode('all'); onCategory && onCategory(null); }}
-              className="btn btn-outline" style={{ marginTop: 16, padding: '8px 20px' }}>
-              Xem tất cả sản phẩm
-            </button>
+            {catalogOk && (
+              <button onClick={() => { setSortMode('all'); onCategory && onCategory(null); }}
+                className="btn btn-outline" style={{ marginTop: 16, padding: '8px 20px' }}>
+                Xem tất cả sản phẩm
+              </button>
+            )}
           </div>
         ) : (
           <div className="product-grid">
@@ -243,11 +250,36 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
 
 // ─── Product Detail Screen ───────────────────────────────────────────
 const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow, wishlist, onToggleWishlist }) => {
-  const product  = window.PRODUCTS.find(p => p.id === productId) || window.PRODUCTS[0];
-  const merchant = window.MERCHANTS[product.merchant_id];
+  const products = window.PRODUCTS || [];
+  const product  = products.find(p => p.id === productId) || products[0];
   const [qty, setQty] = React.useState(1);
   const [selectedColor, setSelectedColor] = React.useState(0);
   const [activeThumb, setActiveThumb] = React.useState(0);
+
+  if (!product) {
+    return (
+      <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--ink-500)' }}>
+        <Icon name="box" size={44} color="var(--ink-300)" />
+        <div style={{ marginTop: 12, fontSize: 16, fontWeight: 600, color: 'var(--ink-700)' }}>
+          Chưa có sản phẩm từ Catalog Service
+        </div>
+        <div style={{ marginTop: 6, fontSize: 13 }}>
+          Trang này chỉ hiển thị sản phẩm được trả về từ catalog.
+        </div>
+        <button onClick={() => onNav('home')} className="btn btn-outline" style={{ marginTop: 16, padding: '8px 20px' }}>
+          Về trang chủ
+        </button>
+      </div>
+    );
+  }
+
+  const merchant = {
+    name: product.merchant_id || 'Catalog Merchant',
+    is_verified: false,
+    followers: '0',
+    rating: 'N/A',
+    since: 'N/A',
+  };
 
   const isWishlisted = wishlist && wishlist.includes(product.id);
 
@@ -257,13 +289,13 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow, wishlist, onTo
       navigator.share({ title: product.name, url });
     } else {
       navigator.clipboard && navigator.clipboard.writeText(url);
-      // fallback toast via parent — just log for now
+      console.info('Copied product URL:', url);
     }
   };
 
   const phColors = ['#FFE5D9','#D9E8FF','#E5F4DD','#FFEACD','#F0E2FF','#FFE0E0','#D9F4F0','#FCE7F3','#FFF4D9','#E0F2FE','#FEE2E2','#DCFCE7'];
   const phColor  = phColors[parseInt(product.id.split('_')[1]) % phColors.length];
-  const related  = window.PRODUCTS.filter(p => p.id !== product.id).slice(0, 5);
+  const related  = products.filter(p => p.id !== product.id).slice(0, 5);
 
   const weightLabel = product.weight_g >= 1000
     ? `${(product.weight_g / 1000).toFixed(1)} kg`

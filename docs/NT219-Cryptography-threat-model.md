@@ -24,7 +24,7 @@ Báo cáo này đánh giá hệ thống `NT219-Cryptography`, một hệ thống
 
 _Ranh giới tin cậy là ranh giới phân định nơi hệ thống bắt đầu/kết thúc việc tin tưởng dữ liệu được gửi đến. Dữ liệu vượt qua ranh giới này bắt buộc phải được kiểm tra (validate)._
 
-1. **Từ Internet vào API (Bên ngoài)**: Hiện tại mã nguồn không thể hiện rõ (có thể là đang mở phơi mình trực tiếp hoặc đang thiếu Cổng giao tiếp API Gateway). Các yêu cầu từ người dùng đang được tin tưởng một cách ngây thơ chỉ dựa vào thông tin tự xưng ở các đoạn văn bản đính kèm (`X-User-Id`, `X-Merchant-Id`). Đoạn code làm vậy có lẽ vì giai đoạn đầu muốn test nhanh cho tiện, nhưng lại tạo ra lỗ hổng giả mạo rất lớn.
+1. **Từ Internet vào API (Bên ngoài - Dự kiến dùng Envoy)**: Hệ thống dự định dùng Envoy làm Cổng giao tiếp (API Gateway) đứng trước. Tại ranh giới này, Envoy sẽ chịu trách nhiệm chính trong việc chặn và xác thực mọi yêu cầu. Hiện tại mã nguồn bên dưới vi dịch vụ đang tin tưởng ngây thơ vào thông tin tự xưng (`X-User-Id`, `X-Merchant-Id`), do đó việc cấu hình Envoy đóng vai trò sống còn để không lọt các yêu cầu giả mạo xuống dưới.
 2. **Giao tiếp nội bộ giữa các Dịch vụ (Internal HTTP)**: Chủ yếu do `order-service` điều phối. Hệ thống có cơ chế kiểm tra tính toàn vẹn (HMAC) và chống gửi lại gói tin (Nonce guard) để đảm bảo không ai can thiệp được vào nội dung gửi giữa các máy chủ. Tuy nhiên, các rào chắn này lại bị **tắt hoàn toàn** (`REQUIRE_INBOUND_HMAC=False`, `REQUIRE_NONCE_GUARD=False`). Việc lập trình viên tắt cấu hình này nhằm giúp môi trường dev ở máy cá nhân không bị cản trở bởi các lỗi bảo mật, nhưng quên bật lại.
 3. **Từ Dịch vụ gọi ra Bên thứ ba (External egress)**: Các lời gọi API từ hệ thống nội bộ gửi ra Stripe, Giao Hàng Nhanh, và SMTP.
 4. **Từ Dịch vụ gửi vào Kafka**: Nội bộ xuất bản và nhận thông điệp sự kiện.
@@ -33,7 +33,7 @@ _Ranh giới tin cậy là ranh giới phân định nơi hệ thống bắt đ�
 
 _Tài sản là những dữ liệu mà hacker nhắm đến, và là thứ chúng ta cần bảo vệ nhất._
 
-- **Độ nhạy cảm rất Cao**: Thông tin giao dịch tài chính (Mã xác thực bí mật `client_secret` của Stripe), Danh tính người dùng/người bán, Dữ liệu cá nhân (PII) dùng để giao hàng, và Nhật ký lưu vết hệ thống (Audit logs).
+- **Độ nhạy cảm rất Cao**: Mã token giao dịch tài chính (`client_secret` của Stripe - Hệ thống áp dụng chính sách No-PAN-Retention, không lưu số thẻ tín dụng thật, giúp giảm thiểu rủi ro rò rỉ thẻ), Danh tính người dùng/người bán, Dữ liệu cá nhân (PII) dùng để giao hàng, và Nhật ký lưu vết hệ thống (Audit logs).
 - **Độ nhạy cảm Trung bình**: Số lượng tồn kho, trạng thái của các đơn đặt hàng.
 
 ### Điểm xâm nhập (Entry Points)
@@ -53,7 +53,7 @@ _Đây là những "cửa" mà kẻ tấn công có thể chui vào._
 ### T1. Giả mạo danh tính và Leo thang đặc quyền do tin tưởng mù quáng (Nghiêm trọng - Critical)
 
 - **Kịch bản**: Hacker ở bên ngoài gửi một yêu cầu HTTP tới API và cố tình tự chèn thêm đoạn văn bản nhận diện `X-User-Id: <id_của_người_khác>` vào dữ liệu gửi đi.
-- **Tác động (Impact)**: **Cao**. Kẻ tấn công hoàn toàn giả mạo được người dùng khác hoặc người bán hàng, từ đó đánh cắp thông tin cá nhân, đặt đơn hàng giả, hay sửa đổi hàng tồn kho.
+- **Tác động (Impact)**: **Cao**. Hệ thống có sự phân quyền (RBAC) rõ ràng. Kẻ tấn công hoàn toàn có thể leo thang đặc quyền (Privilege Escalation), giả mạo làm Người bán hàng (Merchant) để thay đổi hàng tồn kho, hoặc mạo danh người khác để đánh cắp thông tin, đặt đơn hàng giả.
 - **Khả năng xảy ra (Likelihood)**: **Cao**. Hệ thống đang bỏ qua việc kiểm tra tính xác thực (không giải mã JWT - chuỗi mã chứng minh thân phận được cấp khi đăng nhập). Đoạn code hiện tại tin tưởng 100% vào những gì người gửi khai báo ở dạng văn bản (text), nên bất kỳ ai cũng có thể dễ dàng thay đổi ID của mình thành ID người khác.
 - **Tài sản bị đe dọa**: Toàn bộ dữ liệu người dùng, thông tin tài chính và sự minh bạch của hệ thống.
 
@@ -82,8 +82,8 @@ _Đây là những "cửa" mà kẻ tấn công có thể chui vào._
 
 ### Các giải pháp cần làm ngay
 
-1. **Dùng API Gateway & Kiểm chứng mã JWT để chặn giả mạo (T1)**:
-   - Triển khai một Cổng giao tiếp trung tâm (API Gateway) đứng chặn đầu để tiếp nhận mọi yêu cầu. API Gateway này có nhiệm vụ kiểm chứng tính hợp lệ của chuỗi mã danh tính (JWT signatures) để đảm bảo không ai giả danh ai được. Mục đích là để thiết lập một "bảo vệ trạm gác" - các dịch vụ bên trong chỉ cần tin bảo vệ trạm gác này, thay vì phải tự xác minh từng người khách một cách ngây thơ qua những trường văn bản.
+1. **Cấu hình Envoy API Gateway & Kiểm chứng mã JWT để chặn giả mạo (T1)**:
+   - Cấu hình chặt chẽ Envoy đứng chặn đầu để tiếp nhận mọi yêu cầu. Envoy bắt buộc phải kiểm chứng tính hợp lệ của chuỗi mã danh tính (JWT signatures) để đảm bảo không ai giả danh ai được. Mục đích là để thiết lập một "bảo vệ trạm gác" - các dịch vụ bên trong chỉ cần tin bảo vệ trạm gác này, thay vì phải tự xác minh từng người khách một cách ngây thơ qua những trường văn bản.
 2. **Bật lại cấu hình Bảo mật Giao tiếp Nội bộ (T2)**:
    - Sửa các cờ cấu hình `REQUIRE_INBOUND_HMAC=True` và `REQUIRE_NONCE_GUARD=True` ở tất cả các môi trường (chỉ trừ môi trường viết code trên máy cá nhân). Việc này bắt buộc mọi dịch vụ phải "đeo bảng tên có chữ ký số" khi nói chuyện với nhau, nhờ đó kẻ tấn công có lọt vào mạng cũng không thể bịa ra thông điệp hợp lệ.
 3. **Sửa lỗi sai cấu trúc Database ở Thanh toán (T3)**:
@@ -94,12 +94,10 @@ _Đây là những "cửa" mà kẻ tấn công có thể chui vào._
 5. **Dọn dẹp Khóa bảo mật (Secrets Management)**:
    - Tuyệt đối không viết thẳng mật khẩu hay mã bảo mật (như `INTERNAL_API_TOKEN`) vào trong văn bản mã nguồn. Code làm vậy vì lúc lập trình thì dùng biến có sẵn gõ thẳng vào sẽ nhanh hơn rất nhiều, nhưng nếu lọt source code là mất sạch quyền kiểm soát hệ thống. Thay vào đó, máy chủ khi khởi chạy phải tự động đọc biến bảo mật (biến môi trường) hoặc lấy qua Vault.
 
-## 6. Giả định & Câu hỏi Cần chốt (Để hoàn thiện mô hình)
+## 6. Thông tin Kiến trúc đã được Xác nhận (Confirmed Context)
 
-Để hoàn thiện mức độ đánh giá các rủi ro, xin bạn làm rõ thêm:
+Dựa trên xác nhận từ đội ngũ phát triển, mô hình này được chốt với các tiêu chuẩn sau:
 
-1. **Mô hình Triển khai**: Các service này sẽ được kết nối trực tiếp ra ngoài Internet, hay bạn dự định sẽ có một API Gateway đứng trước để chặn lại và xác thực (Auth) mọi yêu cầu trước khi đẩy vào microservices?
-2. **Quyền truy cập (User Roles)**: Bạn có yêu cầu kiểm soát truy cập phân quyền rõ ràng (RBAC - Role-Based Access Control) để tách biệt luồng xử lý giữa Người dùng thường (Standard Users) và Người bán (Merchants) không?
-3. **Độ nhạy cảm của Dữ liệu**: Hệ thống có lưu trữ thông tin thẻ tín dụng trực tiếp trong database không, hay chỉ giao tiếp với Stripe thông qua các mã token/client secrets thôi?
-
-_(Trong lúc chờ bạn phản hồi, kịch bản T1 - Giả mạo danh tính vẫn đang được coi là rủi ro đáng sợ nhất vì nó không có gì bảo vệ)._
+1. **API Gateway**: Sử dụng **Envoy** làm cổng chặn đầu và điều hướng giao thông. Mọi yêu cầu xác thực JWT bắt buộc phải diễn ra tại Envoy.
+2. **Quản lý Quyền truy cập (RBAC)**: Có phân định rạch ròi giữa Standard Users (Người dùng thường) và Merchants (Người bán), do đó việc ngăn chặn leo thang đặc quyền từ mức người dùng lên người bán (như rủi ro T1) là ưu tiên cực kỳ quan trọng.
+3. **Dữ liệu Thanh toán**: Hệ thống tuân thủ **No-PAN-Retention** (Không lưu giữ số thẻ thanh toán chính/Credit Card thật của khách hàng), chỉ làm việc với mã token/secret của Stripe. Điều này giúp loại bỏ rủi ro rò rỉ dữ liệu thẻ thanh toán nếu cơ sở dữ liệu bị tấn công.

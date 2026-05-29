@@ -1,7 +1,7 @@
 // UIT Store — Merchant Products Section
 
 const MerchantProductsSection = ({ merchantId, user }) => {
-  const BASE = (window.UitAPI && window.UitAPI.backendUrl) || 'http://localhost:10000';
+  const BASE = window.UitAPI && window.UitAPI.backendUrl;
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading]   = React.useState(true);
   const [search, setSearch]     = React.useState('');
@@ -16,16 +16,26 @@ const MerchantProductsSection = ({ merchantId, user }) => {
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     return t
       ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
-      : { 'Content-Type': 'application/json', 'X-User-Id': (user && user.id) || 'user_demo_001' };
+      : { 'Content-Type': 'application/json', 'X-User-Id': user && user.id };
   };
 
   const showNotice = (msg, ok) => { setNotice({ msg, ok: ok !== false }); setTimeout(() => setNotice(null), 3000); };
 
   const load = () => {
     setLoading(true);
+    if (!BASE || !user) { setProducts([]); setLoading(false); return; }
     fetch(`${BASE}/api/v1/catalog/merchant/products?merchant_id=${merchantId || ''}`, { headers: hdr() })
       .then(r => r.json())
-      .then(d => { setProducts(Array.isArray(d.data) ? d.data : []); setLoading(false); })
+      .then(d => {
+        const rows = Array.isArray(d.data) ? d.data : [];
+        setProducts(rows.map(p => ({
+          ...p,
+          category: p.metadata_json && p.metadata_json.category || p.category || 'other',
+          stock: p.metadata_json && typeof p.metadata_json.stock === 'number' ? p.metadata_json.stock : p.stock,
+          description: p.metadata_json && p.metadata_json.description || p.description || '',
+        })));
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   };
 
@@ -39,14 +49,14 @@ const MerchantProductsSection = ({ merchantId, user }) => {
 
   const startEdit = (p) => {
     setEditId(p.id);
-    setEditVals({ price: p.base_price, stock: p.stock });
+    setEditVals({ price: p.base_price });
   };
 
-  const saveEdit = (productId) => {
+  const saveEdit = (product) => {
     setSaving(true);
-    fetch(`${BASE}/api/v1/catalog/merchant/products/${productId}`, {
+    fetch(`${BASE}/api/v1/catalog/merchant/products/${product.id}`, {
       method: 'PUT', headers: hdr(),
-      body: JSON.stringify({ price: Number(editVals.price), stock: Number(editVals.stock) }),
+      body: JSON.stringify({ base_price: Number(editVals.price), version: product.version }),
     })
     .then(() => { load(); setEditId(null); showNotice('Đã cập nhật sản phẩm'); setSaving(false); })
     .catch(() => setSaving(false));
@@ -55,7 +65,7 @@ const MerchantProductsSection = ({ merchantId, user }) => {
   const toggleActive = (p) => {
     fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
       method: 'PUT', headers: hdr(),
-      body: JSON.stringify({ is_active: !p.is_active }),
+      body: JSON.stringify({ is_active: !p.is_active, version: p.version }),
     }).then(() => { load(); showNotice(`${p.name} đã ${!p.is_active ? 'hiện' : 'ẩn'}`); });
   };
 
@@ -66,11 +76,21 @@ const MerchantProductsSection = ({ merchantId, user }) => {
   };
 
   const addProduct = () => {
-    if (!form.name.trim() || !form.price) return showNotice('Vui lòng điền tên và giá', false);
+    if (!form.name.trim() || !form.sku.trim() || !form.price) return showNotice('Vui lòng điền tên, SKU và giá', false);
     setSaving(true);
     fetch(`${BASE}/api/v1/catalog/merchant/products`, {
       method: 'POST', headers: hdr(),
-      body: JSON.stringify({ ...form, price: Number(form.price), stock: Number(form.stock || 0), merchant_id: merchantId }),
+      body: JSON.stringify({
+        sku: form.sku.trim(),
+        name: form.name.trim(),
+        base_price: Number(form.price),
+        metadata_json: {
+          category: form.category,
+          stock: Number(form.stock || 0),
+          description: form.description,
+        },
+        merchant_id: merchantId,
+      }),
     })
     .then(r => r.json())
     .then(() => {
@@ -104,7 +124,6 @@ const MerchantProductsSection = ({ merchantId, user }) => {
       {notice && (
         <div style={{ padding: '10px 14px', marginBottom: 12, borderRadius: 6, fontSize: 12, background: notice.ok ? '#ECFDF5' : '#FEF2F2', color: notice.ok ? '#059669' : '#DC2626', border: `1px solid ${notice.ok ? '#A7F3D0' : '#FCA5A5'}` }}>
           {notice.msg}
-          {notice.ok && <span style={{ marginLeft: 10, fontSize: 10, fontFamily: 'monospace', color: 'var(--ink-400)' }}>· HMAC-SHA256 signed ✓</span>}
         </div>
       )}
 
@@ -161,38 +180,32 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                   </span>
                 )}
 
-                {isEditing ? (
-                  <input type="number" value={editVals.stock}
-                    onChange={e => setEditVals({ ...editVals, stock: e.target.value })}
-                    style={{ width: '100%', padding: '4px 6px', fontSize: 12, border: '1.5px solid var(--primary)', borderRadius: 4, outline: 'none', textAlign: 'center' }} />
-                ) : (
-                  <span style={{ textAlign: 'center', color: p.stock < 10 ? 'var(--warn)' : 'var(--ink-700)', cursor: 'pointer' }} onClick={() => startEdit(p)} title="Click để sửa tồn kho">
-                    {p.stock}
-                  </span>
-                )}
+                <span style={{ textAlign: 'center', color: p.stock < 10 ? 'var(--warn)' : 'var(--ink-700)' }}>
+                  {typeof p.stock === 'number' ? p.stock : '—'}
+                </span>
 
                 <div style={{ textAlign: 'center' }}>
                   {p.is_active
-                    ? <span className="badge badge-success" style={{ fontSize: 10 }}>● Active</span>
-                    : <span className="badge" style={{ fontSize: 10, background: 'var(--ink-100)', color: 'var(--ink-500)' }}>● Ẩn</span>
+                    ? <span className="badge badge-success" style={{ fontSize: 10 }}>Active</span>
+                    : <span className="badge" style={{ fontSize: 10, background: 'var(--ink-100)', color: 'var(--ink-500)' }}>Ẩn</span>
                   }
                 </div>
 
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                   {isEditing ? (<>
-                    <button onClick={() => saveEdit(p.id)} disabled={saving}
+                    <button onClick={() => saveEdit(p)} disabled={saving}
                       className="btn btn-primary" style={{ padding: '4px 10px', fontSize: 11 }}>Lưu</button>
                     <button onClick={() => setEditId(null)}
-                      style={{ padding: '4px 10px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>✕</button>
+                      style={{ padding: '4px 10px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>Huỷ</button>
                   </>) : (<>
-                    <button onClick={() => startEdit(p)} title="Sửa giá / tồn"
-                      style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>✎</button>
+                    <button onClick={() => startEdit(p)} title="Sửa giá"
+                      style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>Sửa</button>
                     <button onClick={() => toggleActive(p)} title={p.is_active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
                       style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>
-                      {p.is_active ? '👁' : '🔒'}
+                      {p.is_active ? 'Ẩn' : 'Hiện'}
                     </button>
                     <button onClick={() => deleteProduct(p)} title="Xoá"
-                      style={{ padding: '4px 8px', fontSize: 11, border: '1px solid #FCA5A5', borderRadius: 4, background: 'white', color: '#DC2626' }}>🗑</button>
+                      style={{ padding: '4px 8px', fontSize: 11, border: '1px solid #FCA5A5', borderRadius: 4, background: 'white', color: '#DC2626' }}>Xoá</button>
                   </>)}
                 </div>
               </div>
@@ -214,7 +227,7 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                 <input className="input" placeholder="Giá bán (VNĐ) *" type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
                 <input className="input" placeholder="Tồn kho" type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} />
               </div>
-              <input className="input" placeholder="SKU (tự sinh nếu bỏ trống)" value={form.sku} onChange={e => setForm({...form, sku: e.target.value})} />
+              <input className="input" placeholder="SKU *" value={form.sku} onChange={e => setForm({...form, sku: e.target.value})} />
               <select className="input" value={form.category} onChange={e => setForm({...form, category: e.target.value})}
                 style={{ padding: '8px 10px', fontSize: 13, borderRadius: 6, border: '1px solid var(--ink-200)' }}>
                 {(window.CATEGORIES || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

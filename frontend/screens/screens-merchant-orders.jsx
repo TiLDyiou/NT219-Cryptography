@@ -10,7 +10,7 @@ const _ORDER_STATUS = {
 const _PAYMENT_LABEL = { cod: 'COD', credit: 'Thẻ TD', vnpay: 'VNPay', momo: 'MoMo' };
 
 const MerchantOrdersSection = ({ merchantId, user }) => {
-  const BASE = (window.UitAPI && window.UitAPI.backendUrl) || 'http://localhost:10000';
+  const BASE = window.UitAPI && window.UitAPI.backendUrl;
   const [orders, setOrders]   = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [tab, setTab]         = React.useState('all');
@@ -22,7 +22,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     return t
       ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
-      : { 'Content-Type': 'application/json', 'X-User-Id': (user && user.id) || 'user_demo_001' };
+      : { 'Content-Type': 'application/json', 'X-User-Id': user && user.id };
   };
 
   const showNotice = (msg, ok) => {
@@ -32,6 +32,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
 
   const load = () => {
     setLoading(true);
+    if (!BASE || !user) { setOrders([]); setLoading(false); return; }
     fetch(`${BASE}/api/v1/orders/merchant/orders?merchant_id=${merchantId || ''}`, { headers: hdr() })
       .then(r => r.json())
       .then(d => { setOrders(Array.isArray(d.data) ? d.data : []); setLoading(false); })
@@ -119,7 +120,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
+          <Icon name="package" size={32} color="var(--ink-300)" />
           <div style={{ fontSize: 14, color: 'var(--ink-600)' }}>
             {tab === 'pending' ? 'Không có đơn chờ xác nhận' : 'Chưa có đơn hàng nào'}
           </div>
@@ -181,7 +182,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
 
                   <div>
                     <div style={{ fontSize: 12 }}>{(order.shipping_address && order.shipping_address.name) || 'Khách hàng'}</div>
-                    <div style={{ fontSize: 10, color: 'var(--ink-400)', fontFamily: 'monospace' }} title="Mã hoá field-level · Vault Transit">{maskedPhone} 🔒</div>
+                    <div style={{ fontSize: 10, color: 'var(--ink-400)', fontFamily: 'monospace' }} title="Mã hoá field-level · Vault Transit">{maskedPhone}</div>
                   </div>
 
                   <div style={{ fontWeight: 600, color: 'var(--price)', fontSize: 12 }}>
@@ -192,7 +193,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <span style={{ display: 'inline-block', fontSize: 10, padding: '3px 8px', borderRadius: 10, background: st.bg, color: st.color, fontWeight: 600 }}>
-                      ● {st.label}
+                      {st.label}
                     </span>
                   </div>
                 </div>
@@ -213,7 +214,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
                       {order.status === 'pending' && (<>
                         <button onClick={() => updateStatus(order.parent_order_number, 'confirmed')}
                           disabled={bsy} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 12 }}>
-                          {bsy ? '...' : '✓ Xác nhận đơn'}
+                          {bsy ? '...' : 'Xác nhận đơn'}
                         </button>
                         <button
                           onClick={() => { if (window.confirm('Huỷ đơn hàng này?')) updateStatus(order.parent_order_number, 'cancelled'); }}
@@ -226,14 +227,14 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
                       {order.status === 'confirmed' && (
                         <button onClick={() => updateStatus(order.parent_order_number, 'shipped')}
                           disabled={bsy} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 12 }}>
-                          {bsy ? '...' : '🚚 Đánh dấu đang giao'}
+                          {bsy ? '...' : 'Đánh dấu đang giao'}
                         </button>
                       )}
 
                       {order.status === 'shipped' && (
                         <button onClick={() => updateStatus(order.parent_order_number, 'delivered')}
                           disabled={bsy} className="btn btn-primary" style={{ padding: '6px 14px', fontSize: 12 }}>
-                          {bsy ? '...' : '✅ Đã giao hàng'}
+                          {bsy ? '...' : 'Đã giao hàng'}
                         </button>
                       )}
 
@@ -243,7 +244,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
                     </div>
 
                     <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--ink-200)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--ink-400)' }}>
-                      🔒 HMAC-SHA256 signed · req_id={Math.random().toString(36).slice(2, 10)} · Ghi vào audit log
+                      Backend ghi audit log sau khi cập nhật trạng thái.
                       &nbsp;·&nbsp; SĐT khách: field-encrypted (Vault Transit)
                     </div>
                   </div>

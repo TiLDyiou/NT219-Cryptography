@@ -1,7 +1,7 @@
 // UIT Store — Merchant Analytics Section
 
 const MerchantAnalyticsSection = ({ merchantId, user }) => {
-  const BASE = (window.UitAPI && window.UitAPI.backendUrl) || 'http://localhost:10000';
+  const BASE = window.UitAPI && window.UitAPI.backendUrl;
   const [orders, setOrders]     = React.useState([]);
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading]   = React.useState(true);
@@ -11,11 +11,12 @@ const MerchantAnalyticsSection = ({ merchantId, user }) => {
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     return t
       ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
-      : { 'Content-Type': 'application/json', 'X-User-Id': (user && user.id) || 'user_demo_001' };
+      : { 'Content-Type': 'application/json', 'X-User-Id': user && user.id };
   };
 
   const load = () => {
     setLoading(true);
+    if (!BASE || !user) { setOrders([]); setProducts([]); setLoading(false); return; }
     const qp = merchantId ? `?merchant_id=${merchantId}` : '';
     Promise.all([
       fetch(`${BASE}/api/v1/orders/merchant/orders${qp}`, { headers: hdr() }).then(r => r.json()),
@@ -200,7 +201,7 @@ const MerchantAnalyticsSection = ({ merchantId, user }) => {
           </div>
 
           <div style={{ fontSize: 11, color: 'var(--ink-400)', textAlign: 'center', fontFamily: 'JetBrains Mono, monospace', padding: '4px 0' }}>
-            Dữ liệu tổng hợp từ {orders.length} đơn hàng · {products.length} sản phẩm · Real-time từ mock server
+            Dữ liệu tổng hợp từ {orders.length} đơn hàng · {products.length} sản phẩm từ backend
           </div>
         </div>
       )}

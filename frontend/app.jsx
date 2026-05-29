@@ -5,42 +5,45 @@ const App = () => {
   const [productId, setProductId]     = React.useState(null);
   const [cart, setCart]               = React.useState([]);
   const [user, setUser]               = React.useState(null);
-  const [show3DS, setShow3DS]         = React.useState(false);
   const [orderTotal, setOrderTotal]   = React.useState(0);
   const [showNav, setShowNav]         = React.useState(false);
 
   // API integration state
   const [productsVersion, setProductsVersion] = React.useState(0); // trigger re-render khi products thay đổi
   const [cartVersions, setCartVersions]       = React.useState({}); // { [merchantId]: { cartId, version } }
-  const [pendingCheckout, setPendingCheckout] = React.useState(null);
   const [realOrderId, setRealOrderId]         = React.useState(null);
   const [lastOrderPayload, setLastOrderPayload] = React.useState(null);
   const [apiStatus, setApiStatus]             = React.useState({
-    catalog: 'unknown', // 'ok' | 'error' | 'unknown'
+    catalog: 'unknown', // 'loading' | 'ok' | 'error' | 'unknown'
     cart:    'unknown',
     order:   'unknown',
   });
 
   // ── Load products + cart từ backend ─────────────────────────────────
   function loadData() {
+    window.PRODUCTS = [];
+    setProductsVersion(function (v) { return v + 1; });
+    setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'loading' }); });
+
     window.UitAPI.catalog.listProducts()
       .then(function (res) {
         const apiProducts = res && res.data;
         if (apiProducts && apiProducts.length > 0) {
           const mapped = apiProducts.map(function (p) {
-            const staticMatch = (window.PRODUCTS || []).find(function (s) {
-              return s.sku === p.sku || s.id === p.id;
-            });
-            return window.UitAPI.mapApiProduct(p, staticMatch);
+            return window.UitAPI.mapApiProduct(p);
           });
           window.PRODUCTS = mapped;
           setProductsVersion(function (v) { return v + 1; });
           setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'ok' }); });
         } else {
+          window.PRODUCTS = [];
+          setProductsVersion(function (v) { return v + 1; });
           setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'ok' }); });
         }
       })
       .catch(function () {
+        window.PRODUCTS = [];
+        setProductsVersion(function (v) { return v + 1; });
         setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'error' }); });
       });
 
@@ -67,22 +70,41 @@ const App = () => {
 
   // ── Khởi động: khôi phục phiên + load data ───────────────────────────
   React.useEffect(function () {
-    // Khôi phục phiên nếu token còn hạn trong sessionStorage
-    if (window.UitAuth && window.UitAuth.isAuthenticated()) {
-      const u = window.UitAuth.getUser();
-      if (u) {
+    var cancelled = false;
+
+    async function initAuth() {
+      var u = null;
+      if (window.UitAuth) {
+        try {
+          u = await window.UitAuth.handleCallback();
+        } catch (err) {
+          console.warn('[UIT Store] Auth callback:', err);
+        }
+
+        // Khôi phục phiên nếu token còn hạn trong sessionStorage
+        if (!u && window.UitAuth.isAuthenticated()) {
+          u = window.UitAuth.getUser();
+        }
+      }
+
+      if (!cancelled && u) {
         setUser(u);
         window.UitAPI.setUserId(u.id || u.email);
       }
+
+      if (!cancelled) {
+        loadData();
+      }
     }
-    loadData();
+
+    initAuth();
+    return function () { cancelled = true; };
   }, []);
 
   const nav = (target, id) => {
     setScreen(target);
     if (id) setProductId(id);
     else if (target === 'product' && !productId) {
-      // Fallback: lấy sản phẩm đầu tiên có trong PRODUCTS
       const first = window.PRODUCTS && window.PRODUCTS[0];
       if (first) setProductId(first.id);
     }
@@ -162,7 +184,7 @@ const App = () => {
   };
 
   // ── Build checkout payload ───────────────────────────────────────────
-  const buildCheckoutPayload = React.useCallback(function (paymentMethod, deliveryFee) {
+  const buildCheckoutPayload = React.useCallback(function (paymentMethod, deliveryFee, checkoutAddress) {
     const items = cart.map(function (c) {
       const product = (window.PRODUCTS || []).find(function (p) { return p.id === c.productId; });
       if (!product) return null;
@@ -180,14 +202,20 @@ const App = () => {
     const subtotal     = items.reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
     const shipping_fee = deliveryFee !== undefined ? deliveryFee : (subtotal > 500000 ? 0 : 25000);
 
-    // Dùng cart_id từ backend nếu có, fallback sang synthetic
     const firstMerchantId = items.length > 0 ? items[0].merchant_id : 'unknown';
     const cartMeta = cartVersions[firstMerchantId];
-    const cartId   = cartMeta ? cartMeta.cartId : ('demo_cart_' + Date.now());
+    if (!cartMeta) {
+      throw new Error('Không tìm thấy cart_id từ Cart Service.');
+    }
+    const cartId = cartMeta.cartId;
 
     const pmType = paymentMethod === 'credit' ? 'credit_card'
                  : paymentMethod === 'cod'    ? 'cod'
                  : 'e_wallet';
+    const address = checkoutAddress || {};
+    if (!address.full_name || !address.phone || !address.address_line1 || !address.city) {
+      throw new Error('Vui lòng nhập đầy đủ tên, số điện thoại, địa chỉ và tỉnh/thành phố.');
+    }
 
     return {
       cart_id:              cartId,
@@ -196,13 +224,13 @@ const App = () => {
       customer_note:        null,
       items:                items,
       shipping_address: {
-        full_name:      user ? user.name  : 'Khách',
-        phone:          '0912345789',
-        email:          user ? user.email : '',
-        address_line1:  'Số 1 Hàn Thuyên, Phường Linh Trung',
-        city:           'TP. Hồ Chí Minh',
-        state_province: 'TP. Thủ Đức',
-        postal_code:    '700000',
+        full_name:      address.full_name,
+        phone:          address.phone,
+        email:          address.email || '',
+        address_line1:  address.address_line1,
+        city:           address.city,
+        state_province: address.state_province || '',
+        postal_code:    address.postal_code || '',
       },
     };
   }, [cart, cartVersions, user]);
@@ -216,35 +244,26 @@ const App = () => {
         const orderNum = (res && res.data && res.data.parent_order_number) || null;
         if (orderNum) setRealOrderId(orderNum);
         setApiStatus(function (prev) { return Object.assign({}, prev, { order: 'ok' }); });
+        setCart([]);
+        nav('order');
       })
       .catch(function (err) {
         console.warn('[UIT Store] Order API:', err.message);
         setApiStatus(function (prev) { return Object.assign({}, prev, { order: 'error' }); });
-      })
-      .finally(function () {
-        setCart([]);
-        nav('order');
+        alert('Order Service chưa tạo được đơn hàng: ' + err.message);
       });
   }, [cart, cartVersions]);
 
-  const handlePay = (paymentMethod, deliveryFee) => {
-    const payload = buildCheckoutPayload(paymentMethod, deliveryFee);
-    const subtotal = (payload.items || []).reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
-    setOrderTotal(subtotal + Number(payload.shipping_fee));
-
-    if (paymentMethod === 'credit') {
-      setPendingCheckout(payload);
-      setShow3DS(true);
-    } else {
+  const handlePay = (paymentMethod, deliveryFee, checkoutAddress) => {
+    try {
+      const payload = buildCheckoutPayload(paymentMethod, deliveryFee, checkoutAddress);
+      const subtotal = (payload.items || []).reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
+      setOrderTotal(subtotal + Number(payload.shipping_fee));
       doCheckout(payload);
+    } catch (err) {
+      alert('Lỗi xử lý thanh toán: ' + err.message);
+      console.error(err);
     }
-  };
-
-  const complete3DS = () => {
-    setShow3DS(false);
-    const payload = pendingCheckout || buildCheckoutPayload('credit');
-    setPendingCheckout(null);
-    doCheckout(payload);
   };
 
   // Toast
@@ -259,7 +278,7 @@ const App = () => {
     product:  `uitstore.vn/p/${productId}`,
     cart:     'uitstore.vn/checkout/cart',
     checkout: 'uitstore.vn/checkout/payment',
-    order:    'uitstore.vn/order/' + (realOrderId || 'UIT-2026052401-A7F3'),
+    order:    realOrderId ? 'uitstore.vn/order/' + realOrderId : 'uitstore.vn/order',
     login:    'uitstore.vn/account/login',
     register: 'uitstore.vn/account/register',
     account:  'uitstore.vn/account',
@@ -298,8 +317,13 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Khi user đăng nhập (callback từ LoginScreen mock hoặc từ initAuth)
+  // Khi user đăng nhập
   const handleLogin = (u) => {
+    if (!u) {
+      nav('login');
+      toast('Đăng ký thành công. Vui lòng đăng nhập lại.');
+      return;
+    }
     setUser(u);
     if (u) window.UitAPI.setUserId(u.id || u.email || u.name);
     nav('home');
@@ -310,7 +334,7 @@ const App = () => {
     setUser(null);
     setCart([]);
     setCartVersions({});
-    window.UitAPI.setUserId('user_demo_001');
+    window.UitAPI.setUserId(null);
     if (window.UitAuth) window.UitAuth.logout();
     nav('home');
     toast('Đã đăng xuất');
@@ -338,28 +362,10 @@ const App = () => {
     if (screen !== 'home') nav('home');
   };
 
-  const isOffline = apiStatus.catalog === 'error' && apiStatus.cart === 'error';
-  const [dismissDemo, setDismissDemo] = React.useState(false);
-
   const noHeaderScreens = ['login', 'register', 'merchant'];
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }} className="app-content">
-
-      {/* Banner demo mode */}
-      {isOffline && !dismissDemo && !noHeaderScreens.includes(screen) && (
-        <div style={{
-          background: '#FEF3C7', borderBottom: '1px solid #FCD34D',
-          padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12,
-        }}>
-          <Icon name="bell" size={14} color="#92400E" />
-          <span style={{ flex: 1, color: '#92400E' }}>
-            <b>Demo mode</b> — Backend chưa kết nối. Dữ liệu tĩnh, auth dùng localStorage.
-          </span>
-          <span style={{ cursor: 'pointer', color: '#92400E', fontWeight: 600 }} onClick={() => setDismissDemo(true)}>✕</span>
-        </div>
-      )}
-
       {!noHeaderScreens.includes(screen) && (
         <Header nav={screen} cartCount={cartCount} onNav={nav} user={user} onLogout={handleLogout} onSearch={handleSearch} onCategory={handleCategory} onToast={toast} />
       )}
@@ -445,15 +451,6 @@ const App = () => {
         </div>
       )}
 
-      {/* 3DS modal */}
-      {show3DS && (
-        <ThreeDSModal
-          amount={orderTotal}
-          user={user}
-          onComplete={complete3DS}
-          onCancel={() => { setShow3DS(false); setPendingCheckout(null); }}
-        />
-      )}
     </div>
   );
 };

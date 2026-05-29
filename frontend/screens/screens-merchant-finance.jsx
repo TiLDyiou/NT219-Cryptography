@@ -1,7 +1,7 @@
 // UIT Store — Merchant Finance Section
 
 const MerchantFinanceSection = ({ merchantId, user }) => {
-  const BASE = (window.UitAPI && window.UitAPI.backendUrl) || 'http://localhost:10000';
+  const BASE = window.UitAPI && window.UitAPI.backendUrl;
   const [balance, setBalance]   = React.useState(null);
   const [txns, setTxns]         = React.useState([]);
   const [loading, setLoading]   = React.useState(true);
@@ -13,11 +13,12 @@ const MerchantFinanceSection = ({ merchantId, user }) => {
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     return t
       ? { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
-      : { 'Content-Type': 'application/json', 'X-User-Id': (user && user.id) || 'user_demo_001' };
+      : { 'Content-Type': 'application/json', 'X-User-Id': user && user.id };
   };
 
   const load = () => {
     setLoading(true);
+    if (!BASE || !user) { setBalance(null); setTxns([]); setLoading(false); return; }
     const qp = merchantId ? `?merchant_id=${merchantId}` : '';
     Promise.all([
       fetch(`${BASE}/api/v1/finance/merchant/balance${qp}`, { headers: hdr() }).then(r => r.json()),
@@ -67,13 +68,13 @@ const MerchantFinanceSection = ({ merchantId, user }) => {
           {/* Balance cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 18 }}>
             {[
-              { label: 'Có thể rút', value: balance ? balance.available : 0, color: 'var(--success)', note: 'Đã định toán' },
-              { label: 'Đang chờ',   value: balance ? balance.pending   : 0, color: 'var(--warn)',    note: 'Chờ xác nhận giao' },
-              { label: 'Tổng doanh thu', value: balance ? balance.total : 0, color: 'var(--primary)', note: 'Sau phí 5% platform' },
+              { label: 'Có thể rút', value: balance ? window.formatVND(balance.available) : '—', color: 'var(--success)', note: 'Đã định toán' },
+              { label: 'Đang chờ',   value: balance ? window.formatVND(balance.pending)   : '—', color: 'var(--warn)',    note: 'Chờ xác nhận giao' },
+              { label: 'Tổng doanh thu', value: balance ? window.formatVND(balance.total) : '—', color: 'var(--primary)', note: 'Sau phí 5% platform' },
             ].map(c => (
               <div key={c.label} className="card" style={{ padding: 16 }}>
                 <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 8 }}>{c.label}</div>
-                <div style={{ fontSize: 20, fontWeight: 700, color: c.color }}>{window.formatVND(c.value)}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: c.color }}>{c.value}</div>
                 <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 4 }}>{c.note}</div>
               </div>
             ))}
@@ -89,7 +90,7 @@ const MerchantFinanceSection = ({ merchantId, user }) => {
                   <span>
                     {balance.bank_account.bank} · <b style={{ fontFamily: 'monospace' }}>{balance.bank_account.masked}</b>
                     <span className="badge" style={{ marginLeft: 8, fontSize: 10, background: '#EFF6FF', color: '#2563EB' }}>
-                      🔒 {balance.bank_account.encryption}
+                      {balance.bank_account.encryption}
                     </span>
                   </span>
                 ) : '—'}
@@ -98,7 +99,7 @@ const MerchantFinanceSection = ({ merchantId, user }) => {
                 Số tài khoản lưu mã hoá AES-256-GCM trong DB · Chỉ hiển thị dạng masked
               </div>
             </div>
-            <button onClick={() => setShowWithdraw(true)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12 }}>
+            <button onClick={() => setShowWithdraw(true)} disabled={!balance} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: 12 }}>
               Yêu cầu rút tiền
             </button>
           </div>

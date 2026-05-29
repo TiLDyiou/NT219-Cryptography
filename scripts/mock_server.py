@@ -449,6 +449,38 @@ def handle_security_audit_log(qs, user):
             _add_audit(merchant_id, a, r, actor='system')
     return _ok(_audit_logs.get(merchant_id, []))
 
+def handle_auth_register(body):
+    email = body.get('email')
+    password = body.get('password')
+    name = body.get('name')
+    if not email or not password: return _bad('Thiếu email hoặc mật khẩu')
+    
+    try:
+        import subprocess
+        # 1. Get token
+        t_cmd = "curl -s -X POST -d 'grant_type=password&client_id=admin-cli&username=admin&password=admin123' http://192.168.122.11:8080/auth/realms/master/protocol/openid-connect/token"
+        token_out = subprocess.check_output(t_cmd, shell=True).decode()
+        token_data = json.loads(token_out)
+        token = token_data.get('access_token')
+        if not token: return _bad('Không thể lấy admin token từ Keycloak')
+        
+        # 2. Create user
+        u_data = {
+            "username": email.split('@')[0],
+            "email": email,
+            "firstName": name,
+            "enabled": True,
+            "credentials": [{"type": "password", "value": password, "temporary": False}]
+        }
+        c_cmd = f"curl -s -X POST -H 'Authorization: Bearer {token}' -H 'Content-Type: application/json' -d '{json.dumps(u_data)}' http://192.168.122.11:8080/auth/admin/realms/nt219/users -w '%{{http_code}}'"
+        c_out = subprocess.check_output(c_cmd, shell=True).decode()
+        code = c_out[-3:]
+        if code in ('201', '409'):
+            return _ok({'message': 'Created'})
+        return _bad(f'Keycloak từ chối ({code}): {c_out}')
+    except Exception as e:
+        return _bad(str(e))
+
 # ── HTTP Handler ─────────────────────────────────────────────────────────────
 class MockHandler(BaseHTTPRequestHandler):
 
@@ -502,6 +534,10 @@ class MockHandler(BaseHTTPRequestHandler):
             pid = m.group(1)
             if method == 'PUT':    return handle_merchant_product_update(pid, self._read_body(), user)
             if method == 'DELETE': return handle_merchant_product_delete(pid, user)
+
+        # ── Auth ──────────────────────────────────────────────────────────────
+        if method == 'POST' and path == '/api/v1/auth/register':
+            return handle_auth_register(self._read_body())
 
         # ── Cart ──────────────────────────────────────────────────────────────
         if method == 'GET' and path == '/api/v1/cart/user/carts':

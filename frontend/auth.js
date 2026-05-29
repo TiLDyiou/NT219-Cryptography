@@ -14,7 +14,9 @@
       const override = p.get('authUrl') || p.get('auth_url');
       if (override) return override.replace(/\/+$/, '');
     } catch (e) {}
-    return window.location.origin + '/auth';
+    // Mặc định trỏ thẳng vào IP của máy ảo, cổng 8080 (cổng mặc định của Keycloak)
+    // để bypass lỗi 403 của Nginx ở port 80.
+    return 'http://192.168.122.11:8080/auth';
   }
 
   const AUTH_BASE        = resolveAuthBase();
@@ -28,6 +30,7 @@
   // sessionStorage keys
   var K = {
     ACCESS:   'nt219_access_token',
+    ID:       'nt219_id_token',
     REFRESH:  'nt219_refresh_token',
     EXP_AT:   'nt219_expires_at',
     VERIFIER: 'nt219_pkce_verifier',
@@ -68,25 +71,44 @@
     } catch (e) { return null; }
   }
 
+  function decodeBase64urlUtf8(value) {
+    var b64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    b64 += '='.repeat((4 - b64.length % 4) % 4);
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder().decode(bytes);
+  }
+
+  function readClaims(token) {
+    var parts = (token || '').split('.');
+    if (parts.length < 2) return null;
+    return JSON.parse(decodeBase64urlUtf8(parts[1]));
+  }
+
+  function userFromClaims(claims) {
+    var displayName = claims.name || claims.preferred_username || 'Người dùng';
+    return {
+      id:      claims.sub || '',
+      name:    displayName,
+      email:   claims.email || '',
+      initial: displayName[0].toUpperCase(),
+      roles:   (claims.realm_access && claims.realm_access.roles) || [],
+    };
+  }
+
   function saveTokens(resp) {
     ss(K.ACCESS,  resp.access_token || null);
+    ss(K.ID,      resp.id_token || ss(K.ID) || null);
     ss(K.REFRESH, resp.refresh_token || null);
     var exp = Date.now() + ((resp.expires_in || 300) - 10) * 1000;
     ss(K.EXP_AT, String(exp));
     // Parse user claims from JWT payload — display only, never used for authZ
     try {
-      var parts  = (resp.access_token || '').split('.');
-      // base64url → base64: đổi ký tự rồi thêm padding cho đúng bội số 4
-      var b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      b64 += '='.repeat((4 - b64.length % 4) % 4);
-      var claims = JSON.parse(atob(b64));
-      ss(K.USER, JSON.stringify({
-        id:      claims.sub  || '',
-        name:    claims.name || claims.preferred_username || 'Người dùng',
-        email:   claims.email || '',
-        initial: (claims.name || claims.preferred_username || '?')[0].toUpperCase(),
-        roles:   (claims.realm_access && claims.realm_access.roles) || [],
-      }));
+      var claims = readClaims(resp.access_token);
+      if (claims) ss(K.USER, JSON.stringify(userFromClaims(claims)));
     } catch (e) {}
   }
 
@@ -95,13 +117,26 @@
   }
 
   function getAccessToken()  { return ss(K.ACCESS)  || null; }
+  function getIdToken()      { return ss(K.ID)      || null; }
   function getRefreshToken() { return ss(K.REFRESH) || null; }
   function isExpired() {
     var exp = parseInt(ss(K.EXP_AT) || '0', 10);
     return Date.now() >= exp;
   }
   function getUser() {
-    try { var r = ss(K.USER); return r ? JSON.parse(r) : null; } catch (e) { return null; }
+    try {
+      var token = getAccessToken();
+      if (token && !isExpired()) {
+        var claims = readClaims(token);
+        if (claims) {
+          var user = userFromClaims(claims);
+          ss(K.USER, JSON.stringify(user));
+          return user;
+        }
+      }
+      var r = ss(K.USER);
+      return r ? JSON.parse(r) : null;
+    } catch (e) { return null; }
   }
   function isAuthenticated() { return !!getAccessToken() && !isExpired(); }
 
@@ -162,15 +197,13 @@
   function register() { return startFlow(REGISTER_EP); }
 
   function logout() {
-    var token = getAccessToken();
-    var isMock = token && token.endsWith('.mock_signature');
+    var idToken = getIdToken();
     clearTokens();
-    if (isMock) return; // mock mode: chỉ xóa token, app.jsx tự nav('home')
     var params = new URLSearchParams({
       client_id:                CLIENT_ID,
       post_logout_redirect_uri: REDIRECT_URI,
     });
-    if (token) params.set('id_token_hint', token);
+    if (idToken) params.set('id_token_hint', idToken);
     window.location.href = LOGOUT_EP + '?' + params.toString();
   }
 
@@ -239,94 +272,13 @@
     }
   }
 
-  // ── Mock store — demo khi Keycloak chưa chạy ─────────────────────────
-  // Lưu user vào localStorage với password hash SHA-256.
-  // Tự động bị bỏ qua khi Keycloak hoạt động bình thường.
-
-  var MOCK_STORE_KEY = 'nt219_mock_users';
-
-  function getMockUsers() {
-    try { return JSON.parse(localStorage.getItem(MOCK_STORE_KEY) || '[]'); } catch (e) { return []; }
-  }
-
-  function saveMockUsers(users) {
-    try { localStorage.setItem(MOCK_STORE_KEY, JSON.stringify(users)); } catch (e) {}
-  }
-
-  async function sha256hex(str) {
-    var buf  = new TextEncoder().encode(str);
-    var hash = await crypto.subtle.digest('SHA-256', buf);
-    return Array.from(new Uint8Array(hash)).map(function (b) {
-      return b.toString(16).padStart(2, '0');
-    }).join('');
-  }
-
-  // Tạo JWT-like mock token (base64url, không ký — chỉ để demo)
-  function makeMockToken(user, expiresInSeconds) {
-    var now     = Math.floor(Date.now() / 1000);
-    var header  = { alg: 'none', typ: 'JWT' };
-    var payload = {
-      sub:               user.id,
-      name:              user.name,
-      email:             user.email,
-      preferred_username: user.email,
-      realm_access:      { roles: ['user'] },
-      iat:               now,
-      exp:               now + expiresInSeconds,
-      iss:               'mock://nt219-demo',
-    };
-    function b64(obj) {
-      return btoa(JSON.stringify(obj)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    }
-    return b64(header) + '.' + b64(payload) + '.mock_signature';
-  }
-
-  function saveMockSession(user) {
-    var expiresIn = 300;
-    var token = makeMockToken(user, expiresIn);
-    try {
-      ss(K.ACCESS,  token);
-      ss(K.REFRESH, '');
-      ss(K.EXP_AT,  String(Date.now() + (expiresIn - 10) * 1000));
-      // Ghi thẳng — không qua atob để tránh lỗi padding base64url
-      ss(K.USER, JSON.stringify({
-        id:      user.id,
-        name:    user.name,
-        email:   user.email,
-        initial: user.initial,
-        roles:   ['user'],
-      }));
-    } catch (e) {}
-  }
-
-  // Đăng ký user mới vào mock store
-  // Trả về: { ok: true } | { ok: false, error }
-  async function registerMock(name, email, password) {
-    var users = getMockUsers();
-    if (users.find(function (u) { return u.email === email; })) {
-      return { ok: false, error: 'Email này đã được đăng ký' };
-    }
-    var hash = await sha256hex(password);
-    var user = {
-      id:      'mock_' + Date.now(),
-      name:    name,
-      email:   email,
-      initial: name.trim()[0].toUpperCase(),
-      hash:    hash,
-    };
-    users.push(user);
-    saveMockUsers(users);
-    saveMockSession(user);
-    return { ok: true, user: getUser() };
-  }
-
-  // ── ROPC — thử Keycloak, fallback mock nếu không có mạng ─────────────
+  // ── ROPC — đăng nhập trực tiếp qua Keycloak ─────────────────────────
   // username: email, otp: mã TOTP 6 số (tuỳ chọn)
   // Trả về: { ok: true, user, mode } | { ok: false, error, mfaRequired }
   async function loginWithPassword(username, password, otp) {
     var params = {
       grant_type: 'password',
-      client_id:  'test-cli',
+      client_id:  'frontend-spa',
       username:   username,
       password:   password,
       scope:      'openid email profile',
@@ -339,8 +291,6 @@
         method:  'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body:    new URLSearchParams(params).toString(),
-        // Timeout ngắn để không đợi lâu khi Keycloak chưa chạy
-        signal:  AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
       });
       var data = await res.json();
 
@@ -353,64 +303,27 @@
       var mfaRequired = desc.toLowerCase().includes('otp') ||
                         desc.toLowerCase().includes('totp') ||
                         desc.toLowerCase().includes('authenticator');
-      // Keycloak đang chạy nhưng sai mật khẩu → không fallback mock
       return { ok: false, error: desc, mfaRequired: mfaRequired };
 
     } catch (networkErr) {
-      // Keycloak chưa chạy (network error / timeout) → thử mock store
+      // Backend (Keycloak) không phản hồi
+      return { ok: false, error: 'Lỗi kết nối tới Backend (Keycloak offline hoặc CORS chặn): ' + networkErr.message };
     }
-
-    // 2. Fallback: mock store trong localStorage
-    var users = getMockUsers();
-    var found = users.find(function (u) { return u.email === username; });
-    if (!found) {
-      return { ok: false, error: '[Demo] Email chưa đăng ký trong mock store' };
-    }
-    var hash = await sha256hex(password);
-    if (found.hash !== hash) {
-      return { ok: false, error: '[Demo] Sai mật khẩu' };
-    }
-    saveMockSession(found);
-    return { ok: true, user: getUser(), mode: 'mock' };
   }
-
-  // ── Pre-seed tài khoản merchant demo ────────────────────────────────
-  // Tự động thêm 2 tài khoản cố định khi mock store trống/thiếu.
-  // Dùng để demo "kênh người bán" với owner_id khớp MERCHANTS trong data.js.
-  async function seedDemoAccounts() {
-    var users = getMockUsers();
-    var seeds = [
-      { id: 'user_demo_001', name: 'TechWorld Merchant', email: 'merchant@uitstore.vn', initial: 'T' },
-      { id: 'user_tiki_001', name: 'Tiki Electronics',   email: 'tiki@uitstore.vn',     initial: 'T' },
-    ];
-    var changed = false;
-    for (var i = 0; i < seeds.length; i++) {
-      var s = seeds[i];
-      if (!users.find(function(u) { return u.id === s.id; })) {
-        var hash = await sha256hex('demo123');
-        users.push({ id: s.id, name: s.name, email: s.email, initial: s.initial, hash: hash });
-        changed = true;
-      }
-    }
-    if (changed) saveMockUsers(users);
-  }
-  seedDemoAccounts();
 
   window.UitAuth = {
     authBase:           AUTH_BASE,
     issuer:             ISSUER,
     loginWithPassword:  loginWithPassword,
-    registerMock:       registerMock,
-    seedDemoAccounts:   seedDemoAccounts,
     loginRedirect:      login,
     register:           register,
     logout:             logout,
     handleCallback:     handleCallback,
     getAccessToken:     getAccessToken,
+    getIdToken:         getIdToken,
     getValidToken:      getValidToken,
     getUser:            getUser,
     isAuthenticated:    isAuthenticated,
     refreshToken:       refreshAccessToken,
-    getMockUsers:       getMockUsers,
   };
 })();

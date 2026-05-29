@@ -1,4 +1,4 @@
-// UIT Store — Cart, Checkout (with 3DS), Order tracking
+// UIT Store — Cart, Checkout, Order tracking
 
 // ─── Cart Screen ─────────────────────────────────────────────────────
 const CartScreen = ({ cart, setCart, onNav, user }) => {
@@ -99,7 +99,9 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
           </div>
 
           {Object.entries(byMerchant).map(([mid, mitems]) => {
-            const merchant = window.MERCHANTS[mid];
+            const merchant = {
+              name: mid || 'Catalog Merchant',
+            };
             return (
               <div key={mid} className="card" style={{ overflow: 'hidden' }}>
                 <div style={{
@@ -222,9 +224,9 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
             <div style={{ fontSize: 13 }}>
               <div style={{ fontWeight: 600 }}>{user ? user.name : 'Khách'}</div>
               <div style={{ color: 'var(--ink-600)', marginTop: 4 }}>
-                Số 1 Hàn Thuyên, Phường Linh Trung,<br/>TP. Thủ Đức, TP. Hồ Chí Minh
+                Nhập địa chỉ nhận hàng ở bước thanh toán.
               </div>
-              <button style={{ marginTop: 8, color: 'var(--primary)', fontSize: 12, fontWeight: 500 }}>Thay đổi →</button>
+              <button onClick={() => onNav('checkout')} style={{ marginTop: 8, color: 'var(--primary)', fontSize: 12, fontWeight: 500 }}>Nhập địa chỉ</button>
             </div>
             <div style={{
               marginTop: 12, padding: 8, background: 'var(--success-soft)',
@@ -264,12 +266,12 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
               </button>
             ) : (
               <div style={{ marginTop: 14 }}>
-                <button onClick={() => onNav('login')} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 14 }}>
+                <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 14 }}>
                   Đăng nhập để thanh toán
                 </button>
                 <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-500)', textAlign: 'center' }}>
                   Chưa có tài khoản?{' '}
-                  <a style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => onNav('register')}>Đăng ký ngay</a>
+                  <a style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => window.UitAuth && window.UitAuth.register()}>Đăng ký ngay</a>
                 </div>
               </div>
             )}
@@ -287,9 +289,15 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
 const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
   const [payment, setPayment]   = React.useState('cod');
   const [delivery, setDelivery] = React.useState('fast');
-  const [saveCard, setSaveCard] = React.useState(false);
-  const userName     = user ? user.name  : '';
-  const userNameUpper = userName.toUpperCase() || 'HỌ TÊN CHỦ THẺ';
+  const [address, setAddress] = React.useState({
+    full_name: user ? (user.name || '') : '',
+    phone: '',
+    email: user ? (user.email || '') : '',
+    address_line1: '',
+    city: '',
+    state_province: '',
+    postal_code: '',
+  });
 
   // Tính ngày giao dự kiến động
   function addBizDays(date, n) {
@@ -309,12 +317,23 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
   const total    = subtotal + ship;
 
   const paymentOptions = [
-    { id: 'credit',   label: 'Thẻ tín dụng / ghi nợ',               desc: 'Visa, Mastercard, JCB · Hỗ trợ 3-D Secure 2.0',        icon: 'credit-card', secure: '3DS · PSP Tokenization' },
-    { id: 'momo',     label: 'Ví MoMo',                               desc: 'Thanh toán qua ví điện tử MoMo',                        icon: 'wallet',      secure: 'OAuth2 · Signed callback' },
-    { id: 'vnpay',    label: 'VNPay QR',                              desc: 'Quét mã QR ngân hàng trong nước',                       icon: 'qr',          secure: 'HMAC-SHA512 signed' },
-    { id: 'transfer', label: 'Chuyển khoản ngân hàng',                desc: 'Chuyển khoản trực tiếp, xác nhận trong 5 phút',         icon: 'wallet',      secure: 'Verified via banking API' },
-    { id: 'cod',      label: 'Thanh toán khi nhận hàng (COD)',        desc: 'Chỉ áp dụng đơn dưới 5.000.000đ',                      icon: 'truck',       secure: 'OTP xác nhận khi giao' },
+    { id: 'credit',   label: 'Thẻ tín dụng / ghi nợ',        desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'credit-card' },
+    { id: 'momo',     label: 'Ví MoMo',                      desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'wallet' },
+    { id: 'vnpay',    label: 'VNPay QR',                     desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'qr' },
+    { id: 'transfer', label: 'Chuyển khoản ngân hàng',       desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'wallet' },
+    { id: 'cod',      label: 'Thanh toán khi nhận hàng (COD)', desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'truck' },
   ];
+
+  if (items.length === 0) {
+    return (
+      <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+        <Icon name="cart" size={44} color="var(--ink-300)" />
+        <h2 style={{ margin: '12px 0 8px' }}>Không có sản phẩm hợp lệ để thanh toán</h2>
+        <p style={{ color: 'var(--ink-600)', marginBottom: 24 }}>Giỏ hàng cần được đồng bộ với Cart Service và Catalog Service.</p>
+        <button onClick={() => onNav('cart')} className="btn btn-primary">Quay lại giỏ hàng</button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: '16px 24px', maxWidth: 1200, margin: '0 auto' }}>
@@ -323,8 +342,7 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
         {[
           { num: 1, label: 'Giỏ hàng',                   done: true },
           { num: 2, label: 'Thông tin & Thanh toán',      active: true },
-          { num: 3, label: 'Xác thực 3-D Secure',         pending: true },
-          { num: 4, label: 'Hoàn tất',                    pending: true },
+          { num: 3, label: 'Hoàn tất',                    pending: true },
         ].map((s, i, arr) => (
           <React.Fragment key={s.num}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
@@ -357,28 +375,27 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Icon name="pin" size={16} color="var(--primary)" /> Địa chỉ nhận hàng
               </h3>
-              <button style={{ color: 'var(--primary)', fontSize: 13, fontWeight: 500 }}>Thay đổi</button>
             </div>
-            <div style={{ display: 'flex', gap: 14, padding: 14, background: 'var(--primary-tint)', borderRadius: 6, border: '1px solid var(--primary-soft)', flexWrap: 'wrap' }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: '50%', background: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--primary)', fontWeight: 700, fontSize: 14,
-              }}>{user ? user.initial : '?'}</div>
-              <div style={{ flex: 1, minWidth: 200, fontSize: 13 }}>
-                <div style={{ fontWeight: 600 }}>
-                  {user ? user.name : 'Khách'}
-                  <span className="badge badge-primary" style={{ marginLeft: 8 }}>Mặc định</span>
-                </div>
-                <div style={{ color: 'var(--ink-700)', marginTop: 4 }}>
-                  Số 1 Hàn Thuyên, Khu phố 6, Phường Linh Trung, TP. Thủ Đức, TP. Hồ Chí Minh
-                </div>
-                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-500)', display: 'flex', gap: 12 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Icon name="lock" size={11} color="var(--success)" />
-                    Số điện thoại đã được mask · giải mã chỉ khi giao hàng
-                  </span>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input className="input" placeholder="Họ tên người nhận *" value={address.full_name}
+                onChange={e => setAddress({ ...address, full_name: e.target.value })} />
+              <input className="input" placeholder="Số điện thoại *" value={address.phone}
+                onChange={e => setAddress({ ...address, phone: e.target.value })} />
+              <input className="input" placeholder="Email" value={address.email}
+                onChange={e => setAddress({ ...address, email: e.target.value })} />
+              <input className="input" placeholder="Tỉnh / thành phố *" value={address.city}
+                onChange={e => setAddress({ ...address, city: e.target.value })} />
+              <div style={{ gridColumn: '1 / -1' }}>
+                <input className="input" placeholder="Địa chỉ cụ thể *" value={address.address_line1}
+                  onChange={e => setAddress({ ...address, address_line1: e.target.value })} />
+              </div>
+              <input className="input" placeholder="Quận / huyện" value={address.state_province}
+                onChange={e => setAddress({ ...address, state_province: e.target.value })} />
+              <input className="input" placeholder="Mã bưu chính" value={address.postal_code}
+                onChange={e => setAddress({ ...address, postal_code: e.target.value })} />
+              <div style={{ gridColumn: '1 / -1', fontSize: 11, color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Icon name="lock" size={11} color="var(--success)" />
+                Thông tin giao hàng sẽ được gửi sang Order Service.
               </div>
             </div>
           </div>
@@ -437,9 +454,6 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{p.label}</div>
                     <div style={{ fontSize: 12, color: 'var(--ink-600)', marginTop: 2 }}>{p.desc}</div>
                   </div>
-                  <span className="badge badge-success" style={{ fontSize: 10 }}>
-                    <Icon name="shield-check" size={10} /> {p.secure}
-                  </span>
                 </label>
               ))}
             </div>
@@ -448,36 +462,7 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
               <div style={{ marginTop: 14, padding: 16, background: 'var(--ink-100)', borderRadius: 6 }}>
                 <div style={{ fontSize: 11, color: 'var(--success)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Icon name="lock" size={12} color="var(--success)" />
-                  <span>Thông tin thẻ được mã hoá <b>client-side</b> bởi PSP SDK và <b>không gửi qua UIT Store backend</b>. UIT Store chỉ nhận token thay vì PAN.</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div>
-                    <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>Số thẻ</label>
-                    <div style={{ position: 'relative' }}>
-                      <input className="input" placeholder="•••• •••• •••• ••••" />
-                      <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
-                        <div style={{ padding: '2px 6px', background: 'white', border: '1px solid var(--ink-200)', borderRadius: 3, fontSize: 10, fontWeight: 700, color: 'var(--primary)' }}>VISA</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="checkout-card-inputs">
-                    <div>
-                      <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>Tên chủ thẻ</label>
-                      <input className="input" placeholder="HỌ TÊN CHỦ THẺ" defaultValue={userNameUpper} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>Hết hạn</label>
-                      <input className="input" placeholder="MM/YY" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>CVV</label>
-                      <input className="input" placeholder="•••" defaultValue="•••" type="password"/>
-                    </div>
-                  </div>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 4 }}>
-                    <input type="checkbox" checked={saveCard} onChange={e => setSaveCard(e.target.checked)} />
-                    Lưu thẻ này cho lần sau (token sẽ được lưu, không phải số thẻ)
-                  </label>
+                  <span>Frontend chỉ gửi payment_method_type sang Order Service. Chưa có endpoint backend để nhập hoặc tokenize thẻ.</span>
                 </div>
               </div>
             )}
@@ -526,167 +511,14 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
                 <div style={{ color: 'var(--price)', fontSize: 22, fontWeight: 700 }}>{window.formatVND(total)}</div>
               </div>
             </div>
-            <button onClick={() => onPay(payment, deliveryFee)} className="btn btn-price" style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14 }}>
+            <button onClick={() => onPay(payment, deliveryFee, address)} className="btn btn-price" style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14 }}>
               <Icon name="lock" size={14} color="white" /> Đặt hàng & Thanh toán
             </button>
             <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-500)', textAlign: 'center', lineHeight: 1.5 }}>
               Bằng việc đặt hàng, bạn đồng ý với <a style={{ color: 'var(--primary)' }}>Điều khoản dịch vụ</a> của UIT Store.
-              Yêu cầu sẽ được ký bằng <b>HMAC-SHA256</b> trước khi gửi tới Payment Service.
+              Yêu cầu sẽ được gửi sang Order Service.
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── 3DS Modal ───────────────────────────────────────────────────────
-const ThreeDSModal = ({ amount, onComplete, onCancel, user }) => {
-  const [step, setStep]     = React.useState('connecting');
-  const [otp, setOtp]       = React.useState(['', '', '', '', '', '']);
-  const [seconds, setSeconds] = React.useState(120);
-  const txnId = React.useRef('TXN-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase()).current;
-
-  React.useEffect(() => {
-    if (step === 'connecting') {
-      const t = setTimeout(() => setStep('otp'), 1600);
-      return () => clearTimeout(t);
-    }
-  }, [step]);
-
-  React.useEffect(() => {
-    if (step === 'otp' && seconds > 0) {
-      const t = setTimeout(() => setSeconds(s => s - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [step, seconds]);
-
-  const setDigit = (i, v) => {
-    if (!/^\d?$/.test(v)) return;
-    const next = [...otp]; next[i] = v;
-    setOtp(next);
-    if (v && i < 5) { const el = document.getElementById(`otp-${i+1}`); if (el) el.focus(); }
-  };
-
-  const verify = () => {
-    setStep('verifying');
-    setTimeout(() => { setStep('success'); setTimeout(onComplete, 1100); }, 1500);
-  };
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.55)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-      backdropFilter: 'blur(4px)',
-    }}>
-      <div style={{ width: 460, maxWidth: 'calc(100% - 24px)', background: 'white', borderRadius: 12, boxShadow: '0 24px 80px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
-        <div style={{
-          padding: '14px 20px', background: 'linear-gradient(90deg, #00204A, #003876)',
-          color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 6, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00204A', fontWeight: 800, fontSize: 12 }}>VCB</div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Vietcombank · 3-D Secure 2.0</div>
-              <div style={{ fontSize: 11, opacity: 0.8 }}>Xác thực giao dịch trực tuyến</div>
-            </div>
-          </div>
-          <Icon name="lock" size={20} color="white" />
-        </div>
-
-        <div style={{
-          padding: '8px 20px', background: '#F4F6FB', fontSize: 11,
-          fontFamily: 'JetBrains Mono, monospace', color: 'var(--ink-600)',
-          borderBottom: '1px solid var(--ink-200)', display: 'flex', alignItems: 'center', gap: 6,
-        }}>
-          <Icon name="lock" size={11} color="var(--success)" />
-          <span style={{ color: 'var(--success)' }}>https://</span>
-          <span><b>3dsecure.vietcombank.com.vn</b>/auth/challenge</span>
-        </div>
-
-        <div style={{ padding: 24, minHeight: 320 }}>
-          {step === 'connecting' && (
-            <div style={{ textAlign: 'center', paddingTop: 40 }}>
-              <div className="spinner" style={{ width: 36, height: 36, margin: '0 auto 18px', borderWidth: 3 }} />
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Đang kết nối với ngân hàng phát hành...</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>UIT Store đang gửi token thanh toán đã ký HMAC tới PSP (Stripe sandbox)</div>
-              <div style={{
-                marginTop: 24, padding: 12, background: 'var(--ink-100)', borderRadius: 6,
-                fontFamily: 'JetBrains Mono, monospace', fontSize: 10,
-                color: 'var(--ink-600)', textAlign: 'left', lineHeight: 1.6,
-              }}>
-                <div style={{ color: 'var(--success)' }}>✓ TLS handshake — TLS 1.3, X25519</div>
-                <div style={{ color: 'var(--success)' }}>✓ Tokenize PAN → tok_1Ngk2H9c...</div>
-                <div style={{ color: 'var(--success)' }}>✓ Sign req → HMAC-SHA256</div>
-                <div>· Initiate 3DS challenge...</div>
-              </div>
-            </div>
-          )}
-
-          {step === 'otp' && (
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Xác thực giao dịch</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 18, lineHeight: 1.6 }}>
-                Mã OTP gồm 6 chữ số đã được gửi đến số điện thoại đăng ký với thẻ{user ? ' của <b>' + user.name + '</b>' : ''}.
-              </div>
-              <div style={{ padding: '12px 14px', background: 'var(--ink-100)', borderRadius: 6, fontSize: 12, marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--ink-600)' }}>Đơn vị thụ hưởng</span>
-                  <b>UIT Store Vietnam</b>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--ink-600)' }}>Số tiền</span>
-                  <b style={{ color: 'var(--price)' }}>{window.formatVND(amount)}</b>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--ink-600)' }}>Mã giao dịch</span>
-                  <b style={{ fontFamily: 'monospace', fontSize: 11 }}>{txnId}</b>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 14 }}>
-                {otp.map((d, i) => (
-                  <input key={i} id={`otp-${i}`} value={d} onChange={e => setDigit(i, e.target.value)}
-                    maxLength="1" inputMode="numeric"
-                    style={{
-                      width: 44, height: 52, textAlign: 'center', fontSize: 22, fontWeight: 600,
-                      border: '1.5px solid var(--ink-200)', borderRadius: 6, outline: 'none',
-                      background: d ? 'var(--primary-tint)' : 'white',
-                      borderColor: d ? 'var(--primary)' : 'var(--ink-200)',
-                    }} />
-                ))}
-              </div>
-              <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-600)', marginBottom: 18 }}>
-                Mã có hiệu lực trong <b style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>
-                  {Math.floor(seconds/60)}:{String(seconds % 60).padStart(2, '0')}
-                </b> · <a style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer' }}
-                    onClick={() => { setOtp(['','','','','','']); setSeconds(120); }}>Gửi lại</a>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={onCancel} className="btn btn-ghost" style={{ flex: 1, border: '1px solid var(--ink-200)' }}>Huỷ</button>
-                <button onClick={verify} className="btn btn-primary" style={{ flex: 2 }} disabled={otp.some(d => !d)}>
-                  Xác nhận thanh toán
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 'verifying' && (
-            <div style={{ textAlign: 'center', paddingTop: 40 }}>
-              <div className="spinner" style={{ width: 36, height: 36, margin: '0 auto 18px', borderWidth: 3 }} />
-              <div style={{ fontWeight: 600, marginBottom: 6 }}>Đang xác minh OTP...</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>Vui lòng không đóng cửa sổ</div>
-            </div>
-          )}
-
-          {step === 'success' && (
-            <div style={{ textAlign: 'center', paddingTop: 40 }}>
-              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <Icon name="check" size={36} color="var(--success)" />
-              </div>
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>Thanh toán thành công!</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>Đang chuyển hướng về UIT Store...</div>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -695,14 +527,24 @@ const ThreeDSModal = ({ amount, onComplete, onCancel, user }) => {
 
 // ─── Order Success / Tracking ────────────────────────────────────────
 const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onNav }) => {
-  const orderId = realOrderId || 'UIT-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-DEMO';
+  if (!realOrderId || !orderPayload) {
+    return (
+      <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+        <Icon name="package" size={44} color="var(--ink-300)" />
+        <h2 style={{ margin: '12px 0 8px' }}>Chưa có đơn hàng từ Order Service</h2>
+        <p style={{ color: 'var(--ink-600)', marginBottom: 24 }}>Trang này chỉ hiển thị sau khi backend tạo đơn hàng thành công.</p>
+        <button onClick={() => onNav('home')} className="btn btn-primary">Về trang chủ</button>
+      </div>
+    );
+  }
+
+  const orderId = realOrderId;
   const items   = (orderPayload && orderPayload.items) || [];
   const addr    = (orderPayload && orderPayload.shipping_address) || {};
   const pm      = (orderPayload && orderPayload.payment_method_type) || 'cod';
   const total   = orderTotal || (orderPayload && (
     orderPayload.items.reduce(function(s,i){ return s + i.unit_price * i.quantity; }, 0) + (orderPayload.shipping_fee || 0)
   )) || 0;
-  const userId  = user ? (user.id || user.email) : window.UitAPI.getUserId();
   const ts      = new Date();
 
   // Tính ngày giao dự kiến: +3 ngày làm việc
@@ -720,7 +562,7 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onN
     return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1);
   };
 
-  const pmLabel = { credit_card: 'Thẻ tín dụng / 3DS', cod: 'Thanh toán khi nhận hàng', e_wallet: 'Ví điện tử' };
+  const pmLabel = { credit_card: 'Thẻ tín dụng / ghi nợ', cod: 'Thanh toán khi nhận hàng', e_wallet: 'Ví điện tử' };
 
   return (
     <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
@@ -850,36 +692,21 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onN
         </div>
       </div>
 
-      {/* Crypto audit log */}
       <div className="card" style={{ padding: 20 }}>
         <h3 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="shield-check" size={16} color="var(--primary)" /> Nhật ký bảo mật giao dịch
+          <Icon name="shield-check" size={16} color="var(--primary)" /> Thông tin từ Order Service
         </h3>
         <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 14 }}>
-          Tất cả bước được ký số và ghi vào audit log append-only.
+          Đơn hàng chỉ hiển thị sau khi backend tạo thành công.
         </div>
         <div style={{
           padding: 14, background: '#0F172A', borderRadius: 6,
           fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#E2E8F0', lineHeight: 1.7,
         }}>
-          {[
-            ['POST', window.UitAPI.backendUrl + '/api/v1/orders/user/orders/checkout · user=' + userId],
-            ['POST', 'order-service.create() · order_id=' + orderId + ' · idempotency=✓'],
-            ['POST', 'payment-service.tokenize() · method=' + pm + ' · tok=•••'],
-            pm === 'credit_card' ? ['3DS', 'challenge.required · ACS=vietcombank.com.vn'] : null,
-            pm === 'credit_card' ? ['3DS', 'challenge.completed · CAVV=✓ · ECI=05'] : null,
-            ['PAY',  'capture.success · amount=' + window.formatVND(total)],
-            ['EVT',  'kafka.publish(order.paid) · sig=ed25519 · order_id=' + orderId],
-            ['SVC',  'inventory.reserve() · items=' + items.length + ' · idempotency=✓'],
-          ].filter(Boolean).map(function(row, i) {
-            var color = row[0] === '3DS' ? '#FCD34D' : '#4ADE80';
-            return (
-              <div key={i}>
-                <span style={{ color: '#94A3B8' }}>[{ts.toLocaleTimeString('vi-VN')}]</span>{' '}
-                <span style={{ color }}>{row[0]}</span>{' '}{row[1]}
-              </div>
-            );
-          })}
+          <div><span style={{ color: '#94A3B8' }}>endpoint</span> {window.UitAPI.backendUrl + '/api/v1/orders/user/orders/checkout'}</div>
+          <div><span style={{ color: '#94A3B8' }}>order_id</span> {orderId}</div>
+          <div><span style={{ color: '#94A3B8' }}>payment_method</span> {pm}</div>
+          <div><span style={{ color: '#94A3B8' }}>items</span> {items.length}</div>
         </div>
       </div>
 
@@ -901,19 +728,14 @@ const OrdersScreen = ({ onNav, user }) => {
   const [error, setError]     = React.useState('');
 
   React.useEffect(function () {
-    if (!user) { onNav('login'); return; }
+    if (!user) { window.UitAuth && window.UitAuth.loginRedirect(); return; }
     window.UitAPI.order.list()
       .then(function (res) {
         setOrders((res && res.data) || []);
       })
-      .catch(function () {
-        // Fallback demo orders khi backend offline
-        setOrders([
-          { id: 'UIT-2026052401-A7F3', created_at: '2026-05-24T10:42:00Z', total_amount: 32480000, status: 'delivered',   items_count: 3 },
-          { id: 'UIT-2026051801-C2D1', created_at: '2026-05-18T14:15:00Z', total_amount: 15990000, status: 'shipped',     items_count: 1 },
-          { id: 'UIT-2026051001-B9F2', created_at: '2026-05-10T08:30:00Z', total_amount: 8500000,  status: 'cancelled',   items_count: 2 },
-        ]);
-        setError('Backend offline — hiển thị dữ liệu demo');
+      .catch(function (err) {
+        setOrders([]);
+        setError('Lỗi kết nối tới Backend: ' + err.message);
       });
   }, []);
 
@@ -995,4 +817,4 @@ const OrdersScreen = ({ onNav, user }) => {
   );
 };
 
-Object.assign(window, { CartScreen, CheckoutScreen, ThreeDSModal, OrderScreen, OrdersScreen });
+Object.assign(window, { CartScreen, CheckoutScreen, OrderScreen, OrdersScreen });

@@ -1,7 +1,8 @@
 // UIT Store — Backend API client
-// Chạy local với NODE-1 Envoy:
-//   http://localhost:3000/?api=http://<NODE1_IP>:10000
-const DEFAULT_BACKEND_URL = 'http://localhost:10000';
+// Chạy local với NODE-1 Nginx proxy sang Envoy:
+//   http://localhost:3000/?api=http://<NODE1_IP>
+const DEFAULT_BACKEND_URL = 'http://192.168.122.11';
+const LEGACY_BACKEND_URLS = ['http://192.168.122.11:10000'];
 
 function normalizeBackendUrl(url) {
   return String(url || '').trim().replace(/\/+$/, '');
@@ -32,9 +33,15 @@ function resolveBackendUrl() {
     return url;
   }
 
+  const storedUrl = normalizeBackendUrl(readStoredBackendUrl());
+  if (LEGACY_BACKEND_URLS.includes(storedUrl)) {
+    storeBackendUrl(DEFAULT_BACKEND_URL);
+    return DEFAULT_BACKEND_URL;
+  }
+
   return normalizeBackendUrl(
     window.UIT_BACKEND_URL ||
-    readStoredBackendUrl() ||
+    storedUrl ||
     DEFAULT_BACKEND_URL
   );
 }
@@ -48,16 +55,13 @@ const BACKEND_URL = resolveBackendUrl();
     ORDER:   BACKEND_URL + '/api/v1/orders',
   };
 
-  let _userId = 'user_demo_001';
+  let _userId = null;
 
   function authHeaders(extra) {
     const token = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     const base = { 'Content-Type': 'application/json' };
     if (token) {
       base['Authorization'] = 'Bearer ' + token;
-    } else {
-      // Fallback: header X-User-Id khi chưa đăng nhập (dev/demo mode)
-      base['X-User-Id'] = _userId;
     }
     return Object.assign(base, extra || {});
   }
@@ -156,29 +160,28 @@ const BACKEND_URL = resolveBackendUrl();
     },
   };
 
-  // Map API product response → window.PRODUCTS schema (supplement thiếu fields từ static)
-  function mapApiProduct(p, staticFallback) {
-    const s = staticFallback || {};
+  // Map API product response → window.PRODUCTS schema.
+  function mapApiProduct(p) {
     return {
       id:             p.id,
       merchant_id:    p.merchant_id,
       sku:            p.sku,
       name:           p.name,
-      brand:          p.brand || s.brand || '',
-      category:       p.metadata_json && p.metadata_json.category || s.category || 'other',
+      brand:          p.brand || '',
+      category:       p.metadata_json && p.metadata_json.category || 'other',
       base_price:     p.base_price,
       currency_code:  p.currency_code || 'VND',
-      rating:         s.rating || 4.5,
-      rating_count:   s.rating_count || 0,
-      sold:           s.sold || 0,
-      stock:          p.metadata_json && p.metadata_json.stock || s.stock || 99,
-      weight_g:       p.weight_grams || s.weight_g || 0,
-      warranty_months: s.warranty_months || 0,
-      official:       s.official || false,
-      color_options:  s.color_options || [],
-      description:    p.metadata_json && p.metadata_json.description || s.description || '',
-      specs:          s.specs || {},
-      images:         s.images || [],
+      rating:         0,
+      rating_count:   0,
+      sold:           0,
+      stock:          p.metadata_json && p.metadata_json.stock || 0,
+      weight_g:       p.weight_grams || 0,
+      warranty_months: 0,
+      official:       false,
+      color_options:  [],
+      description:    p.metadata_json && p.metadata_json.description || '',
+      specs:          {},
+      images:         [],
     };
   }
 
