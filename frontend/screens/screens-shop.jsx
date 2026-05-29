@@ -158,7 +158,7 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion }) => {
               color={catalogOk ? 'var(--success)' : 'var(--warn)'}
             />
             {catalogOk
-              ? <span style={{ color: 'var(--success)' }}><b>Catalog Service</b> kết nối thành công · localhost:8001 · {allProducts.length} sản phẩm</span>
+              ? <span style={{ color: 'var(--success)' }}><b>Catalog Service</b> kết nối thành công · {window.UitAPI.backendUrl} · {allProducts.length} sản phẩm</span>
               : <span style={{ color: '#a56700' }}><b>Catalog Service</b> chưa khởi động · Hiển thị dữ liệu tĩnh</span>
             }
           </div>

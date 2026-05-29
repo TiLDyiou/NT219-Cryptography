@@ -1,6 +1,45 @@
 // UIT Store — Backend API client
-// Đổi BACKEND_URL thành IP/domain của NODE-1 (Envoy ingress) khi deploy
-const BACKEND_URL = 'http://localhost:10000';
+// Chạy local với NODE-1 Envoy:
+//   http://localhost:3000/?api=http://<NODE1_IP>:10000
+const DEFAULT_BACKEND_URL = 'http://localhost:10000';
+
+function normalizeBackendUrl(url) {
+  return String(url || '').trim().replace(/\/+$/, '');
+}
+
+function readStoredBackendUrl() {
+  try {
+    return localStorage.getItem('UIT_BACKEND_URL');
+  } catch (err) {
+    return null;
+  }
+}
+
+function storeBackendUrl(url) {
+  try {
+    localStorage.setItem('UIT_BACKEND_URL', url);
+  } catch (err) {
+    // Browser storage can be unavailable in private/file contexts.
+  }
+}
+
+function resolveBackendUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get('api') || params.get('backend') || params.get('baseUrl');
+  if (fromQuery) {
+    const url = normalizeBackendUrl(fromQuery);
+    storeBackendUrl(url);
+    return url;
+  }
+
+  return normalizeBackendUrl(
+    window.UIT_BACKEND_URL ||
+    readStoredBackendUrl() ||
+    DEFAULT_BACKEND_URL
+  );
+}
+
+const BACKEND_URL = resolveBackendUrl();
 
 (function () {
   const BASE = {
@@ -118,6 +157,8 @@ const BACKEND_URL = 'http://localhost:10000';
   }
 
   window.UitAPI = {
+    backendUrl:     BACKEND_URL,
+    endpoints:      BASE,
     setUserId:      function (id) { _userId = id; },
     getUserId:      function () { return _userId; },
     mapApiProduct:  mapApiProduct,

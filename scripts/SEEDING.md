@@ -2,9 +2,9 @@
 
 ## Dataset có sẵn
 
-| File | Nguồn | Số sản phẩm | Ngôn ngữ |
-|------|-------|-------------|----------|
-| `data/tiki_electronics.csv` | Tiki.vn (crawl) | 1.440 | Tiếng Việt |
+| File                        | Nguồn           | Số sản phẩm | Ngôn ngữ   |
+| --------------------------- | --------------- | ----------- | ---------- |
+| `data/tiki_electronics.csv` | Tiki.vn (crawl) | 1.440       | Tiếng Việt |
 
 File CSV hiện đã được chuẩn hóa theo model `Product` của `catalog-service`:
 
@@ -15,6 +15,7 @@ id,merchant_id,sku,name,status,product_type,base_price,currency_code,weight_gram
 Các cột `id`, `merchant_id`, `created_at`, `updated_at`, `deleted_at`, `version` đã có sẵn để hỗ trợ import/đối chiếu theo table. Khi seed qua API, script vẫn chỉ gửi các field thuộc `ProductCreate`; `merchant_id` lấy từ Bearer token và các field DB-only được service tự xử lý. Trong thiết kế DB, trường metadata sản phẩm tương ứng với `metadata_json` ở code/API.
 
 Mẫu dữ liệu:
+
 ```
 Điện Thoại Samsung Galaxy M12 (4GB/64GB) - Hàng Chính Hãng  →  3.490.000 VND
 Điện thoại Realme Narzo 50i (4GB/64GB) - Hàng chính hãng    →  3.199.000 VND
@@ -66,6 +67,7 @@ python3 scripts/seed_products.py \
 ```
 
 Kết quả kỳ vọng:
+
 ```
 =======================================================
   UIT Store — Product Seeder
@@ -141,10 +143,10 @@ curl "http://localhost:8001/api/v1/public/products?page=1&size=10&status=active"
 
 ## Troubleshooting
 
-| Lỗi | Nguyên nhân | Cách xử lý |
-|-----|-------------|------------|
-| `Connection refused` | Catalog service chưa chạy | `systemctl start catalog-service` |
-| `401 Invalid admin token` | `ADMIN_TOKEN` trong `.env` khác default | Thêm `--admin-token <token>` |
-| `409 Merchant đã tồn tại` | Đã seed trước đó | Thêm `--merchant-id <UUID>` |
-| `422 Unprocessable Entity` | Dữ liệu CSV không đúng format | Kiểm tra file CSV có bị lỗi encoding không |
-| Import chậm hoặc timeout | Service quá tải | Thêm `--limit 200` và chạy nhiều lần |
+| Lỗi                        | Nguyên nhân                             | Cách xử lý                                 |
+| -------------------------- | --------------------------------------- | ------------------------------------------ |
+| `Connection refused`       | Catalog service chưa chạy               | `systemctl start catalog-service`          |
+| `401 Invalid admin token`  | `ADMIN_TOKEN` trong `.env` khác default | Thêm `--admin-token <token>`               |
+| `409 Merchant đã tồn tại`  | Đã seed trước đó                        | Thêm `--merchant-id <UUID>`                |
+| `422 Unprocessable Entity` | Dữ liệu CSV không đúng format           | Kiểm tra file CSV có bị lỗi encoding không |
+| Import chậm hoặc timeout   | Service quá tải                         | Thêm `--limit 200` và chạy nhiều lần       |
