@@ -1,88 +1,105 @@
-# Threat Model: NT219-Cryptography
+# Mô hình Mối đe dọa (Threat Model): NT219-Cryptography
 
-## 1. System Model & Scope
-This threat model covers the `NT219-Cryptography` project, a microservices-based e-commerce or ordering system.
+## 1. Mô hình Hệ thống & Phạm vi (System Model & Scope)
 
-### In-Scope Components
-- **Order Service**: Central orchestrator for business logic.
-- **Inventory Service**: Manages stock and inventory (Port 8005).
-- **Payment Service**: Processes transactions via Stripe (Port 8004).
-- **Shipping Service**: Connects to Giao Hang Nhanh for logistics.
-- **Notification Service**: Sends emails via SMTP.
-- **Message Broker (Kafka)**: Used for `inventory.events` and `audit-logs`.
+Báo cáo này đánh giá hệ thống `NT219-Cryptography`, một hệ thống đặt hàng và thương mại điện tử được thiết kế theo dạng vi dịch vụ (microservices - kiến trúc chia nhỏ hệ thống thành các ứng dụng nhỏ độc lập, mỗi ứng dụng chuyên làm một việc, để dễ bảo trì và mở rộng).
 
-### Out of Scope
-- Internal workings of third-party services (Stripe, Giao Hang Nhanh, SMTP provider).
-- Underlying infrastructure setup (Kubernetes, AWS/GCP layers) unless directly interacting with the code.
+### Các thành phần trong phạm vi đánh giá
 
-## 2. Boundaries, Assets, and Entry Points
+- **Dịch vụ Đặt hàng (Order Service)**: Đóng vai trò là người điều phối trung tâm. Lý do thiết kế như vậy là để tập trung xử lý logic kinh doanh chính, nó sẽ gọi các dịch vụ khác để hoàn tất một đơn hàng.
+- **Dịch vụ Kho (Inventory Service - Cổng 8005)**: Quản lý số lượng hàng hóa trong kho.
+- **Dịch vụ Thanh toán (Payment Service - Cổng 8004)**: Xử lý giao dịch thông qua cổng thanh toán Stripe.
+- **Dịch vụ Vận chuyển (Shipping Service)**: Kết nối với Giao Hàng Nhanh để lo phần logistic.
+- **Dịch vụ Thông báo (Notification Service)**: Gửi email thông qua máy chủ SMTP.
+- **Hệ thống Truyền nhận Thông điệp (Message Broker - Kafka)**: Đang được dùng để xử lý các sự kiện kho hàng (`inventory.events`) và ghi lại nhật ký hoạt động (`audit-logs`). Hệ thống dùng Kafka để tách rời việc ghi nhận sự kiện ra khỏi luồng chạy chính, giúp hệ thống không bị chậm lại khi có quá nhiều người dùng cùng lúc.
 
-### Trust Boundaries
-1. **Internet to API (External)**: Currently undefined in code (assumed direct exposure or missing API Gateway). Requests are trusted based on HTTP headers (`X-User-Id`, `X-Merchant-Id`).
-2. **Service-to-Service (Internal HTTP)**: Orchestrated primarily by `order-service`. Security controls (HMAC and Nonce guard) exist but are **disabled** by default (`REQUIRE_INBOUND_HMAC=False`, `REQUIRE_NONCE_GUARD=False`).
-3. **Services to Third Parties (External egress)**: API calls to Stripe, Giao Hang Nhanh, and SMTP.
-4. **Services to Kafka**: Internal publishing/subscribing to events.
+### Ngoài phạm vi đánh giá
 
-### Assets (Risk Drivers)
-- **High Sensitivity**: Financial transaction data (Stripe `client_secret`), Merchant/User IDs, PII for shipping, Audit logs.
-- **Medium Sensitivity**: Inventory stock counts, order statuses.
+- Hoạt động nội bộ của các bên thứ ba (Stripe, Giao Hàng Nhanh, máy chủ email SMTP).
+- Các nền tảng cơ sở hạ tầng bên dưới (Kubernetes, AWS/GCP) trừ phi nó tương tác trực tiếp với mã nguồn.
 
-### Entry Points
-- HTTP REST API endpoints on all services (exposed to users or internal services).
-- Kafka topic consumers.
+## 2. Ranh giới Tin cậy, Tài sản và Điểm xâm nhập
 
-## 3. Attacker Capabilities
-- **External Attacker**: Can send arbitrary HTTP requests to any exposed API endpoint. Can manipulate HTTP headers.
-- **Internal/Compromised Service Attacker**: If one service is compromised, the attacker can move laterally to other services since internal HMAC checks are disabled.
+### Các Ranh giới Tin cậy (Trust Boundaries)
 
-## 4. Threats as Abuse Paths
+_Ranh giới tin cậy là ranh giới phân định nơi hệ thống bắt đầu/kết thúc việc tin tưởng dữ liệu được gửi đến. Dữ liệu vượt qua ranh giới này bắt buộc phải được kiểm tra (validate)._
 
-### T1. Identity Spoofing and Privilege Escalation via Trust-based Auth (Critical)
-- **Path**: An external attacker sends an HTTP request to any exposed service and manually injects the `X-User-Id: <target_id>` or `X-Merchant-Id: <target_id>` header.
-- **Impact**: **High**. Attacker can fully impersonate any user or merchant, viewing their PII, placing orders, or modifying inventory.
-- **Likelihood**: **High**. The system relies purely on HTTP headers without validating JWTs or session signatures.
-- **Impacted Assets**: All user data, financial data, order integrity.
+1. **Từ Internet vào API (Bên ngoài)**: Hiện tại mã nguồn không thể hiện rõ (có thể là đang mở phơi mình trực tiếp hoặc đang thiếu Cổng giao tiếp API Gateway). Các yêu cầu từ người dùng đang được tin tưởng một cách ngây thơ chỉ dựa vào thông tin tự xưng ở các đoạn văn bản đính kèm (`X-User-Id`, `X-Merchant-Id`). Đoạn code làm vậy có lẽ vì giai đoạn đầu muốn test nhanh cho tiện, nhưng lại tạo ra lỗ hổng giả mạo rất lớn.
+2. **Giao tiếp nội bộ giữa các Dịch vụ (Internal HTTP)**: Chủ yếu do `order-service` điều phối. Hệ thống có cơ chế kiểm tra tính toàn vẹn (HMAC) và chống gửi lại gói tin (Nonce guard) để đảm bảo không ai can thiệp được vào nội dung gửi giữa các máy chủ. Tuy nhiên, các rào chắn này lại bị **tắt hoàn toàn** (`REQUIRE_INBOUND_HMAC=False`, `REQUIRE_NONCE_GUARD=False`). Việc lập trình viên tắt cấu hình này nhằm giúp môi trường dev ở máy cá nhân không bị cản trở bởi các lỗi bảo mật, nhưng quên bật lại.
+3. **Từ Dịch vụ gọi ra Bên thứ ba (External egress)**: Các lời gọi API từ hệ thống nội bộ gửi ra Stripe, Giao Hàng Nhanh, và SMTP.
+4. **Từ Dịch vụ gửi vào Kafka**: Nội bộ xuất bản và nhận thông điệp sự kiện.
 
-### T2. Lateral Movement and Internal API Abuse (High)
-- **Path**: An attacker gains access to the internal network (SSRF, compromised container) and calls internal APIs (e.g., Inventory or Payment) directly.
-- **Impact**: **High**. They can bypass the `order-service` orchestrator to artificially inflate inventory, trigger fake payments, or exfiltrate data.
-- **Likelihood**: **High**. Internal HMAC signatures (`HmacVerificationMiddleware`) and replay protections (`NonceGuardMiddleware`) are bypassed (`False`).
-- **Impacted Assets**: System integrity, database state.
+### Tài sản nhạy cảm (Assets)
 
-### T3. Application Crash / DoS in Payment Service (Medium)
-- **Path**: Attacker triggers a payment failure scenario.
-- **Impact**: **Medium**. The `payment_repository.py` attempts to save a non-existent `client_secret` and uses mismatched field names (`error_code` vs `failure_code`), causing an `AttributeError` and crashing the payment flow.
-- **Likelihood**: **High** (Guaranteed on failure).
-- **Impacted Assets**: Availability of payment processing.
+_Tài sản là những dữ liệu mà hacker nhắm đến, và là thứ chúng ta cần bảo vệ nhất._
 
-### T4. Phantom Orders via Dev Stubbing (High)
-- **Path**: An attacker or normal user encounters an inventory error during ordering.
-- **Impact**: **High**. Because `dev_stub_on_failure = True`, the system mocks a success response. The order completes without reserving inventory, leading to unfulfilled orders and financial discrepancies.
-- **Likelihood**: **Medium**. Requires an underlying failure, but the configuration makes the system fail open instead of failing secure.
-- **Impacted Assets**: Financial integrity, Inventory state.
+- **Độ nhạy cảm rất Cao**: Thông tin giao dịch tài chính (Mã xác thực bí mật `client_secret` của Stripe), Danh tính người dùng/người bán, Dữ liệu cá nhân (PII) dùng để giao hàng, và Nhật ký lưu vết hệ thống (Audit logs).
+- **Độ nhạy cảm Trung bình**: Số lượng tồn kho, trạng thái của các đơn đặt hàng.
 
-## 5. Mitigations & Recommendations
+### Điểm xâm nhập (Entry Points)
 
-### Recommended Immediate Mitigations
-1. **Implement API Gateway & JWT Validation (T1)**: 
-   - Deploy an API Gateway to act as the single entry point.
-   - The Gateway MUST cryptographically verify JWT signatures before forwarding requests.
-   - Internal services must only accept requests from the Gateway or valid internal peers, never trusting `X-User-Id` from arbitrary sources.
-2. **Enforce Service-to-Service Authentication (T2)**:
-   - Set `REQUIRE_INBOUND_HMAC=True` and `REQUIRE_NONCE_GUARD=True` on all environments except local dev.
-3. **Fix Payment Repository Schema Mismatch (T3)**:
-   - Align `payment_repository.py` and `payment_transaction.py` fields (`error_code` vs `failure_code`).
-   - Add the missing `client_secret` column to the database schema.
-4. **Disable Dev Configurations in Production (T4)**:
-   - Enforce `dev_stub_on_failure = False` globally for staging and production.
-   - Disable SQLite fallback (`ENABLE_SQLITE_FALLBACK=False`) to prevent data fragmentation.
-5. **Secrets Management**:
-   - Ensure `INTERNAL_API_TOKEN` and `LOCAL_CRYPTO_SECRET` are injected via environment variables or a Vault, not hardcoded.
+_Đây là những "cửa" mà kẻ tấn công có thể chui vào._
 
-## 6. Assumptions & Open Questions (For Review)
-To finalize this threat model, please clarify the following:
-1. **Deployment Model**: Will the services be exposed directly to the internet, or will there be an API Gateway/Ingress handling authentication before traffic hits the microservices?
-2. **User Roles**: Are there specific RBAC (Role-Based Access Control) requirements for Merchants vs Standard Users?
-3. **Data Sensitivity**: Does the system store full credit card details, or only interact with Stripe via tokens/client secrets?
+- Các cổng giao tiếp API (HTTP REST API) của toàn bộ các dịch vụ (bị phơi ra cho người dùng và các hệ thống khác).
+- Các luồng lắng nghe thông điệp từ Kafka.
 
-*(Please review these assumptions. If not corrected, the prioritization of T1 remains Critical.)*
+## 3. Khả năng của Kẻ tấn công (Attacker Capabilities)
+
+- **Kẻ tấn công từ bên ngoài (External Attacker)**: Có thể gửi các yêu cầu tự chế (arbitrary HTTP requests) tới bất kỳ cổng API nào bị phơi ra Internet. Đặc biệt, chúng có thể chỉnh sửa tự do các thông tin nhận diện đính kèm (HTTP headers).
+- **Kẻ tấn công lọt vào mạng nội bộ (Internal/Compromised Service Attacker)**: Nếu một dịch vụ bất kỳ bị chiếm quyền, kẻ gian có thể tự do đi lang thang và chọc phá các dịch vụ khác (Lateral movement) bởi vì các hàng rào kiểm tra chữ ký (HMAC) nội bộ đã bị vô hiệu hóa.
+
+## 4. Phân tích Các Mối đe dọa (Threats as Abuse Paths)
+
+### T1. Giả mạo danh tính và Leo thang đặc quyền do tin tưởng mù quáng (Nghiêm trọng - Critical)
+
+- **Kịch bản**: Hacker ở bên ngoài gửi một yêu cầu HTTP tới API và cố tình tự chèn thêm đoạn văn bản nhận diện `X-User-Id: <id_của_người_khác>` vào dữ liệu gửi đi.
+- **Tác động (Impact)**: **Cao**. Kẻ tấn công hoàn toàn giả mạo được người dùng khác hoặc người bán hàng, từ đó đánh cắp thông tin cá nhân, đặt đơn hàng giả, hay sửa đổi hàng tồn kho.
+- **Khả năng xảy ra (Likelihood)**: **Cao**. Hệ thống đang bỏ qua việc kiểm tra tính xác thực (không giải mã JWT - chuỗi mã chứng minh thân phận được cấp khi đăng nhập). Đoạn code hiện tại tin tưởng 100% vào những gì người gửi khai báo ở dạng văn bản (text), nên bất kỳ ai cũng có thể dễ dàng thay đổi ID của mình thành ID người khác.
+- **Tài sản bị đe dọa**: Toàn bộ dữ liệu người dùng, thông tin tài chính và sự minh bạch của hệ thống.
+
+### T2. Tấn công từ bên trong do tắt rào chắn nội bộ (Cao - High)
+
+- **Kịch bản**: Hacker bằng cách nào đó lọt được vào mạng nội bộ (qua một lỗ hổng ứng dụng khác hoặc chiếm được một máy chủ chứa code) và gọi thẳng vào các dịch vụ quan trọng (Kho hàng, Thanh toán).
+- **Tác động (Impact)**: **Cao**. Chúng có thể đi đường tắt, vòng qua dịch vụ kiểm duyệt trung tâm `order-service`, để tự ý tăng khống hàng tồn, tạo giao dịch thanh toán ảo hoặc đánh cắp dữ liệu.
+- **Khả năng xảy ra (Likelihood)**: **Cao**. Bởi vì lập trình viên đã cấu hình tắt rào chắn bảo mật (`REQUIRE_INBOUND_HMAC=False` và `REQUIRE_NONCE_GUARD=False`) nhằm tiện cho việc viết code cục bộ, điều này khiến cho mọi yêu cầu nội bộ đều mặc định là hợp lệ mà không hề phải trải qua bước kiểm tra chữ ký an toàn.
+- **Tài sản bị đe dọa**: Trạng thái cơ sở dữ liệu, tính toàn vẹn của cả hệ thống.
+
+### T3. Hệ thống bị sập (DoS) ở dịch vụ Thanh toán (Trung bình - Medium)
+
+- **Kịch bản**: Hacker hoặc một người dùng vô tình kích hoạt một lỗi thanh toán (chẳng hạn như nhập sai thẻ).
+- **Tác động (Impact)**: **Trung bình**. File mã nguồn `payment_repository.py` đang cố lưu một trường dữ liệu có tên là `client_secret` (vốn không hề được tạo trong bảng dữ liệu database), và đồng thời sai lệch tên biến (`error_code` so với `failure_code`). Đoạn code làm vậy vì quá trình làm việc rời rạc, không đồng bộ kỹ càng giữa người viết logic (nhằm lưu trữ đủ các biến trả về từ dịch vụ bên thứ 3) và người xây dựng cấu trúc database, dẫn đến mỗi khi có giao dịch lỗi, chương trình sẽ không lưu được vào cơ sở dữ liệu và bị sập.
+- **Khả năng xảy ra (Likelihood)**: **Cao** (Chắc chắn 100% khi có giao dịch thất bại).
+- **Tài sản bị đe dọa**: Độ ổn định và khả năng phục vụ thanh toán (Hệ thống sẽ bị kẹt luồng và không thể ghi nhận thanh toán).
+
+### T4. Đơn hàng "Bóng Ma" vì tính năng tiện lợi cho lập trình viên (Cao - High)
+
+- **Kịch bản**: Dịch vụ kho hàng bị lỗi hoặc mất mạng trong lúc khách đang thanh toán đơn hàng.
+- **Tác động (Impact)**: **Cao**. Do cờ cấu hình `dev_stub_on_failure = True` đang được bật, khi dịch vụ bị lỗi kết nối, đoạn code sẽ đánh chặn cái lỗi đó lại và giả mạo một kết quả "Thành công ảo" để chương trình tiếp tục chạy. Lập trình viên viết vậy để dễ dàng test nhánh đặt hàng mà không phải tốn công dựng hệ thống kho lên, nhưng lại đẩy rủi ro ra hệ thống thật: Đơn hàng sẽ báo với khách là đã xong nhưng kho không trừ hàng, hệ thống cũng không ghi nhận, dẫn đến các sai lệch lớn về tiền bạc.
+- **Khả năng xảy ra (Likelihood)**: **Trung bình**. Tuy chỉ xảy ra khi hệ thống bị trục trặc nền tảng, nhưng vì cách code thiết kế đang cố che giấu lỗi thay vì ngăn chặn nó ngay lập tức (fail open thay vì fail secure), rủi ro này vẫn mang tính phá hoại cao.
+- **Tài sản bị đe dọa**: Quản trị tài chính, Trạng thái chuẩn xác của kho hàng.
+
+## 5. Giải pháp Khắc phục & Đề xuất (Mitigations & Recommendations)
+
+### Các giải pháp cần làm ngay
+
+1. **Dùng API Gateway & Kiểm chứng mã JWT để chặn giả mạo (T1)**:
+   - Triển khai một Cổng giao tiếp trung tâm (API Gateway) đứng chặn đầu để tiếp nhận mọi yêu cầu. API Gateway này có nhiệm vụ kiểm chứng tính hợp lệ của chuỗi mã danh tính (JWT signatures) để đảm bảo không ai giả danh ai được. Mục đích là để thiết lập một "bảo vệ trạm gác" - các dịch vụ bên trong chỉ cần tin bảo vệ trạm gác này, thay vì phải tự xác minh từng người khách một cách ngây thơ qua những trường văn bản.
+2. **Bật lại cấu hình Bảo mật Giao tiếp Nội bộ (T2)**:
+   - Sửa các cờ cấu hình `REQUIRE_INBOUND_HMAC=True` và `REQUIRE_NONCE_GUARD=True` ở tất cả các môi trường (chỉ trừ môi trường viết code trên máy cá nhân). Việc này bắt buộc mọi dịch vụ phải "đeo bảng tên có chữ ký số" khi nói chuyện với nhau, nhờ đó kẻ tấn công có lọt vào mạng cũng không thể bịa ra thông điệp hợp lệ.
+3. **Sửa lỗi sai cấu trúc Database ở Thanh toán (T3)**:
+   - Đồng bộ tên biến trong file code và file khai báo database (`error_code` cần sửa thành `failure_code`), đồng thời thêm cột `client_secret` vào cơ sở dữ liệu để chương trình không bị gọi thiếu trường dữ liệu và văng lỗi nữa.
+4. **Tắt bỏ các cấu hình "Nhượng bộ" cho Dev ở môi trường thực tế (T4)**:
+   - Đặt cờ `dev_stub_on_failure = False`. Hệ thống cần nguyên tắc "Chết sớm còn hơn sống sai" (Fail-fast - phát hiện sai thì chặn luồng chạy lại ngay lập tức): Thà báo lỗi để khóa đơn hàng, còn hơn âm thầm chạy tiếp tạo ra dữ liệu ma.
+   - Tắt cơ chế `ENABLE_SQLITE_FALLBACK=False` (Tự động lùi về lưu vào một file tạm) để tránh việc cứ hễ mất mạng là một phần dữ liệu lại bị rơi rớt trong máy cục bộ làm phân mảnh toàn hệ thống.
+5. **Dọn dẹp Khóa bảo mật (Secrets Management)**:
+   - Tuyệt đối không viết thẳng mật khẩu hay mã bảo mật (như `INTERNAL_API_TOKEN`) vào trong văn bản mã nguồn. Code làm vậy vì lúc lập trình thì dùng biến có sẵn gõ thẳng vào sẽ nhanh hơn rất nhiều, nhưng nếu lọt source code là mất sạch quyền kiểm soát hệ thống. Thay vào đó, máy chủ khi khởi chạy phải tự động đọc biến bảo mật (biến môi trường) hoặc lấy qua Vault.
+
+## 6. Giả định & Câu hỏi Cần chốt (Để hoàn thiện mô hình)
+
+Để hoàn thiện mức độ đánh giá các rủi ro, xin bạn làm rõ thêm:
+
+1. **Mô hình Triển khai**: Các service này sẽ được kết nối trực tiếp ra ngoài Internet, hay bạn dự định sẽ có một API Gateway đứng trước để chặn lại và xác thực (Auth) mọi yêu cầu trước khi đẩy vào microservices?
+2. **Quyền truy cập (User Roles)**: Bạn có yêu cầu kiểm soát truy cập phân quyền rõ ràng (RBAC - Role-Based Access Control) để tách biệt luồng xử lý giữa Người dùng thường (Standard Users) và Người bán (Merchants) không?
+3. **Độ nhạy cảm của Dữ liệu**: Hệ thống có lưu trữ thông tin thẻ tín dụng trực tiếp trong database không, hay chỉ giao tiếp với Stripe thông qua các mã token/client secrets thôi?
+
+_(Trong lúc chờ bạn phản hồi, kịch bản T1 - Giả mạo danh tính vẫn đang được coi là rủi ro đáng sợ nhất vì nó không có gì bảo vệ)._
