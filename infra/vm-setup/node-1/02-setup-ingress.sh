@@ -10,10 +10,10 @@
 set -euo pipefail
 
 # ============================================================
-VM1_IP="${VM1_IP:-192.168.122.11}"   # IP của node này (NODE-1)
-VM2_IP="${VM2_IP:-192.168.122.12}"   # Service Mesh
+VM1_IP="${VM1_IP:-192.168.122.11}" # IP của node này (NODE-1)
+VM2_IP="${VM2_IP:-192.168.122.12}" # Service Mesh
 
-UITSTORE_PASS="UIT_NT219_SecurePass!"
+UITSTORE_PASS="123456"
 KEYCLOAK_VERSION="24.0.5"
 PROJECT_DIR="/opt/uitstore"
 # ============================================================
@@ -42,7 +42,7 @@ else
 fi
 
 mkdir -p /var/cache/nginx/static
-cat > /etc/nginx/nginx.conf <<'NGXCFG'
+cat >/etc/nginx/nginx.conf <<'NGXCFG'
 worker_processes auto;
 error_log /var/log/nginx/error.log warn;
 pid /var/run/nginx.pid;
@@ -112,6 +112,7 @@ http {
         }
 
         location /api/ {
+            proxy_http_version 1.1;
             add_header Cache-Control "no-store, no-cache, must-revalidate, private" always;
             proxy_pass http://127.0.0.1:10000;
             proxy_set_header Host $host;
@@ -142,7 +143,7 @@ nginx -t 2>/dev/null && echo "  nginx.conf syntax OK" || echo "  [ERROR] nginx.c
 systemctl enable nginx
 echo "  Nginx - OK"
 
-cat > /tmp/realm-export-vm.json <<REALM
+cat >/tmp/realm-export-vm.json <<REALM
 {
   "realm": "nt219",
   "enabled": true,
@@ -265,7 +266,7 @@ fi
 cd /opt/keycloak
 bin/kc.sh build 2>/dev/null || true
 
-cat > /etc/systemd/system/keycloak.service <<SVC
+cat >/etc/systemd/system/keycloak.service <<SVC
 [Unit]
 Description=Keycloak Identity Provider (Ingress Zone)
 After=network.target
@@ -276,7 +277,7 @@ User=root
 WorkingDirectory=/opt/keycloak
 Environment=KEYCLOAK_ADMIN=admin
 Environment=KEYCLOAK_ADMIN_PASSWORD=admin123
-ExecStart=/opt/keycloak/bin/kc.sh start-dev
+ExecStart=/opt/keycloak/bin/kc.sh start-dev --http-relative-path=/auth
 Restart=on-failure
 RestartSec=10
 
@@ -312,7 +313,7 @@ openssl req -new -x509 -days 3650 -key /etc/envoy/certs/ca.key \
     -out /etc/envoy/certs/ca.crt \
     -subj "/C=VN/ST=Ho Chi Minh/O=NT219 Capstone/CN=NT219 Root CA" 2>/dev/null
 openssl genrsa -out /etc/envoy/certs/server.key 2048 2>/dev/null
-cat > /tmp/san.cnf <<SANCNF
+cat >/tmp/san.cnf <<SANCNF
 [req]
 default_bits = 2048
 prompt = no
@@ -341,7 +342,7 @@ rm -f /tmp/server.csr /tmp/san.cnf /etc/envoy/certs/ca.srl
 echo "  TLS certs - OK (/etc/envoy/certs/)"
 
 # WAF Lua script — chạy trước JWT validation, block SQLi/XSS/path-traversal/scanner
-cat > /etc/envoy/waf.lua <<'WAFLUA'
+cat >/etc/envoy/waf.lua <<'WAFLUA'
 local sqli_patterns = {
   "union%s+select","union%s+all%s+select","select%s+.*%s+from",
   "insert%s+into","delete%s+from","drop%s+table","drop%s+database",
@@ -471,7 +472,7 @@ WAFLUA
 echo "  WAF Lua - OK (/etc/envoy/waf.lua)"
 
 # Envoy chỉ route đến NODE-2 (không route trực tiếp đến NODE-3)
-cat > /etc/envoy/envoy.yaml <<ENVOYCFG
+cat >/etc/envoy/envoy.yaml <<ENVOYCFG
 admin:
   address:
     socket_address:
@@ -600,7 +601,7 @@ static_resources:
                       port_value: 8008
 ENVOYCFG
 
-cat > /etc/systemd/system/envoy.service <<SVC
+cat >/etc/systemd/system/envoy.service <<SVC
 [Unit]
 Description=Envoy API Gateway (Ingress Zone)
 After=network.target
@@ -629,9 +630,9 @@ ufw --force enable
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp
-ufw allow 80/tcp    # Nginx (public)
-ufw allow 8080/tcp  # Keycloak (admin + VM-2/3 JWT validation)
-ufw allow 9901/tcp  # Envoy Admin (demo)
+ufw allow 80/tcp   # Nginx (public)
+ufw allow 8080/tcp # Keycloak (admin + VM-2/3 JWT validation)
+ufw allow 9901/tcp # Envoy Admin (demo)
 
 ufw reload
 echo "  Firewall - OK"
