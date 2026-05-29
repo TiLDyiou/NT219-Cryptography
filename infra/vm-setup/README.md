@@ -29,12 +29,12 @@ MACHINE 1                                    MACHINE 2
 
 ## Yêu cầu phần cứng
 
-| Node | Zone | Máy | RAM | CPU | Disk |
-|---|---|---|---|---|---|
-| NODE-1 | Ingress | Máy 1 | 4 GB | 2 cores | 20 GB |
-| NODE-4 | Data + Obs | Máy 1 | 8 GB | 4 cores | 60 GB |
-| NODE-2 | Service Mesh | Máy 2 | 4 GB | 2 cores | 20 GB |
-| NODE-3 | PCI DSS | Máy 2 | 3 GB | 2 cores | 20 GB |
+| Node | Zone | Máy | RAM | CPU | Disk | IP Tĩnh |
+|---|---|---|---|---|---|---|
+| NODE-1 | Ingress | Máy 1 | 4 GB | 2 cores | 20 GB | `192.168.122.11` |
+| NODE-4 | Data + Obs | Máy 1 | 8 GB | 4 cores | 60 GB | `192.168.122.14` |
+| NODE-2 | Service Mesh | Máy 2 | 4 GB | 2 cores | 20 GB | `192.168.122.12` |
+| NODE-3 | PCI DSS | Máy 2 | 3 GB | 2 cores | 20 GB | `192.168.122.13` |
 
 > **Máy 1:** tối thiểu 14 GB RAM &nbsp;|&nbsp; **Máy 2:** tối thiểu 9 GB RAM
 

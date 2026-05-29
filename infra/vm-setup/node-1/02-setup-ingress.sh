@@ -10,8 +10,8 @@
 set -euo pipefail
 
 # ============================================================
-VM1_IP="${VM1_IP:-192.168.64.11}"   # IP của node này (NODE-1)
-VM2_IP="${VM2_IP:-192.168.64.12}"   # Service Mesh
+VM1_IP="${VM1_IP:-192.168.122.11}"   # IP của node này (NODE-1)
+VM2_IP="${VM2_IP:-192.168.122.12}"   # Service Mesh
 
 UITSTORE_PASS="UIT_NT219_SecurePass!"
 KEYCLOAK_VERSION="24.0.5"

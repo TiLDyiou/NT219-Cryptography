@@ -9,9 +9,9 @@
 set -euo pipefail
 
 # ============================================================
-VM2_IP="${VM2_IP:-192.168.64.12}" # Service Mesh
-VM3_IP="${VM3_IP:-192.168.64.13}" # PCI DSS (payment)
-VM1_IP="${VM1_IP:-192.168.64.11}" # Ingress (Keycloak metrics)
+VM2_IP="${VM2_IP:-192.168.122.12}" # Service Mesh
+VM3_IP="${VM3_IP:-192.168.122.13}" # PCI DSS (payment)
+VM1_IP="${VM1_IP:-192.168.122.11}" # Ingress (Keycloak metrics)
 PROJECT_DIR="${PROJECT_DIR:-/opt/uitstore}"
 
 UITSTORE_PASS="123456"

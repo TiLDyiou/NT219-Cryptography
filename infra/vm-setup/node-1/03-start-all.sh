@@ -2,7 +2,7 @@
 # NODE-1: INGRESS ZONE - Khởi động
 # Chạy SAU CÙNG (sau NODE-2, NODE-3, NODE-4)
 
-VM2_IP="${VM2_IP:-192.168.64.12}"
+VM2_IP="${VM2_IP:-192.168.122.12}"
 NODE1_IP=$(hostname -I | awk '{print $1}')
 
 echo "============================================="

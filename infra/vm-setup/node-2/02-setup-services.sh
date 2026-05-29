@@ -10,8 +10,8 @@
 set -euo pipefail
 
 # ============================================================
-VM3_IP="${VM3_IP:-192.168.64.13}"   # payment-service (PCI DSS)
-VM4_IP="${VM4_IP:-192.168.64.14}"   # DB + Kafka + Logstash
+VM3_IP="${VM3_IP:-192.168.122.13}"   # payment-service (PCI DSS)
+VM4_IP="${VM4_IP:-192.168.122.14}"   # DB + Kafka + Logstash
 
 UITSTORE_PASS="UIT_NT219_SecurePass!"
 PROJECT_DIR="/opt/uitstore"
@@ -128,7 +128,7 @@ done
 echo ""
 echo ">>> Cấu hình firewall..."
 
-NODE1_IP="${NODE1_IP:-192.168.64.11}"
+NODE1_IP="${NODE1_IP:-192.168.122.11}"
 
 ufw --force enable
 ufw default deny incoming

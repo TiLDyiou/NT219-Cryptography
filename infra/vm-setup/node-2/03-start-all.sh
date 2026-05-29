@@ -2,8 +2,8 @@
 # NODE-2: SERVICE MESH - Khởi động
 # Chạy SAU NODE-3 và NODE-4
 
-VM3_IP="${VM3_IP:-192.168.64.13}"
-VM4_IP="${VM4_IP:-192.168.64.14}"
+VM3_IP="${VM3_IP:-192.168.122.13}"
+VM4_IP="${VM4_IP:-192.168.122.14}"
 NODE2_IP=$(hostname -I | awk '{print $1}')
 
 echo "============================================="

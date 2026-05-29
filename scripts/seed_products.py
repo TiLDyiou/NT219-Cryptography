@@ -17,6 +17,7 @@ Cách dùng:
 """
 
 import argparse
+import json
 import re
 import sys
 import time
@@ -58,6 +59,38 @@ def parse_image(raw) -> list:
     return [{"url": url, "position": 0, "alt": "product image"}]
 
 
+def parse_bool(raw, default: bool = False) -> bool:
+    if pd.isna(raw):
+        return default
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def parse_optional_int(raw):
+    if pd.isna(raw) or str(raw).strip() == "":
+        return None
+    return int(raw)
+
+
+def parse_optional_str(raw):
+    if pd.isna(raw):
+        return None
+    value = str(raw).strip()
+    return value or None
+
+
+def parse_json_cell(raw, default, column: str):
+    if isinstance(raw, (dict, list)):
+        return raw
+    if pd.isna(raw) or str(raw).strip() == "":
+        return default
+    try:
+        return json.loads(str(raw))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"JSON không hợp lệ ở cột {column}: {exc}") from exc
+
+
 def truncate(text, max_len=MAX_NAME_LENGTH) -> str:
     s = str(text).strip() if not pd.isna(text) else ""
     return s[:max_len]
@@ -65,8 +98,36 @@ def truncate(text, max_len=MAX_NAME_LENGTH) -> str:
 
 # ── Dataset mappers ───────────────────────────────────────────────────────────────
 
+def is_catalog_product_row(row: pd.Series) -> bool:
+    return {"sku", "name", "base_price"}.issubset(set(row.index))
+
+
+def map_catalog_product_row(row: pd.Series, idx: int) -> dict:
+    """CSV đã chuẩn hóa theo ProductCreate/catalog table columns."""
+    name = truncate(row.get("name", f"Product {idx}"))
+    sku = parse_optional_str(row.get("sku")) or f"ELEC-{idx:04d}-{slugify(name)[:30]}"
+
+    return {
+        "sku": sku,
+        "name": name,
+        "status": parse_optional_str(row.get("status")) or "active",
+        "product_type": parse_optional_str(row.get("product_type")) or "physical",
+        "base_price": parse_price(row.get("base_price", 0)),
+        "currency_code": parse_optional_str(row.get("currency_code")) or "VND",
+        "weight_grams": parse_optional_int(row.get("weight_grams")),
+        "is_taxable": parse_bool(row.get("is_taxable"), True),
+        "brand": parse_optional_str(row.get("brand")),
+        "is_active": parse_bool(row.get("is_active"), True),
+        "images": parse_json_cell(row.get("images"), [], "images"),
+        "metadata_json": parse_json_cell(row.get("metadata_json"), {}, "metadata_json"),
+    }
+
+
 def map_electronics_row(row: pd.Series, idx: int) -> dict:
-    """Tiki Electronics CSV — columns: name, price, product_url, image, rating, ..."""
+    """Tiki Electronics CSV — hỗ trợ cả raw dataset và CSV đã chuẩn hóa."""
+    if is_catalog_product_row(row):
+        return map_catalog_product_row(row, idx)
+
     name  = truncate(row.get("name", f"Product {idx}"))
     price = parse_price(row.get("price", 0))
     rating = float(row.get("rating", 0)) if not pd.isna(row.get("rating", None)) else 0.0

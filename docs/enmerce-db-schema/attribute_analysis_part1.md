@@ -40,6 +40,7 @@
 | --------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `merchant_id`   | UUID FK 🔗          | **Ownership** — Sản phẩm thuộc về merchant nào. Kết hợp RLS (Row-Level Security) để merchant chỉ thấy sản phẩm của mình. Là FK đến `merchants.id`.                                    |
 | `sku`           | VARCHAR(100)        | **Stock Keeping Unit** — Mã nội bộ của merchant. UNIQUE(merchant_id, sku) → mỗi merchant có SKU riêng, không conflict giữa merchants.                                                 |
+| `name`          | VARCHAR(255)        | **Display name** — Tên sản phẩm hiển thị ở catalog, cart và order snapshot. Đây là field bắt buộc trong `ProductCreate`.                                                              |
 | `status`        | VARCHAR(20) + CHECK | **Publishing workflow** — `draft → pending_review → active → inactive → archived`. Chỉ `active` products hiển thị cho buyers. `pending_review` = chờ platform duyệt (chống hàng cấm). |
 | `product_type`  | VARCHAR(20)         | **Fulfillment logic** — `physical` cần shipping, `digital` cần download link, `service` cần booking. Ảnh hưởng cách Shipping Service xử lý.                                           |
 | `base_price`    | DECIMAL(15,2)       | **Pricing** — Giá cơ bản. DECIMAL(15,2) cho phép giá tối đa 9,999,999,999,999.99 (đủ cho VND). CHECK >= 0 chống giá âm. Variant có thể override giá này.                              |
@@ -47,7 +48,7 @@
 | `weight_grams`  | INTEGER             | **Shipping calculation** — Trọng lượng tính phí vận chuyển. INTEGER gram thay vì DECIMAL kg để tránh lỗi floating point. Shipping Service dùng giá trị này.                           |
 | `is_taxable`    | BOOLEAN             | **Tax logic** — Một số sản phẩm miễn thuế (sách, thực phẩm cơ bản). Order Service dùng để tính `tax_amount`.                                                                          |
 | `brand`         | VARCHAR(255)        | **Filtering & Search** — Lọc theo thương hiệu trên catalog page. Không dùng FK vì brands rất dynamic.                                                                                 |
-| `metadata`      | JSONB               | **Flexible attributes** — Lưu data không cấu trúc: specifications, tags, SEO data. GIN index cho phép query: `WHERE metadata @> '{"origin": "Vietnam"}'`.                             |
+| `metadata_json` | JSONB               | **Flexible attributes** — Lưu data không cấu trúc: specifications, tags, SEO data. Hậu tố `_json` khớp code/API và tránh đụng tên `metadata` đặc biệt của SQLAlchemy.                 |
 
 ### 1.6. `product_variants` — Biến thể sản phẩm
 

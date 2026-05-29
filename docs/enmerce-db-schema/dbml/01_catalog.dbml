@@ -85,6 +85,7 @@ Table products {
   id            uuid [pk, default: `gen_random_uuid()`]
   merchant_id   uuid [not null, ref: > merchants.id]
   sku           varchar(100) [not null]
+  name          varchar(255) [not null]
   status        varchar(20) [not null, default: 'draft', note: 'draft|pending_review|active|inactive|archived']
   product_type  varchar(20) [not null, default: 'physical', note: 'physical|digital|service']
   base_price    decimal(15,2) [not null, note: '>= 0']
@@ -93,7 +94,7 @@ Table products {
   is_taxable    boolean [not null, default: true]
   tax_class     varchar(50) [default: 'standard']
   brand         varchar(255)
-  metadata      jsonb [default: '{}', note: 'flexible product attrs']
+  metadata_json jsonb [default: '{}', note: 'flexible product attrs']
   images        jsonb [default: '[]', note: '[{"url":"...","alt":"...","is_primary":true,"sort_order":0}]']
   created_at    timestamptz [not null, default: `now()`]
   updated_at    timestamptz [not null, default: `now()`]
@@ -237,4 +238,3 @@ Table catalog_audit_log {
     Populated by PostgreSQL trigger (hybrid approach).
   '''
 }
-

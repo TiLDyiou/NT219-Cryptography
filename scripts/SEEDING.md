@@ -6,6 +6,14 @@
 |------|-------|-------------|----------|
 | `data/tiki_electronics.csv` | Tiki.vn (crawl) | 1.440 | Tiếng Việt |
 
+File CSV hiện đã được chuẩn hóa theo model `Product` của `catalog-service`:
+
+```csv
+id,merchant_id,sku,name,status,product_type,base_price,currency_code,weight_grams,is_taxable,brand,metadata_json,images,created_at,updated_at,deleted_at,is_active,version
+```
+
+Các cột `id`, `merchant_id`, `created_at`, `updated_at`, `deleted_at`, `version` đã có sẵn để hỗ trợ import/đối chiếu theo table. Khi seed qua API, script vẫn chỉ gửi các field thuộc `ProductCreate`; `merchant_id` lấy từ Bearer token và các field DB-only được service tự xử lý. Trong thiết kế DB, trường metadata sản phẩm tương ứng với `metadata_json` ở code/API.
+
 Mẫu dữ liệu:
 ```
 Điện Thoại Samsung Galaxy M12 (4GB/64GB) - Hàng Chính Hãng  →  3.490.000 VND

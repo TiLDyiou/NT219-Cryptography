@@ -2,7 +2,7 @@
 # NODE-3: PCI DSS ZONE - Khởi động
 # Chạy SAU NODE-4 (cần DB/Kafka), TRƯỚC NODE-2
 
-VM4_IP="${VM4_IP:-192.168.64.14}"
+VM4_IP="${VM4_IP:-192.168.122.14}"
 NODE3_IP=$(hostname -I | awk '{print $1}')
 
 echo "============================================="

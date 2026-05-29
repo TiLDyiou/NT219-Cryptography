@@ -8,8 +8,8 @@
 set -euo pipefail
 
 # ============================================================
-VM2_IP="${VM2_IP:-192.168.64.12}"   # order-service sẽ gọi vào đây
-VM4_IP="${VM4_IP:-192.168.64.14}"   # PostgreSQL, Kafka, Logstash
+VM2_IP="${VM2_IP:-192.168.122.12}"   # order-service sẽ gọi vào đây
+VM4_IP="${VM4_IP:-192.168.122.14}"   # PostgreSQL, Kafka, Logstash
 
 UITSTORE_PASS="UIT_NT219_SecurePass!"
 PROJECT_DIR="/opt/uitstore"
