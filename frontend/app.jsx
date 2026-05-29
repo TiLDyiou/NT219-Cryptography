@@ -2,12 +2,8 @@
 
 const App = () => {
   const [screen, setScreen]           = React.useState('home');
-  const [productId, setProductId]     = React.useState('p_001');
-  const [cart, setCart]               = React.useState([
-    { productId: 'p_001', qty: 1 },
-    { productId: 'p_011', qty: 1 },
-    { productId: 'p_003', qty: 2 },
-  ]);
+  const [productId, setProductId]     = React.useState(null);
+  const [cart, setCart]               = React.useState([]);
   const [user, setUser]               = React.useState(null);
   const [show3DS, setShow3DS]         = React.useState(false);
   const [orderTotal, setOrderTotal]   = React.useState(0);
@@ -18,19 +14,19 @@ const App = () => {
   const [cartVersions, setCartVersions]       = React.useState({}); // { [merchantId]: { cartId, version } }
   const [pendingCheckout, setPendingCheckout] = React.useState(null);
   const [realOrderId, setRealOrderId]         = React.useState(null);
+  const [lastOrderPayload, setLastOrderPayload] = React.useState(null);
   const [apiStatus, setApiStatus]             = React.useState({
     catalog: 'unknown', // 'ok' | 'error' | 'unknown'
     cart:    'unknown',
     order:   'unknown',
   });
 
-  // ── Load products từ Catalog Service khi mount ──────────────────────
-  React.useEffect(() => {
+  // ── Load products + cart từ backend ─────────────────────────────────
+  function loadData() {
     window.UitAPI.catalog.listProducts()
       .then(function (res) {
         const apiProducts = res && res.data;
         if (apiProducts && apiProducts.length > 0) {
-          // Map API schema → window.PRODUCTS schema, supplement từ static data nếu có
           const mapped = apiProducts.map(function (p) {
             const staticMatch = (window.PRODUCTS || []).find(function (s) {
               return s.sku === p.sku || s.id === p.id;
@@ -41,7 +37,6 @@ const App = () => {
           setProductsVersion(function (v) { return v + 1; });
           setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'ok' }); });
         } else {
-          // DB trống → giữ static data
           setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'ok' }); });
         }
       })
@@ -49,12 +44,10 @@ const App = () => {
         setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'error' }); });
       });
 
-    // Load cart từ Cart Service (khôi phục trạng thái giỏ hàng nếu user đã đăng nhập trước)
     window.UitAPI.cart.list()
       .then(function (res) {
         const carts = res && res.data;
         if (!carts || carts.length === 0) return;
-
         const meta = {};
         const items = [];
         carts.forEach(function (c) {
@@ -63,23 +56,36 @@ const App = () => {
             items.push({ productId: item.product_id, qty: item.quantity, itemId: item.id });
           });
         });
-        // Chỉ restore nếu giỏ backend không trống
-        if (items.length > 0) {
-          setCart(items);
-          setCartVersions(meta);
-        } else {
-          setCartVersions(meta);
-        }
+        if (items.length > 0) { setCart(items); setCartVersions(meta); }
+        else { setCartVersions(meta); }
         setApiStatus(function (prev) { return Object.assign({}, prev, { cart: 'ok' }); });
       })
       .catch(function () {
         setApiStatus(function (prev) { return Object.assign({}, prev, { cart: 'error' }); });
       });
+  }
+
+  // ── Khởi động: khôi phục phiên + load data ───────────────────────────
+  React.useEffect(function () {
+    // Khôi phục phiên nếu token còn hạn trong sessionStorage
+    if (window.UitAuth && window.UitAuth.isAuthenticated()) {
+      const u = window.UitAuth.getUser();
+      if (u) {
+        setUser(u);
+        window.UitAPI.setUserId(u.id || u.email);
+      }
+    }
+    loadData();
   }, []);
 
   const nav = (target, id) => {
     setScreen(target);
     if (id) setProductId(id);
+    else if (target === 'product' && !productId) {
+      // Fallback: lấy sản phẩm đầu tiên có trong PRODUCTS
+      const first = window.PRODUCTS && window.PRODUCTS[0];
+      if (first) setProductId(first.id);
+    }
     setTimeout(() => {
       window.scrollTo(0, 0);
       const root = document.querySelector('.app-content');
@@ -156,7 +162,7 @@ const App = () => {
   };
 
   // ── Build checkout payload ───────────────────────────────────────────
-  const buildCheckoutPayload = React.useCallback(function (paymentMethod) {
+  const buildCheckoutPayload = React.useCallback(function (paymentMethod, deliveryFee) {
     const items = cart.map(function (c) {
       const product = (window.PRODUCTS || []).find(function (p) { return p.id === c.productId; });
       if (!product) return null;
@@ -172,7 +178,7 @@ const App = () => {
     }).filter(Boolean);
 
     const subtotal     = items.reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
-    const shipping_fee = subtotal > 500000 ? 0 : 25000;
+    const shipping_fee = deliveryFee !== undefined ? deliveryFee : (subtotal > 500000 ? 0 : 25000);
 
     // Dùng cart_id từ backend nếu có, fallback sang synthetic
     const firstMerchantId = items.length > 0 ? items[0].merchant_id : 'unknown';
@@ -190,20 +196,21 @@ const App = () => {
       customer_note:        null,
       items:                items,
       shipping_address: {
-        full_name:      'Nguyễn Văn An',
+        full_name:      user ? user.name  : 'Khách',
         phone:          '0912345789',
-        email:          'an.nguyen@uit.edu.vn',
+        email:          user ? user.email : '',
         address_line1:  'Số 1 Hàn Thuyên, Phường Linh Trung',
         city:           'TP. Hồ Chí Minh',
         state_province: 'TP. Thủ Đức',
         postal_code:    '700000',
       },
     };
-  }, [cart, cartVersions]);
+  }, [cart, cartVersions, user]);
 
   // ── Gọi Order Service để đặt hàng ───────────────────────────────────
   const doCheckout = React.useCallback(function (payload) {
     const idempotencyKey = 'idem_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    setLastOrderPayload(payload);
     return window.UitAPI.order.checkout(payload, idempotencyKey)
       .then(function (res) {
         const orderNum = (res && res.data && res.data.parent_order_number) || null;
@@ -220,8 +227,8 @@ const App = () => {
       });
   }, [cart, cartVersions]);
 
-  const handlePay = (paymentMethod) => {
-    const payload = buildCheckoutPayload(paymentMethod);
+  const handlePay = (paymentMethod, deliveryFee) => {
+    const payload = buildCheckoutPayload(paymentMethod, deliveryFee);
     const subtotal = (payload.items || []).reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
     setOrderTotal(subtotal + Number(payload.shipping_fee));
 
@@ -254,6 +261,9 @@ const App = () => {
     checkout: 'uitstore.vn/checkout/payment',
     order:    'uitstore.vn/order/' + (realOrderId || 'UIT-2026052401-A7F3'),
     login:    'uitstore.vn/account/login',
+    register: 'uitstore.vn/account/register',
+    account:  'uitstore.vn/account',
+    orders:   'uitstore.vn/account/orders',
     merchant: 'seller.uitstore.vn/dashboard',
   };
 
@@ -264,6 +274,9 @@ const App = () => {
     checkout: 'Thanh toán — UIT Store',
     order:    'Đặt hàng thành công — UIT Store',
     login:    'Đăng nhập — UIT Store',
+    register: 'Đăng ký — UIT Store',
+    account:  'Tài khoản — UIT Store',
+    orders:   'Đơn hàng của tôi — UIT Store',
     merchant: 'Seller Center — UIT Store',
   };
 
@@ -285,20 +298,70 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Khi user đăng nhập, cập nhật userId trong API client
+  // Khi user đăng nhập (callback từ LoginScreen mock hoặc từ initAuth)
   const handleLogin = (u) => {
     setUser(u);
-    if (u && u.email) {
-      window.UitAPI.setUserId(u.email);
-    }
+    if (u) window.UitAPI.setUserId(u.id || u.email || u.name);
     nav('home');
     toast('Đăng nhập thành công · Phiên JWT đã được tạo');
   };
 
+  const handleLogout = () => {
+    setUser(null);
+    setCart([]);
+    setCartVersions({});
+    window.UitAPI.setUserId('user_demo_001');
+    if (window.UitAuth) window.UitAuth.logout();
+    nav('home');
+    toast('Đã đăng xuất');
+  };
+
+  const [searchQuery, setSearchQuery]   = React.useState('');
+  const [activeCategory, setActiveCategory] = React.useState(null);
+  const [wishlist, setWishlist]         = React.useState([]);
+
+  const handleToggleWishlist = (productId) => {
+    const isIn = wishlist.includes(productId);
+    setWishlist(isIn ? wishlist.filter(id => id !== productId) : [...wishlist, productId]);
+    toast(isIn ? 'Đã xoá khỏi yêu thích' : 'Đã thêm vào yêu thích ♥');
+  };
+
+  const handleSearch = (q) => {
+    setSearchQuery(q);
+    setActiveCategory(null);
+    if (screen !== 'home') nav('home');
+  };
+
+  const handleCategory = (catId) => {
+    setActiveCategory(catId);
+    setSearchQuery('');
+    if (screen !== 'home') nav('home');
+  };
+
+  const isOffline = apiStatus.catalog === 'error' && apiStatus.cart === 'error';
+  const [dismissDemo, setDismissDemo] = React.useState(false);
+
+  const noHeaderScreens = ['login', 'register', 'merchant'];
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }} className="app-content">
-      {screen !== 'login' && screen !== 'merchant' && (
-        <Header nav={screen} cartCount={cartCount} onNav={nav} user={user} />
+
+      {/* Banner demo mode */}
+      {isOffline && !dismissDemo && !noHeaderScreens.includes(screen) && (
+        <div style={{
+          background: '#FEF3C7', borderBottom: '1px solid #FCD34D',
+          padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12,
+        }}>
+          <Icon name="bell" size={14} color="#92400E" />
+          <span style={{ flex: 1, color: '#92400E' }}>
+            <b>Demo mode</b> — Backend chưa kết nối. Dữ liệu tĩnh, auth dùng localStorage.
+          </span>
+          <span style={{ cursor: 'pointer', color: '#92400E', fontWeight: 600 }} onClick={() => setDismissDemo(true)}>✕</span>
+        </div>
+      )}
+
+      {!noHeaderScreens.includes(screen) && (
+        <Header nav={screen} cartCount={cartCount} onNav={nav} user={user} onLogout={handleLogout} onSearch={handleSearch} onCategory={handleCategory} onToast={toast} />
       )}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {screen === 'home' && (
@@ -307,6 +370,9 @@ const App = () => {
             onNav={nav}
             apiStatus={apiStatus}
             productsVersion={productsVersion}
+            searchQuery={searchQuery}
+            activeCategory={activeCategory}
+            onCategory={setActiveCategory}
           />
         )}
         {screen === 'product' && (
@@ -315,21 +381,21 @@ const App = () => {
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
             onNav={nav}
+            wishlist={wishlist}
+            onToggleWishlist={handleToggleWishlist}
           />
         )}
-        {screen === 'cart' && <CartScreen cart={cart} setCart={setCart} onNav={nav} />}
-        {screen === 'checkout' && <CheckoutScreen cart={cart} onNav={nav} onPay={handlePay} />}
-        {screen === 'order' && <OrderScreen orderTotal={orderTotal} orderId={realOrderId} onNav={nav} />}
-        {screen === 'login' && (
-          <LoginScreen
-            onLogin={handleLogin}
-            onNav={nav}
-          />
-        )}
-        {screen === 'merchant' && <MerchantScreen onNav={nav} />}
+        {screen === 'cart' && <CartScreen cart={cart} setCart={setCart} onNav={nav} user={user} />}
+        {screen === 'checkout' && <CheckoutScreen cart={cart} onNav={nav} onPay={handlePay} user={user} />}
+        {screen === 'order' && <OrderScreen orderTotal={orderTotal} orderId={realOrderId} orderPayload={lastOrderPayload} user={user} onNav={nav} />}
+        {screen === 'orders' && <OrdersScreen onNav={nav} user={user} />}
+        {screen === 'account' && <AccountScreen user={user} onNav={nav} onLogout={handleLogout} />}
+        {screen === 'login' && <LoginScreen onLogin={handleLogin} onNav={nav} />}
+        {screen === 'register' && <RegisterScreen onLogin={handleLogin} onNav={nav} />}
+        {screen === 'merchant' && <MerchantScreen onNav={nav} user={user} />}
       </div>
 
-      {screen !== 'login' && screen !== 'merchant' && screen !== 'order' && <Footer />}
+      {!noHeaderScreens.includes(screen) && screen !== 'order' && <Footer />}
 
       {/* Floating screen nav */}
       {showNav && (
@@ -349,6 +415,9 @@ const App = () => {
             { id: 'checkout', label: 'Thanh toán' },
             { id: 'order',    label: 'Đặt hàng OK' },
             { id: 'login',    label: 'Đăng nhập' },
+            { id: 'register', label: 'Đăng ký' },
+            { id: 'account',  label: 'Tài khoản' },
+            { id: 'orders',   label: 'Đơn hàng' },
             { id: 'merchant', label: 'Seller' },
           ].map(t => (
             <button key={t.id} onClick={() => nav(t.id)} style={{
@@ -380,6 +449,7 @@ const App = () => {
       {show3DS && (
         <ThreeDSModal
           amount={orderTotal}
+          user={user}
           onComplete={complete3DS}
           onCancel={() => { setShow3DS(false); setPendingCheckout(null); }}
         />

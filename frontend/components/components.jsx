@@ -104,7 +104,28 @@ const TrustStrip = () => (
 );
 
 // ─── Header ──────────────────────────────────────────────────────────
-const Header = ({ nav, cartCount, onNav, user }) => (
+// catId có thể là string (1 category) hoặc array (nhiều category)
+const NAV_CATEGORIES = [
+  { label: 'Điện tử & Công nghệ', catId: ['phone', 'laptop'] },
+  { label: 'Thời trang',          catId: ['fashion', 'fashion-w'] },
+  { label: 'Nhà cửa & Đời sống', catId: ['home']  },
+  { label: 'Sách & Giáo dục',     catId: ['book']  },
+  { label: 'Thể thao & Sức khỏe', catId: ['sport'] },
+];
+
+const Header = ({ nav, cartCount, onNav, user, onLogout, onSearch, onCategory, onToast }) => {
+  const [q, setQ] = React.useState('');
+
+  const doSearch = () => {
+    const term = q.trim();
+    if (term) { onSearch && onSearch(term); }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') doSearch();
+  };
+
+  return (
   <div style={{ background: 'var(--primary)', color: 'white' }}>
     {/* Top utility bar */}
     <div className="header-top-bar" style={{
@@ -113,21 +134,26 @@ const Header = ({ nav, cartCount, onNav, user }) => (
       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     }}>
       <div style={{ display: 'flex', gap: 18, opacity: 0.9 }}>
-        <span>Kênh người bán</span>
-        <span>Tải ứng dụng</span>
+        <span style={{ cursor: 'pointer' }} onClick={() => onNav('merchant')}>Kênh người bán</span>
+        <span style={{ cursor: 'pointer' }} onClick={() => onToast && onToast('Tính năng tải ứng dụng — coming soon')}>Tải ứng dụng</span>
         <span>Kết nối</span>
       </div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'center', opacity: 0.9 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+              onClick={() => onToast && onToast('Bạn chưa có thông báo mới')}>
           <Icon name="bell" size={13} /> Thông báo
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Icon name="globe" size={13} /> Tiếng Việt
         </span>
         {user ? (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => onNav('merchant')}>
-            <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#FFB400', color: 'var(--primary-dark)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{user.initial}</div>
-            {user.name}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => onNav('account')}>
+              <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#FFB400', color: 'var(--primary-dark)', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{user.initial}</div>
+              {user.name}
+            </span>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <span style={{ cursor: 'pointer', opacity: 0.85 }} onClick={onLogout}>Đăng xuất</span>
           </span>
         ) : (
           <span style={{ cursor: 'pointer' }} onClick={() => onNav('login')}>Đăng ký · Đăng nhập</span>
@@ -140,18 +166,12 @@ const Header = ({ nav, cartCount, onNav, user }) => (
       {/* Logo */}
       <div onClick={() => onNav('home')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 40,
-          height: 40,
-          borderRadius: 8,
-          background: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-          padding: 2,
+          width: 40, height: 40, borderRadius: 8, background: 'white',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', padding: 2,
         }}>
-          <img src="https://upload.wikimedia.org/wikipedia/commons/3/32/Ho_Chi_Minh_City_University_of_Information_Technology_Full_Logo.JPG" 
-               alt="UIT" 
+          <img src="https://upload.wikimedia.org/wikipedia/commons/3/32/Ho_Chi_Minh_City_University_of_Information_Technology_Full_Logo.JPG"
+               alt="UIT"
                style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
         <div style={{ lineHeight: 1.1 }}>
@@ -167,19 +187,33 @@ const Header = ({ nav, cartCount, onNav, user }) => (
           display: 'flex', alignItems: 'center', padding: '0 4px 0 14px', height: 40,
         }}>
           <Icon name="search" size={18} color="var(--ink-500)" />
-          <input placeholder="Bạn tìm gì hôm nay?" style={{
-            flex: 1, border: 'none', outline: 'none', padding: '0 10px',
-            background: 'transparent', color: 'var(--ink-900)', fontSize: 14,
-          }} />
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Bạn tìm gì hôm nay?"
+            style={{
+              flex: 1, border: 'none', outline: 'none', padding: '0 10px',
+              background: 'transparent', color: 'var(--ink-900)', fontSize: 14,
+            }}
+          />
           <div style={{ display: 'flex', gap: 6, paddingRight: 4 }}>
-            <button style={{ padding: '6px 8px', color: 'var(--ink-500)' }}><Icon name="camera" size={18}/></button>
-            <button style={{ padding: '6px 8px', color: 'var(--ink-500)' }}><Icon name="mic" size={18}/></button>
-            <button className="btn btn-primary" style={{ padding: '6px 16px', borderRadius: 4 }}>Tìm kiếm</button>
+            <button style={{ padding: '6px 8px', color: 'var(--ink-500)' }}
+                    onClick={() => onToast && onToast('Tìm kiếm bằng ảnh — coming soon')}>
+              <Icon name="camera" size={18}/>
+            </button>
+            <button style={{ padding: '6px 8px', color: 'var(--ink-500)' }}
+                    onClick={() => onToast && onToast('Tìm kiếm bằng giọng nói — coming soon')}>
+              <Icon name="mic" size={18}/>
+            </button>
+            <button className="btn btn-primary" style={{ padding: '6px 16px', borderRadius: 4 }} onClick={doSearch}>
+              Tìm kiếm
+            </button>
           </div>
         </div>
         <div className="header-suggestions" style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 11, opacity: 0.9 }}>
           {['iPhone 15', 'Tủ lạnh', 'Đắc nhân tâm', 'Nồi chiên không dầu', 'AirPods', 'Áo thun nam'].map(t => (
-            <span key={t} style={{ cursor: 'pointer' }}>{t}</span>
+            <span key={t} style={{ cursor: 'pointer' }} onClick={() => { setQ(t); onSearch && onSearch(t); }}>{t}</span>
           ))}
         </div>
       </div>
@@ -209,8 +243,10 @@ const Header = ({ nav, cartCount, onNav, user }) => (
         <span>Giao đến: <b>Q. Thủ Đức, TP. HCM</b></span>
       </div>
       <div style={{ flex: 1, display: 'flex', gap: 16, justifyContent: 'center' }}>
-        {['Điện tử & Công nghệ', 'Thời trang', 'Nhà cửa & Đời sống', 'Sách & Giáo dục', 'Thể thao & Sức khỏe'].map(t => (
-          <span key={t} style={{ cursor: 'pointer' }}>{t}</span>
+        {NAV_CATEGORIES.map(c => (
+          <span key={c.catId} style={{ cursor: 'pointer' }} onClick={() => onCategory && onCategory(c.catId)}>
+            {c.label}
+          </span>
         ))}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, opacity: 0.95 }}>
@@ -219,7 +255,8 @@ const Header = ({ nav, cartCount, onNav, user }) => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // ─── Footer ──────────────────────────────────────────────────────────
 const Footer = () => (

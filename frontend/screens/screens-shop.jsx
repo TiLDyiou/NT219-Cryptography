@@ -1,10 +1,28 @@
 // UIT Store — Home & Product Detail screens
 
 // ─── Home Screen ─────────────────────────────────────────────────────
-const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion }) => {
-  const allProducts = window.PRODUCTS;
+const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery, activeCategory, onCategory }) => {
+  const [sortMode, setSortMode] = React.useState('all');
   const catalogOk = apiStatus && apiStatus.catalog === 'ok';
   const catalogErr = apiStatus && apiStatus.catalog === 'error';
+
+  const allProducts = React.useMemo(() => {
+    let products = window.PRODUCTS || [];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      products = products.filter(p =>
+        p.name.toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q)
+      );
+    }
+    if (activeCategory) {
+      products = products.filter(p => p.category === activeCategory);
+    }
+    if (sortMode === 'newest')     products = [...products].sort((a, b) => b.id.localeCompare(a.id));
+    if (sortMode === 'bestseller') products = [...products].sort((a, b) => b.sold - a.sold);
+    if (sortMode === 'rating')     products = [...products].sort((a, b) => b.rating - a.rating);
+    return products;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, activeCategory, sortMode, productsVersion]);
 
   return (
     <div className="shop-container">
@@ -15,15 +33,19 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion }) => {
             Danh mục
           </div>
           {window.CATEGORIES.map(cat => (
-            <div key={cat.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-              fontSize: 13, color: 'var(--ink-700)', transition: 'background 0.1s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--primary-tint)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            <div key={cat.id}
+              onClick={() => onCategory && onCategory(activeCategory === cat.id ? null : cat.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                fontSize: 13, transition: 'background 0.1s',
+                background: activeCategory === cat.id ? 'var(--primary-tint)' : 'transparent',
+                color: activeCategory === cat.id ? 'var(--primary)' : 'var(--ink-700)',
+                fontWeight: activeCategory === cat.id ? 600 : 400,
+                borderLeft: activeCategory === cat.id ? '3px solid var(--primary)' : '3px solid transparent',
+              }}
             >
-              <Icon name={cat.icon} size={16} color="var(--primary)" />
+              <Icon name={cat.icon} size={16} color={activeCategory === cat.id ? 'var(--primary)' : 'var(--ink-400)'} />
               <span>{cat.name}</span>
             </div>
           ))}
@@ -82,7 +104,8 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion }) => {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <button className="btn" style={{ background: '#FFD600', color: '#082F66', fontWeight: 600 }}>
+              <button className="btn" style={{ background: '#FFD600', color: '#082F66', fontWeight: 600 }}
+                onClick={() => { const first = window.PRODUCTS && window.PRODUCTS[0]; if (first) onProduct(first.id); }}>
                 Khám phá ngay <Icon name="arrow-right" size={14}/>
               </button>
             </div>
@@ -166,34 +189,77 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion }) => {
 
         {/* Product grid */}
         <div className="section-head">
-          <h2>Gợi ý hôm nay</h2>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['Tất cả', 'Mới nhất', 'Bán chạy', 'Đánh giá cao'].map((t, i) => (
-              <button key={t} style={{
+          <h2>
+            {searchQuery
+              ? `Kết quả cho "${searchQuery}" (${allProducts.length})`
+              : activeCategory
+                ? `${(window.CATEGORIES || []).find(c => c.id === activeCategory)?.name || activeCategory} (${allProducts.length})`
+                : 'Gợi ý hôm nay'}
+          </h2>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {(searchQuery || activeCategory) && (
+              <button onClick={() => { setSortMode('all'); onCategory && onCategory(null); }}
+                style={{ padding: '4px 10px', borderRadius: 12, fontSize: 11, background: '#FEE2E2', color: '#B91C1C', border: '1px solid #FCA5A5' }}>
+                ✕ Xoá bộ lọc
+              </button>
+            )}
+            {[
+              { key: 'all',        label: 'Tất cả' },
+              { key: 'newest',     label: 'Mới nhất' },
+              { key: 'bestseller', label: 'Bán chạy' },
+              { key: 'rating',     label: 'Đánh giá cao' },
+            ].map(({ key, label }) => (
+              <button key={key} onClick={() => setSortMode(key)} style={{
                 padding: '6px 14px', borderRadius: 20, fontSize: 12,
-                background: i === 0 ? 'var(--primary)' : 'white',
-                color: i === 0 ? 'white' : 'var(--ink-700)',
-                border: i === 0 ? 'none' : '1px solid var(--ink-200)',
-              }}>{t}</button>
+                background: sortMode === key ? 'var(--primary)' : 'white',
+                color: sortMode === key ? 'white' : 'var(--ink-700)',
+                border: sortMode === key ? 'none' : '1px solid var(--ink-200)',
+              }}>{label}</button>
             ))}
           </div>
         </div>
-        <div className="product-grid">
-          {allProducts.map(p => (
-            <ProductCard key={p.id} product={p} onClick={() => onProduct(p.id)} />
-          ))}
-        </div>
+        {allProducts.length === 0 ? (
+          <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--ink-500)' }}>
+            <Icon name="search" size={40} color="var(--ink-300)" />
+            <div style={{ marginTop: 12, fontSize: 15 }}>
+              Không tìm thấy sản phẩm phù hợp
+            </div>
+            <button onClick={() => { setSortMode('all'); onCategory && onCategory(null); }}
+              className="btn btn-outline" style={{ marginTop: 16, padding: '8px 20px' }}>
+              Xem tất cả sản phẩm
+            </button>
+          </div>
+        ) : (
+          <div className="product-grid">
+            {allProducts.map(p => (
+              <ProductCard key={p.id} product={p} onClick={() => onProduct(p.id)} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 // ─── Product Detail Screen ───────────────────────────────────────────
-const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow }) => {
+const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow, wishlist, onToggleWishlist }) => {
   const product  = window.PRODUCTS.find(p => p.id === productId) || window.PRODUCTS[0];
   const merchant = window.MERCHANTS[product.merchant_id];
   const [qty, setQty] = React.useState(1);
   const [selectedColor, setSelectedColor] = React.useState(0);
+  const [activeThumb, setActiveThumb] = React.useState(0);
+
+  const isWishlisted = wishlist && wishlist.includes(product.id);
+
+  const handleShare = () => {
+    const url = window.location.origin + '/?product=' + product.id;
+    if (navigator.share) {
+      navigator.share({ title: product.name, url });
+    } else {
+      navigator.clipboard && navigator.clipboard.writeText(url);
+      // fallback toast via parent — just log for now
+    }
+  };
 
   const phColors = ['#FFE5D9','#D9E8FF','#E5F4DD','#FFEACD','#F0E2FF','#FFE0E0','#D9F4F0','#FCE7F3','#FFF4D9','#E0F2FE','#FEE2E2','#DCFCE7'];
   const phColor  = phColors[parseInt(product.id.split('_')[1]) % phColors.length];
@@ -242,22 +308,30 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow }) => {
               position: 'absolute', bottom: 12, left: 12,
               padding: '4px 10px', background: 'rgba(0,0,0,0.6)', color: 'white',
               fontSize: 11, borderRadius: 4,
-            }}>1 / 8</div>
+            }}>{activeThumb + 1} / 8</div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             {[0,1,2,3,4,5].map(i => (
-              <div key={i} style={{
+              <div key={i} onClick={() => setActiveThumb(i)} style={{
                 width: 56, height: 56, borderRadius: 4, background: phColor,
-                opacity: i === 0 ? 1 : 0.5, cursor: 'pointer',
-                border: i === 0 ? '2px solid var(--primary)' : '1px solid var(--ink-200)',
+                opacity: i === activeThumb ? 1 : 0.45, cursor: 'pointer',
+                border: i === activeThumb ? '2px solid var(--primary)' : '1px solid var(--ink-200)',
+                transition: 'opacity 0.15s, border-color 0.15s',
               }} />
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 14, fontSize: 12 }}>
-            <button style={{ flex: 1, padding: '8px', border: '1px solid var(--ink-200)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--ink-700)' }}>
-              <Icon name="heart" size={14}/> Yêu thích
+            <button onClick={() => onToggleWishlist && onToggleWishlist(product.id)}
+              style={{ flex: 1, padding: '8px', border: '1px solid var(--ink-200)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                color: isWishlisted ? '#E11D48' : 'var(--ink-700)',
+                background: isWishlisted ? '#FFF1F2' : 'white',
+                borderColor: isWishlisted ? '#FDA4AF' : 'var(--ink-200)',
+              }}>
+              <Icon name="heart" size={14} color={isWishlisted ? '#E11D48' : 'currentColor'}/>
+              {isWishlisted ? 'Đã yêu thích' : 'Yêu thích'}
             </button>
-            <button style={{ flex: 1, padding: '8px', border: '1px solid var(--ink-200)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--ink-700)' }}>
+            <button onClick={handleShare}
+              style={{ flex: 1, padding: '8px', border: '1px solid var(--ink-200)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: 'var(--ink-700)' }}>
               Chia sẻ
             </button>
           </div>
@@ -381,7 +455,8 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow }) => {
                 <div style={{ fontWeight: 700, color: 'var(--primary)' }}>{merchant.since}</div>
               </div>
             </div>
-            <button className="btn btn-outline" style={{ width: '100%', marginTop: 12, padding: '6px', fontSize: 12 }}>
+            <button className="btn btn-outline" style={{ width: '100%', marginTop: 12, padding: '6px', fontSize: 12 }}
+              onClick={() => onNav('merchant')}>
               Xem shop
             </button>
           </div>
@@ -399,7 +474,11 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow }) => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--ink-600)' }}>Nhận hàng</span>
-                <span style={{ fontWeight: 500 }}>Thứ 2, 26/5</span>
+                <span style={{ fontWeight: 500 }}>{(function(){
+                  var d = new Date(); var added = 0;
+                  while(added < 3){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) added++; }
+                  return ['CN','T2','T3','T4','T5','T6','T7'][d.getDay()]+', '+d.getDate()+'/'+(d.getMonth()+1);
+                })()}</span>
               </div>
             </div>
             <div style={{
