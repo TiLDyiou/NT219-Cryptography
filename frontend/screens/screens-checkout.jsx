@@ -1,11 +1,37 @@
 // UIT Store — Cart, Checkout (with 3DS), Order tracking
 
 // ─── Cart Screen ─────────────────────────────────────────────────────
-const CartScreen = ({ cart, setCart, onNav }) => {
+const CartScreen = ({ cart, setCart, onNav, user }) => {
   const items = cart.map(c => ({
     ...c,
     product: window.PRODUCTS.find(p => p.id === c.productId),
   })).filter(i => i.product);
+
+  const [selected, setSelected] = React.useState(() => items.map(i => i.productId));
+
+  // Sync selected when items list changes
+  React.useEffect(() => {
+    setSelected(prev => {
+      const ids = items.map(i => i.productId);
+      // keep existing selected that are still in cart, add new ones as selected
+      const kept = prev.filter(id => ids.includes(id));
+      const added = ids.filter(id => !prev.includes(id));
+      return [...kept, ...added];
+    });
+  }, [cart.length]);
+
+  const toggleSelect = (productId) => {
+    setSelected(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const toggleAll = () => {
+    const allIds = items.map(i => i.productId);
+    setSelected(selected.length === allIds.length ? [] : allIds);
+  };
 
   const byMerchant = {};
   items.forEach(i => {
@@ -14,8 +40,9 @@ const CartScreen = ({ cart, setCart, onNav }) => {
     byMerchant[mid].push(i);
   });
 
-  const subtotal = items.reduce((s, i) => s + i.product.base_price * i.qty, 0);
-  const ship     = subtotal > 500000 ? 0 : 25000;
+  const selectedItems = items.filter(i => selected.includes(i.productId));
+  const subtotal = selectedItems.reduce((s, i) => s + i.product.base_price * i.qty, 0);
+  const ship     = subtotal > 500000 ? 0 : (subtotal > 0 ? 25000 : 0);
   const total    = subtotal + ship;
 
   const updateQty = (productId, delta) => {
@@ -61,8 +88,10 @@ const CartScreen = ({ cart, setCart, onNav }) => {
             gridTemplateColumns: '40px 1fr 100px 130px 100px 40px',
             gap: 12, alignItems: 'center', fontSize: 12, color: 'var(--ink-500)', fontWeight: 500,
           }}>
-            <input type="checkbox" defaultChecked />
-            <span>Sản phẩm</span>
+            <input type="checkbox"
+              checked={selected.length === items.length && items.length > 0}
+              onChange={toggleAll} />
+            <span>Sản phẩm ({selected.length}/{items.length} đã chọn)</span>
             <span style={{ textAlign: 'center' }}>Đơn giá</span>
             <span style={{ textAlign: 'center' }}>Số lượng</span>
             <span style={{ textAlign: 'right' }}>Thành tiền</span>
@@ -78,10 +107,20 @@ const CartScreen = ({ cart, setCart, onNav }) => {
                   display: 'flex', alignItems: 'center', gap: 8, fontSize: 13,
                   borderBottom: '1px solid var(--ink-200)',
                 }}>
-                  <input type="checkbox" defaultChecked />
+                  <input type="checkbox"
+                    checked={mitems.every(it => selected.includes(it.productId))}
+                    onChange={() => {
+                      const mids = mitems.map(it => it.productId);
+                      const allSel = mids.every(id => selected.includes(id));
+                      setSelected(prev => allSel
+                        ? prev.filter(id => !mids.includes(id))
+                        : [...new Set([...prev, ...mids])]
+                      );
+                    }} />
                   <Icon name="shield-check" size={14} color="var(--primary)" />
                   <span style={{ fontWeight: 600 }}>{merchant.name}</span>
-                  <button style={{ color: 'var(--primary)', fontSize: 12, marginLeft: 8 }}>Xem shop →</button>
+                  <button style={{ color: 'var(--primary)', fontSize: 12, marginLeft: 8 }}
+                    onClick={() => onNav('merchant')}>Xem shop →</button>
                 </div>
 
                 {/* Desktop items */}
@@ -92,7 +131,9 @@ const CartScreen = ({ cart, setCart, onNav }) => {
                       gridTemplateColumns: '40px 1fr 100px 130px 100px 40px',
                       gap: 12, alignItems: 'center', borderBottom: '1px solid var(--ink-100)',
                     }}>
-                      <input type="checkbox" defaultChecked />
+                      <input type="checkbox"
+                        checked={selected.includes(item.productId)}
+                        onChange={() => toggleSelect(item.productId)} />
                       <div style={{ display: 'flex', gap: 12 }}>
                         <div className="ph-img" style={{ width: 70, height: 70, flexShrink: 0, borderRadius: 4 }}>
                           {item.product.brand}
@@ -133,7 +174,10 @@ const CartScreen = ({ cart, setCart, onNav }) => {
                 <div className="show-mobile">
                   {mitems.map(item => (
                     <div key={item.productId} className="cart-item-mobile">
-                      <input type="checkbox" defaultChecked style={{ marginTop: 4 }} />
+                      <input type="checkbox"
+                        checked={selected.includes(item.productId)}
+                        onChange={() => toggleSelect(item.productId)}
+                        style={{ marginTop: 4 }} />
                       <div className="ph-img" style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 4, fontSize: 10 }}>
                         {item.product.brand}
                       </div>
@@ -176,7 +220,7 @@ const CartScreen = ({ cart, setCart, onNav }) => {
               Giao tới
             </div>
             <div style={{ fontSize: 13 }}>
-              <div style={{ fontWeight: 600 }}>Nguyễn Văn An <span style={{ fontWeight: 400, color: 'var(--ink-500)' }}>| 0912 ••• 789</span></div>
+              <div style={{ fontWeight: 600 }}>{user ? user.name : 'Khách'}</div>
               <div style={{ color: 'var(--ink-600)', marginTop: 4 }}>
                 Số 1 Hàn Thuyên, Phường Linh Trung,<br/>TP. Thủ Đức, TP. Hồ Chí Minh
               </div>
@@ -212,9 +256,23 @@ const CartScreen = ({ cart, setCart, onNav }) => {
                 </div>
               </div>
             </div>
-            <button onClick={() => onNav('checkout')} className="btn btn-price" style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14 }}>
-              Mua hàng ({items.length})
-            </button>
+            {user ? (
+              <button onClick={() => onNav('checkout')} className="btn btn-price"
+                disabled={selected.length === 0}
+                style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14, opacity: selected.length === 0 ? 0.5 : 1 }}>
+                Mua hàng ({selected.length})
+              </button>
+            ) : (
+              <div style={{ marginTop: 14 }}>
+                <button onClick={() => onNav('login')} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 14 }}>
+                  Đăng nhập để thanh toán
+                </button>
+                <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-500)', textAlign: 'center' }}>
+                  Chưa có tài khoản?{' '}
+                  <a style={{ color: 'var(--primary)', cursor: 'pointer' }} onClick={() => onNav('register')}>Đăng ký ngay</a>
+                </div>
+              </div>
+            )}
             <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-500)', textAlign: 'center' }}>
               Bấm "Mua hàng" đồng nghĩa bạn đồng ý với <a style={{ color: 'var(--primary)' }}>Điều khoản UIT Store</a>
             </div>
@@ -226,14 +284,28 @@ const CartScreen = ({ cart, setCart, onNav }) => {
 };
 
 // ─── Checkout Screen ─────────────────────────────────────────────────
-const CheckoutScreen = ({ cart, onNav, onPay }) => {
-  const [payment, setPayment] = React.useState('credit');
+const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
+  const [payment, setPayment]   = React.useState('cod');
+  const [delivery, setDelivery] = React.useState('fast');
+  const [saveCard, setSaveCard] = React.useState(false);
+  const userName     = user ? user.name  : '';
+  const userNameUpper = userName.toUpperCase() || 'HỌ TÊN CHỦ THẺ';
+
+  // Tính ngày giao dự kiến động
+  function addBizDays(date, n) {
+    var d = new Date(date); var added = 0;
+    while (added < n) { d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) added++; }
+    return d;
+  }
+  const DAY_NAMES = ['CN','T2','T3','T4','T5','T6','T7'];
+  const fmtDate = d => DAY_NAMES[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1);
   const items = cart.map(c => ({
     ...c, product: window.PRODUCTS.find(p => p.id === c.productId),
   })).filter(i => i.product);
 
   const subtotal = items.reduce((s, i) => s + i.product.base_price * i.qty, 0);
-  const ship     = subtotal > 500000 ? 0 : 25000;
+  const deliveryFee = delivery === 'instant' ? 35000 : (subtotal > 500000 ? 0 : 25000);
+  const ship     = deliveryFee;
   const total    = subtotal + ship;
 
   const paymentOptions = [
@@ -291,11 +363,11 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
               <div style={{
                 width: 40, height: 40, borderRadius: '50%', background: 'white',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--primary)', fontWeight: 700,
-              }}>NA</div>
+                color: 'var(--primary)', fontWeight: 700, fontSize: 14,
+              }}>{user ? user.initial : '?'}</div>
               <div style={{ flex: 1, minWidth: 200, fontSize: 13 }}>
                 <div style={{ fontWeight: 600 }}>
-                  Nguyễn Văn An <span style={{ color: 'var(--ink-500)', fontWeight: 400, marginLeft: 8 }}>0912 ••• 789</span>
+                  {user ? user.name : 'Khách'}
                   <span className="badge badge-primary" style={{ marginLeft: 8 }}>Mặc định</span>
                 </div>
                 <div style={{ color: 'var(--ink-700)', marginTop: 4 }}>
@@ -318,18 +390,18 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                { id: 'fast',    label: 'Giao nhanh',    sub: 'Nhận hàng Thứ 2, 26/5 (sau 24h)', price: 0,     recommended: true },
-                { id: 'express', label: 'Giao tiết kiệm',sub: 'Nhận hàng 3-4 ngày tới',          price: 0 },
+                { id: 'fast',    label: 'Giao nhanh',    sub: 'Nhận hàng ' + fmtDate(addBizDays(new Date(), 1)), price: 0,     recommended: true },
+                { id: 'express', label: 'Giao tiết kiệm',sub: 'Nhận hàng ' + fmtDate(addBizDays(new Date(), 3)) + ' – ' + fmtDate(addBizDays(new Date(), 4)), price: 0 },
                 { id: 'instant', label: 'Giao trong 2h', sub: 'Áp dụng nội thành TP. HCM',       price: 35000 },
-              ].map((d, i) => (
+              ].map((d) => (
                 <label key={d.id} style={{
                   display: 'flex', alignItems: 'center', gap: 12, padding: 12,
-                  border: `1px solid ${i === 0 ? 'var(--primary)' : 'var(--ink-200)'}`,
+                  border: `1px solid ${delivery === d.id ? 'var(--primary)' : 'var(--ink-200)'}`,
                   borderRadius: 6, cursor: 'pointer',
-                  background: i === 0 ? 'var(--primary-tint)' : 'white',
+                  background: delivery === d.id ? 'var(--primary-tint)' : 'white',
                   flexWrap: 'wrap',
                 }}>
-                  <input type="radio" name="delivery" defaultChecked={i === 0} />
+                  <input type="radio" name="delivery" checked={delivery === d.id} onChange={() => setDelivery(d.id)} />
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <div style={{ fontSize: 13, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
                       {d.label}
@@ -382,7 +454,7 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
                   <div>
                     <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>Số thẻ</label>
                     <div style={{ position: 'relative' }}>
-                      <input className="input" placeholder="•••• •••• •••• ••••" defaultValue="4242 4242 4242 4242" />
+                      <input className="input" placeholder="•••• •••• •••• ••••" />
                       <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 4 }}>
                         <div style={{ padding: '2px 6px', background: 'white', border: '1px solid var(--ink-200)', borderRadius: 3, fontSize: 10, fontWeight: 700, color: 'var(--primary)' }}>VISA</div>
                       </div>
@@ -391,11 +463,11 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
                   <div className="checkout-card-inputs">
                     <div>
                       <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>Tên chủ thẻ</label>
-                      <input className="input" placeholder="NGUYEN VAN AN" defaultValue="NGUYEN VAN AN" />
+                      <input className="input" placeholder="HỌ TÊN CHỦ THẺ" defaultValue={userNameUpper} />
                     </div>
                     <div>
                       <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>Hết hạn</label>
-                      <input className="input" placeholder="MM/YY" defaultValue="12/27" />
+                      <input className="input" placeholder="MM/YY" />
                     </div>
                     <div>
                       <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 4, display: 'block' }}>CVV</label>
@@ -403,7 +475,7 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
                     </div>
                   </div>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 4 }}>
-                    <input type="checkbox" />
+                    <input type="checkbox" checked={saveCard} onChange={e => setSaveCard(e.target.checked)} />
                     Lưu thẻ này cho lần sau (token sẽ được lưu, không phải số thẻ)
                   </label>
                 </div>
@@ -454,7 +526,7 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
                 <div style={{ color: 'var(--price)', fontSize: 22, fontWeight: 700 }}>{window.formatVND(total)}</div>
               </div>
             </div>
-            <button onClick={() => onPay(payment)} className="btn btn-price" style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14 }}>
+            <button onClick={() => onPay(payment, deliveryFee)} className="btn btn-price" style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14 }}>
               <Icon name="lock" size={14} color="white" /> Đặt hàng & Thanh toán
             </button>
             <div style={{ marginTop: 10, fontSize: 11, color: 'var(--ink-500)', textAlign: 'center', lineHeight: 1.5 }}>
@@ -469,10 +541,11 @@ const CheckoutScreen = ({ cart, onNav, onPay }) => {
 };
 
 // ─── 3DS Modal ───────────────────────────────────────────────────────
-const ThreeDSModal = ({ amount, onComplete, onCancel }) => {
+const ThreeDSModal = ({ amount, onComplete, onCancel, user }) => {
   const [step, setStep]     = React.useState('connecting');
   const [otp, setOtp]       = React.useState(['', '', '', '', '', '']);
   const [seconds, setSeconds] = React.useState(120);
+  const txnId = React.useRef('TXN-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).slice(2,6).toUpperCase()).current;
 
   React.useEffect(() => {
     if (step === 'connecting') {
@@ -554,7 +627,7 @@ const ThreeDSModal = ({ amount, onComplete, onCancel }) => {
             <div>
               <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>Xác thực giao dịch</div>
               <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 18, lineHeight: 1.6 }}>
-                Mã OTP gồm 6 chữ số đã được gửi đến số điện thoại <b>0912 ••• 789</b> đăng ký với thẻ Visa kết thúc bằng <b>4242</b>.
+                Mã OTP gồm 6 chữ số đã được gửi đến số điện thoại đăng ký với thẻ{user ? ' của <b>' + user.name + '</b>' : ''}.
               </div>
               <div style={{ padding: '12px 14px', background: 'var(--ink-100)', borderRadius: 6, fontSize: 12, marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -567,7 +640,7 @@ const ThreeDSModal = ({ amount, onComplete, onCancel }) => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--ink-600)' }}>Mã giao dịch</span>
-                  <b style={{ fontFamily: 'monospace', fontSize: 11 }}>TXN-2026052401-A7F3</b>
+                  <b style={{ fontFamily: 'monospace', fontSize: 11 }}>{txnId}</b>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 14 }}>
@@ -585,7 +658,8 @@ const ThreeDSModal = ({ amount, onComplete, onCancel }) => {
               <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--ink-600)', marginBottom: 18 }}>
                 Mã có hiệu lực trong <b style={{ color: 'var(--primary)', fontFamily: 'monospace' }}>
                   {Math.floor(seconds/60)}:{String(seconds % 60).padStart(2, '0')}
-                </b> · <a style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer' }}>Gửi lại</a>
+                </b> · <a style={{ color: 'var(--primary)', textDecoration: 'underline', cursor: 'pointer' }}
+                    onClick={() => { setOtp(['','','','','','']); setSeconds(120); }}>Gửi lại</a>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={onCancel} className="btn btn-ghost" style={{ flex: 1, border: '1px solid var(--ink-200)' }}>Huỷ</button>
@@ -620,10 +694,37 @@ const ThreeDSModal = ({ amount, onComplete, onCancel }) => {
 };
 
 // ─── Order Success / Tracking ────────────────────────────────────────
-const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
-  const orderId = realOrderId || 'UIT-2026052401-A7F3';
+const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onNav }) => {
+  const orderId = realOrderId || 'UIT-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-DEMO';
+  const items   = (orderPayload && orderPayload.items) || [];
+  const addr    = (orderPayload && orderPayload.shipping_address) || {};
+  const pm      = (orderPayload && orderPayload.payment_method_type) || 'cod';
+  const total   = orderTotal || (orderPayload && (
+    orderPayload.items.reduce(function(s,i){ return s + i.unit_price * i.quantity; }, 0) + (orderPayload.shipping_fee || 0)
+  )) || 0;
+  const userId  = user ? (user.id || user.email) : window.UitAPI.getUserId();
+  const ts      = new Date();
+
+  // Tính ngày giao dự kiến: +3 ngày làm việc
+  function addBusinessDays(date, days) {
+    var d = new Date(date); var added = 0;
+    while (added < days) {
+      d.setDate(d.getDate() + 1);
+      if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+    }
+    return d;
+  }
+  const deliveryDate = addBusinessDays(ts, 3);
+  const fmtDate = function(d) {
+    var days = ['CN','T2','T3','T4','T5','T6','T7'];
+    return days[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth()+1);
+  };
+
+  const pmLabel = { credit_card: 'Thẻ tín dụng / 3DS', cod: 'Thanh toán khi nhận hàng', e_wallet: 'Ví điện tử' };
+
   return (
     <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
+      {/* Header success */}
       <div className="card" style={{
         padding: '32px 28px', textAlign: 'center', marginBottom: 16,
         background: 'linear-gradient(180deg, #E8F7EE 0%, white 60%)',
@@ -637,10 +738,10 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
         </div>
         <h1 style={{ margin: '0 0 6px', fontSize: 22 }}>Đặt hàng thành công!</h1>
         <p style={{ color: 'var(--ink-600)', margin: '0 0 18px' }}>
-          Cảm ơn bạn đã mua sắm tại UIT Store. Đơn hàng đã được xác nhận và sẽ sớm được giao đến.
+          Cảm ơn <b>{addr.full_name || 'bạn'}</b> đã mua sắm tại UIT Store.
         </p>
         <div style={{
-          display: 'inline-flex', gap: 24, padding: '14px 24px',
+          display: 'inline-flex', gap: 24, padding: '14px 24px', flexWrap: 'wrap', justifyContent: 'center',
           background: 'white', borderRadius: 8, border: '1px solid var(--ink-200)', fontSize: 13,
         }}>
           <div style={{ textAlign: 'left' }}>
@@ -650,12 +751,67 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
           <div style={{ width: 1, background: 'var(--ink-200)' }} />
           <div style={{ textAlign: 'left' }}>
             <div style={{ color: 'var(--ink-500)', fontSize: 11 }}>Tổng tiền</div>
-            <div style={{ fontWeight: 700, color: 'var(--price)' }}>{window.formatVND(orderTotal || 32480000)}</div>
+            <div style={{ fontWeight: 700, color: 'var(--price)' }}>{window.formatVND(total)}</div>
+          </div>
+          <div style={{ width: 1, background: 'var(--ink-200)' }} />
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ color: 'var(--ink-500)', fontSize: 11 }}>Thanh toán</div>
+            <div style={{ fontWeight: 700 }}>{pmLabel[pm] || pm}</div>
           </div>
           <div style={{ width: 1, background: 'var(--ink-200)' }} />
           <div style={{ textAlign: 'left' }}>
             <div style={{ color: 'var(--ink-500)', fontSize: 11 }}>Dự kiến nhận</div>
-            <div style={{ fontWeight: 700 }}>Thứ 2, 26/5</div>
+            <div style={{ fontWeight: 700 }}>{fmtDate(deliveryDate)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16, marginBottom: 16 }}>
+        {/* Items */}
+        {items.length > 0 && (
+          <div className="card" style={{ padding: 18 }}>
+            <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600 }}>
+              Sản phẩm đã đặt ({items.length})
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {items.map(function(item, i) {
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 6, background: 'var(--primary-tint)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      fontSize: 11, fontWeight: 700, color: 'var(--primary)',
+                    }}>{item.quantity}x</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.product_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-500)' }}>{item.sku}</div>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--price)', flexShrink: 0 }}>
+                      {window.formatVND(item.unit_price * item.quantity)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ borderTop: '1px solid var(--ink-100)', paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: 'var(--ink-500)' }}>Phí ship</span>
+                <span>{orderPayload && orderPayload.shipping_fee === 0 ? 'Miễn phí' : window.formatVND(orderPayload && orderPayload.shipping_fee || 25000)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Shipping address */}
+        <div className="card" style={{ padding: 18 }}>
+          <h3 style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 600 }}>Địa chỉ giao hàng</h3>
+          <div style={{ fontSize: 13, lineHeight: 1.7, color: 'var(--ink-700)' }}>
+            <div style={{ fontWeight: 600 }}>{addr.full_name || '—'}</div>
+            <div>{addr.phone || ''}</div>
+            <div>{addr.email || ''}</div>
+            <div style={{ color: 'var(--ink-500)', marginTop: 4, fontSize: 12 }}>
+              {[addr.address_line1, addr.city, addr.state_province].filter(Boolean).join(', ')}
+            </div>
           </div>
         </div>
       </div>
@@ -667,28 +823,30 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
           <div style={{ position: 'absolute', top: 16, left: 16, right: 16, height: 2, background: 'var(--ink-200)', zIndex: 0 }} />
           <div style={{ position: 'absolute', top: 16, left: 16, width: '12.5%', height: 2, background: 'var(--success)', zIndex: 0 }} />
           {[
-            { label: 'Đã đặt hàng',  sub: 'Vừa xong',            done: true, active: true },
-            { label: 'Đã xác nhận',  sub: 'Trong 30 phút',        done: false },
-            { label: 'Đang đóng gói',sub: 'Trong 2-3h',           done: false },
-            { label: 'Giao cho ĐVVC',sub: 'Trước 18h hôm nay',   done: false },
-            { label: 'Đang giao',    sub: 'CN 25/5',              done: false },
-            { label: 'Đã giao',      sub: 'T2 26/5',              done: false },
-          ].map((s, i) => (
-            <div key={i} style={{ position: 'relative', zIndex: 1, textAlign: 'center', flex: 1 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%',
-                background: s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'white',
-                border: `2px solid ${s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'var(--ink-300)'}`,
-                color: s.done || s.active ? 'white' : 'var(--ink-400)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 600,
-              }}>
-                {s.done ? <Icon name="check" size={14} color="white" /> : i + 1}
+            { label: 'Đã đặt hàng',   sub: ts.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'}), done: true,  active: false },
+            { label: 'Đã xác nhận',   sub: 'Trong 30 phút',    done: false, active: true  },
+            { label: 'Đang đóng gói', sub: 'Trong 2-3h',        done: false, active: false },
+            { label: 'Giao ĐVVC',     sub: 'Trước 18h hôm nay', done: false, active: false },
+            { label: 'Đang giao',     sub: fmtDate(addBusinessDays(ts,2)), done: false, active: false },
+            { label: 'Đã giao',       sub: fmtDate(deliveryDate), done: false, active: false },
+          ].map(function(s, i) {
+            return (
+              <div key={i} style={{ position: 'relative', zIndex: 1, textAlign: 'center', flex: 1 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'white',
+                  border: '2px solid ' + (s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'var(--ink-300)'),
+                  color: s.done || s.active ? 'white' : 'var(--ink-400)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 600,
+                }}>
+                  {s.done ? <Icon name="check" size={14} color="white" /> : i + 1}
+                </div>
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: s.done || s.active ? 600 : 400, color: s.done || s.active ? 'var(--ink-900)' : 'var(--ink-500)' }}>{s.label}</div>
+                <div style={{ fontSize: 10, color: 'var(--ink-500)', marginTop: 2 }}>{s.sub}</div>
               </div>
-              <div style={{ marginTop: 8, fontSize: 12, fontWeight: s.done || s.active ? 600 : 400, color: s.done || s.active ? 'var(--ink-900)' : 'var(--ink-500)' }}>{s.label}</div>
-              <div style={{ fontSize: 10, color: 'var(--ink-500)', marginTop: 2 }}>{s.sub}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -698,20 +856,30 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
           <Icon name="shield-check" size={16} color="var(--primary)" /> Nhật ký bảo mật giao dịch
         </h3>
         <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 14 }}>
-          Tất cả bước trong giao dịch đều được ký số và ghi vào audit log không thể chỉnh sửa (append-only).
+          Tất cả bước được ký số và ghi vào audit log append-only.
         </div>
         <div style={{
           padding: 14, background: '#0F172A', borderRadius: 6,
           fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#E2E8F0', lineHeight: 1.7,
         }}>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>POST</span> localhost:8003/api/v1/user/orders/checkout · X-User-Id=✓</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>POST</span> order-service.create() · Idempotency-Key=✓</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>POST</span> payment-service.tokenize() → PSP · tok_1Ngk2H9c•••</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#FCD34D' }}>3DS</span> challenge.required · ACS=vietcombank.com.vn</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>3DS</span> challenge.completed · CAVV=✓ · ECI=05</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>PAY</span> capture.success · amount={window.formatVND(orderTotal || 32480000)}</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>EVT</span> kafka.publish(order.paid) · sig=ed25519</div>
-          <div><span style={{ color: '#94A3B8' }}>[{new Date().toLocaleTimeString('vi-VN')}]</span> <span style={{ color: '#4ADE80' }}>SVC</span> order_id={orderId} · inventory.reserve() · idempotency-key=ok</div>
+          {[
+            ['POST', window.UitAPI.backendUrl + '/api/v1/orders/user/orders/checkout · user=' + userId],
+            ['POST', 'order-service.create() · order_id=' + orderId + ' · idempotency=✓'],
+            ['POST', 'payment-service.tokenize() · method=' + pm + ' · tok=•••'],
+            pm === 'credit_card' ? ['3DS', 'challenge.required · ACS=vietcombank.com.vn'] : null,
+            pm === 'credit_card' ? ['3DS', 'challenge.completed · CAVV=✓ · ECI=05'] : null,
+            ['PAY',  'capture.success · amount=' + window.formatVND(total)],
+            ['EVT',  'kafka.publish(order.paid) · sig=ed25519 · order_id=' + orderId],
+            ['SVC',  'inventory.reserve() · items=' + items.length + ' · idempotency=✓'],
+          ].filter(Boolean).map(function(row, i) {
+            var color = row[0] === '3DS' ? '#FCD34D' : '#4ADE80';
+            return (
+              <div key={i}>
+                <span style={{ color: '#94A3B8' }}>[{ts.toLocaleTimeString('vi-VN')}]</span>{' '}
+                <span style={{ color }}>{row[0]}</span>{' '}{row[1]}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -719,12 +887,112 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, onNav }) => {
         <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
           Tiếp tục mua sắm
         </button>
-        <button className="btn btn-primary" style={{ padding: '10px 24px' }}>
-          Xem chi tiết đơn hàng
+        <button onClick={() => onNav('orders')} className="btn btn-primary" style={{ padding: '10px 24px' }}>
+          Xem lịch sử đơn hàng
         </button>
       </div>
     </div>
   );
 };
 
-Object.assign(window, { CartScreen, CheckoutScreen, ThreeDSModal, OrderScreen });
+// ─── Orders Screen ────────────────────────────────────────────────────
+const OrdersScreen = ({ onNav, user }) => {
+  const [orders, setOrders]   = React.useState(null); // null = loading
+  const [error, setError]     = React.useState('');
+
+  React.useEffect(function () {
+    if (!user) { onNav('login'); return; }
+    window.UitAPI.order.list()
+      .then(function (res) {
+        setOrders((res && res.data) || []);
+      })
+      .catch(function () {
+        // Fallback demo orders khi backend offline
+        setOrders([
+          { id: 'UIT-2026052401-A7F3', created_at: '2026-05-24T10:42:00Z', total_amount: 32480000, status: 'delivered',   items_count: 3 },
+          { id: 'UIT-2026051801-C2D1', created_at: '2026-05-18T14:15:00Z', total_amount: 15990000, status: 'shipped',     items_count: 1 },
+          { id: 'UIT-2026051001-B9F2', created_at: '2026-05-10T08:30:00Z', total_amount: 8500000,  status: 'cancelled',   items_count: 2 },
+        ]);
+        setError('Backend offline — hiển thị dữ liệu demo');
+      });
+  }, []);
+
+  const statusBadge = {
+    pending:    { label: 'Chờ xác nhận', color: '#F59E0B', bg: '#FEF3C7' },
+    confirmed:  { label: 'Đã xác nhận',  color: '#3B82F6', bg: '#EFF6FF' },
+    shipped:    { label: 'Đang giao',     color: '#8B5CF6', bg: '#F5F3FF' },
+    delivered:  { label: 'Đã giao',       color: '#10B981', bg: '#ECFDF5' },
+    cancelled:  { label: 'Đã huỷ',        color: '#EF4444', bg: '#FEF2F2' },
+  };
+
+  return (
+    <div style={{ maxWidth: 680, margin: '32px auto', padding: '0 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <button onClick={() => onNav('account')} style={{ color: 'var(--ink-500)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13 }}>
+          <Icon name="arrow-left" size={14} /> Tài khoản
+        </button>
+        <span style={{ color: 'var(--ink-300)' }}>/</span>
+        <span style={{ fontSize: 18, fontWeight: 600 }}>Đơn hàng của tôi</span>
+      </div>
+
+      {error && (
+        <div style={{ padding: '8px 12px', background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 6, fontSize: 12, color: '#92400E', marginBottom: 14 }}>
+          {error}
+        </div>
+      )}
+
+      {orders === null && (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--ink-400)' }}>
+          <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
+          Đang tải đơn hàng...
+        </div>
+      )}
+
+      {orders && orders.length === 0 && (
+        <div className="card" style={{ padding: 48, textAlign: 'center', color: 'var(--ink-500)' }}>
+          <Icon name="package" size={40} color="var(--ink-300)" />
+          <div style={{ marginTop: 12, fontSize: 15 }}>Bạn chưa có đơn hàng nào</div>
+          <button onClick={() => onNav('home')} className="btn btn-primary" style={{ marginTop: 16, padding: '10px 24px' }}>
+            Bắt đầu mua sắm
+          </button>
+        </div>
+      )}
+
+      {orders && orders.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {orders.map(function (o) {
+            var badge = statusBadge[o.status] || statusBadge.pending;
+            var date  = new Date(o.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return (
+              <div key={o.id} className="card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}
+                onClick={() => onNav('order')}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 8, background: 'var(--primary-tint)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <Icon name="package" size={22} color="var(--primary)" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, fontFamily: 'monospace' }}>{o.id}</div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 2 }}>
+                    {date} · {o.items_count || '?'} sản phẩm
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--price)', fontSize: 14 }}>
+                    {window.formatVND(o.total_amount)}
+                  </div>
+                  <div style={{ marginTop: 4, padding: '2px 8px', borderRadius: 10, display: 'inline-block', fontSize: 11, fontWeight: 600, background: badge.bg, color: badge.color }}>
+                    {badge.label}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+Object.assign(window, { CartScreen, CheckoutScreen, ThreeDSModal, OrderScreen, OrdersScreen });

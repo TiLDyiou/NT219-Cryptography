@@ -51,7 +51,15 @@ const BACKEND_URL = resolveBackendUrl();
   let _userId = 'user_demo_001';
 
   function authHeaders(extra) {
-    return Object.assign({ 'Content-Type': 'application/json', 'X-User-Id': _userId }, extra || {});
+    const token = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
+    const base = { 'Content-Type': 'application/json' };
+    if (token) {
+      base['Authorization'] = 'Bearer ' + token;
+    } else {
+      // Fallback: header X-User-Id khi chưa đăng nhập (dev/demo mode)
+      base['X-User-Id'] = _userId;
+    }
+    return Object.assign(base, extra || {});
   }
 
   async function apiFetch(url, opts) {
@@ -59,6 +67,24 @@ const BACKEND_URL = resolveBackendUrl();
     const finalOpts = Object.assign({ headers: authHeaders() }, opts);
     if (opts.headers) finalOpts.headers = Object.assign({}, authHeaders(), opts.headers);
     const res = await fetch(url, finalOpts);
+
+    // Token hết hạn → thử refresh một lần rồi retry
+    if (res.status === 401 && window.UitAuth && window.UitAuth.refreshToken) {
+      const ok = await window.UitAuth.refreshToken();
+      if (ok) {
+        const retryOpts = Object.assign({}, finalOpts, { headers: authHeaders() });
+        if (opts.headers) retryOpts.headers = Object.assign({}, authHeaders(), opts.headers);
+        const retryRes = await fetch(url, retryOpts);
+        const retryJson = await retryRes.json().catch(() => null);
+        if (!retryRes.ok) {
+          const msg = (retryJson && retryJson.error && retryJson.error.message) || ('HTTP ' + retryRes.status);
+          const err = new Error(msg); err.status = retryRes.status; err.body = retryJson;
+          throw err;
+        }
+        return retryJson;
+      }
+    }
+
     const json = await res.json().catch(() => null);
     if (!res.ok) {
       const msg = (json && json.error && json.error.message) || ('HTTP ' + res.status);

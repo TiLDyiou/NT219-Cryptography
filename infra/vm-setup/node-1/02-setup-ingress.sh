@@ -150,7 +150,7 @@ cat >/tmp/realm-export-vm.json <<REALM
   "displayName": "NT219 Ecommerce",
   "displayNameHtml": "<b>NT219 Ecommerce</b>",
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
