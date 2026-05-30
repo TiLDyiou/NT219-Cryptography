@@ -185,7 +185,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
               <div style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
                 Chưa có tài khoản?{' '}
                 <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }}
-                   onClick={() => window.UitAuth && window.UitAuth.register()}>
+                   onClick={() => onNav('register')}>
                   Đăng ký ngay
                 </a>
               </div>
@@ -835,12 +835,42 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
   const handleSubmit = async () => {
     setError('');
-    if (window.UitAuth) {
-      setLoading(true);
-      window.UitAuth.register();
-      return;
+    if (!name.trim())     { setError('Vui lòng nhập họ và tên.'); return; }
+    if (!email.trim())    { setError('Vui lòng nhập email.'); return; }
+    if (password.length < 8) { setError('Mật khẩu phải có ít nhất 8 ký tự.'); return; }
+    if (password !== confirm) { setError('Mật khẩu không khớp.'); return; }
+
+    setLoading(true);
+    try {
+      const parts = name.trim().split(' ');
+      const firstName = parts.slice(0, -1).join(' ') || parts[0];
+      const lastName  = parts.length > 1 ? parts[parts.length - 1] : '';
+
+      const backendUrl = window.UitAPI ? window.UitAPI.backendUrl : window.location.origin;
+      const res = await fetch(`${backendUrl}/api/v1/catalog/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+        body: JSON.stringify({ firstName, lastName, email: email.trim(), password }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setError(data.detail || 'Đăng ký thất bại. Vui lòng thử lại.');
+        setLoading(false);
+        return;
+      }
+
+      // Đăng ký thành công → tự động đăng nhập
+      if (window.UitAuth) {
+        const result = await window.UitAuth.loginWithPassword(email.trim(), password);
+        if (result.ok) { onLogin(result.user); return; }
+      }
+      // Fallback: chuyển sang trang đăng nhập
+      onNav('login');
+    } catch (e) {
+      setError('Lỗi kết nối: ' + e.message);
     }
-    setError('Dịch vụ xác thực chưa sẵn sàng.');
+    setLoading(false);
   };
 
   return (
@@ -893,7 +923,7 @@ const RegisterScreen = ({ onLogin, onNav }) => {
           </button>
 
           <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Tạo tài khoản mới</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 22 }}>Tiếp tục trên Keycloak để tạo tài khoản</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 22 }}>Điền thông tin để tạo tài khoản UIT Store</div>
 
           {/* Họ tên */}
           <div style={{ marginBottom: 14 }}>
@@ -961,7 +991,7 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
           <button onClick={handleSubmit} disabled={loading} className="btn btn-primary"
             style={{ width: '100%', padding: 12, opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Đang chuyển hướng...' : 'Tạo tài khoản trên Keycloak'}
+            {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
           </button>
 
           <div style={{ marginTop: 14, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
