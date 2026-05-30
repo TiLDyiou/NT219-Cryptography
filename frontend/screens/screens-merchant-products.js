@@ -124,7 +124,12 @@ const MerchantProductsSection = ({
         },
         merchant_id: merchantId
       })
-    }).then(r => r.json()).then(() => {
+    }).then(r => {
+      if (!r.ok) return r.json().catch(() => ({})).then(d => {
+        throw new Error(d.error?.message || d.detail || ('HTTP ' + r.status));
+      });
+      return r.json();
+    }).then(() => {
       load();
       setShowAdd(false);
       setForm({
@@ -137,7 +142,10 @@ const MerchantProductsSection = ({
       });
       showNotice('Đã thêm sản phẩm mới');
       setSaving(false);
-    }).catch(() => setSaving(false));
+    }).catch(err => {
+      showNotice(err.message || 'Lỗi khi thêm sản phẩm', false);
+      setSaving(false);
+    });
   };
   const catName = id => {
     const cats = window.CATEGORIES || [];

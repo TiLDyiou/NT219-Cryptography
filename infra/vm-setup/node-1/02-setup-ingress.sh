@@ -54,6 +54,13 @@ events {
 
 http {
     include       /etc/nginx/mime.types;
+
+    # Preserve X-Forwarded-Proto from upstream proxy (e.g. ngrok),
+    # fallback to $scheme for direct access
+    map $http_x_forwarded_proto $passed_proto {
+        ""      $scheme;
+        default $http_x_forwarded_proto;
+    }
     default_type  application/octet-stream;
 
     log_format cdn '$remote_addr - [$time_local] "$request" '
@@ -127,11 +134,11 @@ http {
         location /auth/ {
             proxy_http_version 1.1;
             add_header Cache-Control "no-store, private" always;
-            proxy_pass http://127.0.0.1:10000;
+            proxy_pass http://127.0.0.1:8080;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Proto $passed_proto;
         }
 
         location / {
@@ -177,7 +184,7 @@ cat >/tmp/realm-export-vm.json <<REALM
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": ["http://${VM1_IP}/*"],
-      "webOrigins": ["http://${VM1_IP}"],
+      "webOrigins": ["+"],
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256",
@@ -278,7 +285,7 @@ User=root
 WorkingDirectory=/opt/keycloak
 Environment=KEYCLOAK_ADMIN=admin
 Environment=KEYCLOAK_ADMIN_PASSWORD=admin123
-ExecStart=/opt/keycloak/bin/kc.sh start-dev --http-relative-path=/auth
+ExecStart=/opt/keycloak/bin/kc.sh start-dev --http-relative-path=/auth --proxy-headers=xforwarded
 Restart=on-failure
 RestartSec=10
 
@@ -400,6 +407,7 @@ function envoy_on_request(request_handle)
   local method     = request_handle:headers():get(":method") or "?"
   local path       = request_handle:headers():get(":path") or "/"
   local user_agent = request_handle:headers():get("user-agent") or ""
+
 
   local ua_lower = user_agent:lower()
   for _, agent in ipairs(bad_agents) do
