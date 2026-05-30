@@ -26,17 +26,17 @@ echo "  Keycloak đang khởi động (~30s)..."
 echo "  Đợi Keycloak sẵn sàng (~90s)..."
 for i in $(seq 1 30); do
     sleep 3
-    HTTP=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:8080/health/ready" 2>/dev/null || echo "000")
+    HTTP=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:8080/auth/health/ready" 2>/dev/null || echo "000")
     [ "$HTTP" = "200" ] && break
 done
 
 if [ -f /tmp/realm-export-vm.json ]; then
-    TOKEN=$(curl -sf -X POST "http://localhost:8080/realms/master/protocol/openid-connect/token" \
+    TOKEN=$(curl -sf -X POST "http://localhost:8080/auth/realms/master/protocol/openid-connect/token" \
         -H "Content-Type: application/x-www-form-urlencoded" \
         -d "client_id=admin-cli&grant_type=password&username=admin&password=admin123" \
         2>/dev/null | jq -r '.access_token // empty')
     if [ -n "$TOKEN" ]; then
-        HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/admin/realms" \
+        HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8080/auth/admin/realms" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d @/tmp/realm-export-vm.json)
