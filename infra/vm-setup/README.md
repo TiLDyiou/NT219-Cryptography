@@ -42,28 +42,33 @@ MACHINE 1                                    MACHINE 2
 
 ## Chuẩn bị
 
-### 1. Tạo 4 VM và lấy IP
+### 1. Tạo 4 VM và cài đặt Tailscale
 
-Tạo 2 VM trên mỗi máy (VirtualBox/VMware, Ubuntu 22.04). Lấy IP host-only của từng VM:
+Tạo 3 VM trên máy bạn (NODE-1, 2, 3) và 1 VM trên máy bạn kia (NODE-4). 
+Để các VM có thể kết nối xuyên qua 2 máy vật lý khác nhau mà không bị giới hạn bởi mạng NAT, chúng ta sẽ sử dụng **Tailscale**.
 
+1. Cài đặt hệ điều hành Ubuntu 22.04 cho các VM.
+2. Cài đặt nhanh Tailscale trên từng VM:
+   ```bash
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up
+   ```
+   *(Nhấp vào đường link hiện ra trên màn hình để đăng nhập chung 1 tài khoản Tailscale cho cả 4 VM).*
+
+3. Lấy IP ảo (Tailscale IP) của từng VM:
+   ```bash
+   tailscale ip -4
+   ```
+
+Ghi lại 4 địa chỉ IP này (thường bắt đầu bằng `100.x.x.x`): `NODE1_IP`, `NODE2_IP`, `NODE3_IP`, `NODE4_IP`.
+
+### 2. Kiểm tra kết nối mạng (xuyên qua Tailscale)
+
+Từ bất kỳ VM nào trên máy bạn, hãy thử ping đến NODE-4 trên máy bạn kia:
 ```bash
-ip addr show   # chạy trên từng VM
-```
-
-Ghi lại 4 IP: `NODE1_IP`, `NODE2_IP`, `NODE3_IP`, `NODE4_IP`.
-
-### 2. Kiểm tra kết nối mạng
-
-```bash
-# Từ NODE-2:
-ping <NODE3_IP> && ping <NODE4_IP>
-
-# Từ NODE-3:
 ping <NODE4_IP>
-
-# Từ NODE-1:
-ping <NODE2_IP>
 ```
+Nếu ping thành công, chúc mừng! Mạng LAN ảo của bạn đã sẵn sàng.
 
 ### 3. Copy source code lên các VM
 

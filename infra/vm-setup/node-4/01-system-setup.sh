@@ -26,6 +26,11 @@ apt install -y openjdk-17-jdk
 echo "  $(java -version 2>&1 | head -1) - OK"
 
 echo ""
+echo ">>> Cài đặt Tailscale (Mạng riêng ảo VPN)..."
+curl -fsSL https://tailscale.com/install.sh | sh
+echo "  [OK] Tailscale đã cài đặt. Chú ý: Cần tự chạy 'sudo tailscale up' sau khi script này xong!"
+
+echo ""
 echo "============================================="
 echo "  Bước 1 HOÀN TẤT!"
 echo "  Tiếp theo: sudo bash 02-install-data-obs.sh"

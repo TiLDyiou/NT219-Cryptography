@@ -28,6 +28,11 @@ update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 echo "  Python $(python3.11 --version) - OK"
 
 echo ""
+echo ">>> Cài đặt Tailscale (Mạng riêng ảo VPN)..."
+curl -fsSL https://tailscale.com/install.sh | sh
+echo "  [OK] Tailscale đã cài đặt. Chú ý: Cần tự chạy 'sudo tailscale up' sau khi script này xong!"
+
+echo ""
 echo "============================================="
 echo "  Bước 1 HOÀN TẤT!"
 echo "  Tiếp theo: sudo bash 02-setup-payment.sh"

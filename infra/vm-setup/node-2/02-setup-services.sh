@@ -10,10 +10,10 @@
 set -euo pipefail
 
 # ============================================================
-VM3_IP="${VM3_IP:-192.168.122.13}"   # payment-service (PCI DSS)
-VM4_IP="${VM4_IP:-192.168.122.14}"   # DB + Kafka + Logstash
+VM3_IP="${VM3_IP:-192.168.122.13}" # payment-service (PCI DSS)
+VM4_IP="${VM4_IP:-192.168.122.14}" # DB + Kafka + Logstash
 
-UITSTORE_PASS="UIT_NT219_SecurePass!"
+UITSTORE_PASS="123456"
 PROJECT_DIR="/opt/uitstore"
 # ============================================================
 
@@ -42,7 +42,7 @@ SERVICES=(
 )
 
 for SVC_NAME in "${!SERVICES[@]}"; do
-    IFS=':' read -r PORT DB_NAME <<< "${SERVICES[$SVC_NAME]}"
+    IFS=':' read -r PORT DB_NAME <<<"${SERVICES[$SVC_NAME]}"
     SVC_DIR="${PROJECT_DIR}/services/${SVC_NAME}"
 
     echo ""
@@ -73,7 +73,7 @@ REDIS_URL=redis://${VM4_IP}:6379/8"
         EXTRA_ENV="KAFKA_ENABLED=false"
     fi
 
-    cat > "${SVC_DIR}/.env" <<ENVFILE
+    cat >"${SVC_DIR}/.env" <<ENVFILE
 PROJECT_NAME=${SVC_NAME}
 API_V1_STR=/api/v1
 
@@ -99,7 +99,7 @@ REDIS_ENABLED=false
 ${EXTRA_ENV}
 ENVFILE
 
-    cat > "/etc/systemd/system/${SVC_NAME}.service" <<SVC
+    cat >"/etc/systemd/system/${SVC_NAME}.service" <<SVC
 [Unit]
 Description=UIT Store - ${SVC_NAME} (Service Mesh)
 After=network.target network-online.target
@@ -156,7 +156,7 @@ echo "  NODE-2 Setup HOÀN TẤT!"
 echo ""
 echo "  Services:"
 for SVC_NAME in "${!SERVICES[@]}"; do
-    IFS=':' read -r PORT DB_NAME <<< "${SERVICES[$SVC_NAME]}"
+    IFS=':' read -r PORT DB_NAME <<<"${SERVICES[$SVC_NAME]}"
     echo "    ${SVC_NAME} :${PORT} → ${VM4_IP}:5432/${DB_NAME}"
 done
 echo ""

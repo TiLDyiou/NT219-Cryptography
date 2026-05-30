@@ -50,10 +50,8 @@ sudo cp -r ~/src/NT219-Cryptography/services/payment-service/* \
 ### 3. Migrate DB — thêm cột `client_secret` (chạy 1 lần duy nhất)
 
 ```bash
-sudo -u postgres psql -d payment_db <<EOF
-ALTER TABLE payment_transactions
-  ADD COLUMN IF NOT EXISTS client_secret VARCHAR(500);
-EOF
+# Database nằm trên NODE-4, bạn cần chạy qua remote psql hoặc SSH vào NODE-4:
+ssh -t user@192.168.122.14 "sudo -u postgres psql -d payment_db -c 'ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS client_secret VARCHAR(500);'"
 echo "✅ Migration OK"
 ```
 
@@ -235,11 +233,11 @@ sudo systemctl restart <tên-service>
 Riêng payment-service nếu lỗi DB column:
 
 ```bash
-# Kiểm tra cột đã có chưa
-sudo -u postgres psql -d payment_db -c "\d payment_transactions" | grep client_secret
+# Kiểm tra cột đã có chưa (chạy trên NODE-4 hoặc qua SSH)
+ssh -t user@192.168.122.14 "sudo -u postgres psql -d payment_db -c '\d payment_transactions' | grep client_secret"
 
 # Nếu chưa có, chạy lại migration
-sudo -u postgres psql -d payment_db -c "ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS client_secret VARCHAR(500);"
+ssh -t user@192.168.122.14 "sudo -u postgres psql -d payment_db -c 'ALTER TABLE payment_transactions ADD COLUMN IF NOT EXISTS client_secret VARCHAR(500);'"
 sudo systemctl restart payment-service
 ```
 
