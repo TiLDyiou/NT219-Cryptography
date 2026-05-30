@@ -37,7 +37,7 @@ class PaymentServiceConfig(BaseModel):
     client_cert_path: str | None = None
     client_key_path: str | None = None
     ca_cert_path: str | None = None
-    dev_stub_on_failure: bool = True
+    dev_stub_on_failure: bool = False
 
 
 class InventoryServiceConfig(BaseModel):
@@ -47,7 +47,7 @@ class InventoryServiceConfig(BaseModel):
     client_cert_path: str | None = None
     client_key_path: str | None = None
     ca_cert_path: str | None = None
-    dev_stub_on_failure: bool = True
+    dev_stub_on_failure: bool = False
 
 
 class Settings(BaseSettings):
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
         "sqlite+aiosqlite:///./order_service.db",
     )
     ENABLE_SQLITE_FALLBACK: bool = (
-        os.getenv("ENABLE_SQLITE_FALLBACK", "true").lower() == "true"
+        os.getenv("ENABLE_SQLITE_FALLBACK", "false").lower() == "true"
     )
     DATABASE_POOL_SIZE: int = int(os.getenv("DATABASE_POOL_SIZE", "10"))
     DATABASE_MAX_OVERFLOW: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
@@ -81,10 +81,10 @@ class Settings(BaseSettings):
         os.getenv("TIMESTAMP_TOLERANCE_SECONDS", "300")
     )
     REQUIRE_INBOUND_HMAC: bool = (
-        os.getenv("REQUIRE_INBOUND_HMAC", "false").lower() == "true"
+        os.getenv("REQUIRE_INBOUND_HMAC", "true").lower() == "true"
     )
     REQUIRE_NONCE_GUARD: bool = (
-        os.getenv("REQUIRE_NONCE_GUARD", "false").lower() == "true"
+        os.getenv("REQUIRE_NONCE_GUARD", "true").lower() == "true"
     )
 
     VAULT_ADDR: str = os.getenv("VAULT_ADDR", "http://localhost:8200")
@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     PAYMENT_CLIENT_KEY: str | None = os.getenv("PAYMENT_CLIENT_KEY")
     PAYMENT_CA_CERT: str | None = os.getenv("PAYMENT_CA_CERT")
     PAYMENT_DEV_STUB_ON_FAILURE: bool = (
-        os.getenv("PAYMENT_DEV_STUB_ON_FAILURE", "true").lower() == "true"
+        os.getenv("PAYMENT_DEV_STUB_ON_FAILURE", "false").lower() == "true"
     )
 
     INVENTORY_SERVICE_URL: str = os.getenv(
@@ -132,7 +132,7 @@ class Settings(BaseSettings):
     INVENTORY_CLIENT_KEY: str | None = os.getenv("INVENTORY_CLIENT_KEY")
     INVENTORY_CA_CERT: str | None = os.getenv("INVENTORY_CA_CERT")
     INVENTORY_DEV_STUB_ON_FAILURE: bool = (
-        os.getenv("INVENTORY_DEV_STUB_ON_FAILURE", "true").lower() == "true"
+        os.getenv("INVENTORY_DEV_STUB_ON_FAILURE", "false").lower() == "true"
     )
 
     LOCAL_CRYPTO_SECRET: str = os.getenv(

@@ -1,0 +1,14 @@
+# CODEOWNERS — require review for sensitive paths
+# Format: <pattern> <owner>
+
+# CI/CD pipeline changes require team review
+.github/workflows/  @nergy197
+
+# Vault policies — any change needs security review
+infra/vault/        @nergy197
+
+# Service security middleware — guard against disabling
+services/*/app/api/middleware/  @nergy197
+
+# Environment defaults — prevent re-enabling dev flags
+services/*/.env.example         @nergy197

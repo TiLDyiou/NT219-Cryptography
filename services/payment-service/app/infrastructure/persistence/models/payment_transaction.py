@@ -29,6 +29,7 @@ class PaymentTransactionModel(Base):
     idempotency_key = Column(String(255), nullable=False, unique=True, index=True)
     failure_code = Column(String(100), nullable=True)
     failure_message = Column(String(1000), nullable=True)
+    client_secret = Column(String(500), nullable=True)
     ip_address = Column(String(64), nullable=True)  # stored as string for compatibility
     user_agent = Column(String(500), nullable=True)
     device_fingerprint = Column(String(255), nullable=True)
