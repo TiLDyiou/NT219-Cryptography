@@ -1,0 +1,217 @@
+version: "3.9"
+
+# NODE-4: Data + Event Bus + Observability
+# Dùng cho macOS thay thế script Ubuntu
+#
+# Cách dùng:
+#   NODE4_IP=<tailscale-ip-mac> VM1_IP=<ip> VM2_IP=<ip> VM3_IP=<ip> docker compose up -d
+#
+# Hoặc copy .env.example → .env rồi điền IP, sau đó docker compose up -d
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+services:
+
+  # =========================================================
+  # 1. POSTGRESQL 15
+  # =========================================================
+  postgres:
+    image: postgres:15
+    container_name: node4-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: uitstore
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: catalog_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uitstore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =========================================================
+  # 2. ZOOKEEPER + KAFKA
+  # =========================================================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: node4-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    logging: *default-logging
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: node4-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      # NODE4_IP phải là Tailscale IP của máy Mac này
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${NODE4_IP:-127.0.0.1}:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 24
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: node4-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      echo 'Tạo Kafka topics...'
+      for TOPIC in order-commands order-events inventory-commands payment-commands notification-events; do
+        kafka-topics --create --if-not-exists \
+          --topic $$TOPIC \
+          --bootstrap-server kafka:9092 \
+          --partitions 3 \
+          --replication-factor 1
+        echo \"  topic: $$TOPIC - OK\"
+      done
+      echo 'Tạo topics xong!'
+      "
+    restart: "no"
+
+  # =========================================================
+  # 3. ELASTICSEARCH
+  # =========================================================
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: node4-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - cluster.name=uitstore-audit
+      - node.name=node-1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # =========================================================
+  # 4. KIBANA
+  # =========================================================
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: node4-kibana
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      SERVER_HOST: "0.0.0.0"
+      MONITORING_KIBANA_COLLECTION_ENABLED: "false"
+      TELEMETRY_ENABLED: "false"
+      LOGGING_ROOT_LEVEL: warn
+    ports:
+      - "5601:5601"
+    logging: *default-logging
+
+  # =========================================================
+  # 5. LOGSTASH
+  # =========================================================
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    container_name: node4-logstash
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./logstash-pipeline.conf:/usr/share/logstash/pipeline/uitstore-audit.conf:ro
+    environment:
+      LS_JAVA_OPTS: "-Xms256m -Xmx256m"
+      XPACK_MONITORING_ENABLED: "false"
+      PIPELINE_ECS_COMPATIBILITY: disabled
+      LOG_LEVEL: warn
+    ports:
+      - "5044:5045"
+    logging: *default-logging
+
+  # =========================================================
+  # 6. PROMETHEUS
+  # =========================================================
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: node4-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.resolved.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+    ports:
+      - "9090:9090"
+    logging: *default-logging
+
+  # =========================================================
+  # 7. GRAFANA
+  # =========================================================
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: node4-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yaml:ro
+      - ./grafana-dashboard-provider.yml:/etc/grafana/provisioning/dashboards/provider.yaml:ro
+    ports:
+      - "3001:3000"
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+  zookeeper_data:
+  kafka_data:
+  elasticsearch_data:
+  prometheus_data:
+  grafana_data:
