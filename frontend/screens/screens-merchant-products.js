@@ -92,17 +92,19 @@ const MerchantProductsSection = ({
     });
   };
   const toggleActive = p => {
+    const isPublic = p.is_active && p.status === 'active';
     fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
       method: 'PUT',
       headers: hdr(),
       body: JSON.stringify({
-        is_active: !p.is_active,
+        is_active: !isPublic,
+        status: isPublic ? 'inactive' : 'active',
         version: p.version
       })
     }).then(r => {
-      if (!r.ok) throw new Error(`Không ${!p.is_active ? 'hiện' : 'ẩn'} được sản phẩm.`);
+      if (!r.ok) throw new Error(`Không ${isPublic ? 'ẩn' : 'công khai'} được sản phẩm.`);
       load();
-      showNotice(`${p.name} đã ${!p.is_active ? 'hiện' : 'ẩn'}`);
+      showNotice(`${p.name} đã ${isPublic ? 'ẩn' : 'công khai'}`);
     }).catch(err => showNotice(err.message || 'Không cập nhật được sản phẩm.', false));
   };
   const deleteProduct = p => {
@@ -279,7 +281,7 @@ const MerchantProductsSection = ({
         fontSize: 12,
         borderBottom: '1px solid var(--ink-100)',
         alignItems: 'center',
-        background: !p.is_active ? '#FAFAFA' : 'white'
+        background: !(p.is_active && p.status === 'active') ? '#FAFAFA' : 'white'
       }
     }, /*#__PURE__*/React.createElement("div", {
       className: "ph-img",
@@ -296,7 +298,7 @@ const MerchantProductsSection = ({
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         fontWeight: 500,
-        opacity: p.is_active ? 1 : 0.5,
+        opacity: p.is_active && p.status === 'active' ? 1 : 0.5,
         display: '-webkit-box',
         WebkitLineClamp: 1,
         WebkitBoxOrient: 'vertical',
@@ -351,7 +353,7 @@ const MerchantProductsSection = ({
       style: {
         textAlign: 'center'
       }
-    }, p.is_active ? /*#__PURE__*/React.createElement("span", {
+    }, p.is_active && p.status === 'active' ? /*#__PURE__*/React.createElement("span", {
       className: "badge badge-success",
       style: {
         fontSize: 10
@@ -363,7 +365,7 @@ const MerchantProductsSection = ({
         background: 'var(--ink-100)',
         color: 'var(--ink-500)'
       }
-    }, "\u1EA8n")), /*#__PURE__*/React.createElement("div", {
+    }, p.status === 'draft' ? 'Nháp' : 'Ẩn')), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 4,
@@ -398,7 +400,7 @@ const MerchantProductsSection = ({
       }
     }, "S\u1EEDa"), /*#__PURE__*/React.createElement("button", {
       onClick: () => toggleActive(p),
-      title: p.is_active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm',
+      title: p.is_active && p.status === 'active' ? 'Ẩn sản phẩm' : 'Công khai sản phẩm',
       style: {
         padding: '4px 8px',
         fontSize: 11,
@@ -406,7 +408,7 @@ const MerchantProductsSection = ({
         borderRadius: 4,
         background: 'white'
       }
-    }, p.is_active ? 'Ẩn' : 'Hiện'), /*#__PURE__*/React.createElement("button", {
+    }, p.is_active && p.status === 'active' ? 'Ẩn' : 'Công khai'), /*#__PURE__*/React.createElement("button", {
       onClick: () => deleteProduct(p),
       title: "Xo\xE1",
       style: {

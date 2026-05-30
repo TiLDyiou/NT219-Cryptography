@@ -69,13 +69,18 @@ const MerchantProductsSection = ({ merchantId, user }) => {
   };
 
   const toggleActive = (p) => {
+    const isPublic = p.is_active && p.status === 'active';
     fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
       method: 'PUT', headers: hdr(),
-      body: JSON.stringify({ is_active: !p.is_active, version: p.version }),
+      body: JSON.stringify({
+        is_active: !isPublic,
+        status: isPublic ? 'inactive' : 'active',
+        version: p.version,
+      }),
     })
       .then(r => {
-        if (!r.ok) throw new Error(`Không ${!p.is_active ? 'hiện' : 'ẩn'} được sản phẩm.`);
-        load(); showNotice(`${p.name} đã ${!p.is_active ? 'hiện' : 'ẩn'}`);
+        if (!r.ok) throw new Error(`Không ${isPublic ? 'ẩn' : 'công khai'} được sản phẩm.`);
+        load(); showNotice(`${p.name} đã ${isPublic ? 'ẩn' : 'công khai'}`);
       })
       .catch(err => showNotice(err.message || 'Không cập nhật được sản phẩm.', false));
   };
@@ -185,12 +190,12 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                 display: 'grid', gridTemplateColumns: '50px 2.5fr 1fr 1fr 1fr 0.8fr 1fr 1fr',
                 gap: 8, padding: '12px 16px', fontSize: 12,
                 borderBottom: '1px solid var(--ink-100)', alignItems: 'center',
-                background: !p.is_active ? '#FAFAFA' : 'white',
+                background: !(p.is_active && p.status === 'active') ? '#FAFAFA' : 'white',
               }}>
                 <div className="ph-img" style={{ width: 38, height: 38, borderRadius: 4, fontSize: 8 }}>{p.brand}</div>
 
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 500, opacity: p.is_active ? 1 : 0.5, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  <div style={{ fontWeight: 500, opacity: p.is_active && p.status === 'active' ? 1 : 0.5, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {p.name}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 1 }}>{p.brand}</div>
@@ -215,9 +220,9 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                 </span>
 
                 <div style={{ textAlign: 'center' }}>
-                  {p.is_active
+                  {p.is_active && p.status === 'active'
                     ? <span className="badge badge-success" style={{ fontSize: 10 }}>Active</span>
-                    : <span className="badge" style={{ fontSize: 10, background: 'var(--ink-100)', color: 'var(--ink-500)' }}>Ẩn</span>
+                    : <span className="badge" style={{ fontSize: 10, background: 'var(--ink-100)', color: 'var(--ink-500)' }}>{p.status === 'draft' ? 'Nháp' : 'Ẩn'}</span>
                   }
                 </div>
 
@@ -230,9 +235,9 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                   </>) : (<>
                     <button onClick={() => startEdit(p)} title="Sửa giá"
                       style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>Sửa</button>
-                    <button onClick={() => toggleActive(p)} title={p.is_active ? 'Ẩn sản phẩm' : 'Hiện sản phẩm'}
+                    <button onClick={() => toggleActive(p)} title={p.is_active && p.status === 'active' ? 'Ẩn sản phẩm' : 'Công khai sản phẩm'}
                       style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, background: 'white' }}>
-                      {p.is_active ? 'Ẩn' : 'Hiện'}
+                      {p.is_active && p.status === 'active' ? 'Ẩn' : 'Công khai'}
                     </button>
                     <button onClick={() => deleteProduct(p)} title="Xoá"
                       style={{ padding: '4px 8px', fontSize: 11, border: '1px solid #FCA5A5', borderRadius: 4, background: 'white', color: '#DC2626' }}>Xoá</button>

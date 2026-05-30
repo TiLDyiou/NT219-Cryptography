@@ -40,8 +40,12 @@ async def create_product_for_merchant(
     Tạo một product mới. MerchantID tự động lấy từ Token.
     Giúp chống việc tạo sản phẩm gắn cho merchant khác (RLS).
     """
-    # Gắn cứng merchant_id vào dữ liệu tạo
-    product = await crud_product.create(db, obj_in=product_in, ext_data={"merchant_id": merchant_id})
+    # Gắn cứng merchant_id và publish ngay cho flow Seller Center demo.
+    product = await crud_product.create(
+        db,
+        obj_in=product_in,
+        ext_data={"merchant_id": merchant_id, "status": "active", "is_active": True},
+    )
     return APIResponse(success=True, data=ProductResponse.model_validate(product))
 
 @router.put("/{product_id}", response_model=APIResponse[ProductResponse])
