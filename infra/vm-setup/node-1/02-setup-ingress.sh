@@ -126,7 +126,7 @@ http {
 
         location /auth/ {
             add_header Cache-Control "no-store, private" always;
-            proxy_pass http://127.0.0.1:8080;
+            proxy_pass http://127.0.0.1:10000;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -498,6 +498,8 @@ static_resources:
                     - name: service_mesh
                       domains: ["*"]
                       routes:
+                        - match: { prefix: "/auth/" }
+                          route: { cluster: keycloak_service }
                         - match: { prefix: "/api/v1/catalog" }
                           route: { cluster: catalog_service, prefix_rewrite: "/api/v1" }
                         - match: { prefix: "/api/v1/cart" }
@@ -521,6 +523,19 @@ static_resources:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
 
   clusters:
+    - name: keycloak_service
+      connect_timeout: 5s
+      type: STRICT_DNS
+      load_assignment:
+        cluster_name: keycloak_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: 127.0.0.1
+                      port_value: 8080
+
     # Tất cả đều trỏ vào NODE-2 (Service Mesh)
     - name: catalog_service
       connect_timeout: 5s

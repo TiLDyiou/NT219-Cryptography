@@ -10,7 +10,7 @@
 set -euo pipefail
 
 NODE1_IP=$(hostname -I | awk '{print $1}')
-KEYCLOAK_URL="${KEYCLOAK_URL:-http://${NODE1_IP}:8080}"
+KEYCLOAK_URL="${KEYCLOAK_URL:-http://${NODE1_IP}/auth}"
 REALM="nt219"
 TOKEN_ENDPOINT="${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token"
 

@@ -23,8 +23,8 @@ echo "[1/3] Keycloak..."
 systemctl start keycloak
 echo "  Keycloak đang khởi động (~30s)..."
 
-echo "  Đợi Keycloak sẵn sàng (~45s)..."
-for i in $(seq 1 15); do
+echo "  Đợi Keycloak sẵn sàng (~90s)..."
+for i in $(seq 1 30); do
     sleep 3
     HTTP=$(curl -sf -o /dev/null -w "%{http_code}" "http://localhost:8080/health/ready" 2>/dev/null || echo "000")
     [ "$HTTP" = "200" ] && break
@@ -43,8 +43,8 @@ if [ -f /tmp/realm-export-vm.json ]; then
         [ "$HTTP" = "201" ] && echo "  Realm uitstore imported - OK" \
             || echo "  Realm import HTTP ${HTTP} (có thể đã tồn tại)"
     else
-        echo "  [WARNING] Keycloak chưa sẵn sàng, import realm thủ công:"
-        echo "  bash ${PROJECT_DIR}/infra/idp/test-token.sh"
+        echo "  [WARNING] Keycloak chưa sẵn sàng, không thể import realm."
+        echo "  Hãy kiểm tra lại: systemctl status keycloak"
     fi
 fi
 
