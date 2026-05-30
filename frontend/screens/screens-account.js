@@ -969,6 +969,8 @@ const MerchantScreen = ({
     }));
   };
   const chartData = getRevenueLast7Days();
+  const roles = user && user.roles || [];
+  const isMerchant = roles.includes('merchant');
   if (!user) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1012,6 +1014,69 @@ const MerchantScreen = ({
         padding: '10px 24px'
       }
     }, "\u0110\u0103ng nh\u1EADp"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => onNav('home'),
+      className: "btn btn-outline",
+      style: {
+        padding: '10px 24px'
+      }
+    }, "V\u1EC1 trang mua s\u1EAFm"))));
+  }
+  if (!isMerchant) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 520,
+        margin: '60px auto',
+        padding: '0 16px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "card",
+      style: {
+        padding: 32,
+        textAlign: 'center',
+        border: '1px solid #FCA5A5'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 72,
+        height: 72,
+        borderRadius: '50%',
+        background: '#FEE2E2',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto 18px'
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "shield-check",
+      size: 40,
+      color: "#EF4444"
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 20,
+        fontWeight: 600,
+        margin: '12px 0 8px',
+        color: '#B91C1C'
+      }
+    }, "Kh\xF4ng c\xF3 quy\u1EC1n truy c\u1EADp"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        color: 'var(--ink-600)',
+        marginBottom: 20,
+        lineHeight: 1.6
+      }
+    }, "T\xE0i kho\u1EA3n ", /*#__PURE__*/React.createElement("b", null, user.email || user.name), " kh\xF4ng c\xF3 quy\u1EC1n ng\u01B0\u1EDDi b\xE1n (merchant). Vui l\xF2ng s\u1EED d\u1EE5ng t\xE0i kho\u1EA3n c\xF3 quy\u1EC1n ng\u01B0\u1EDDi b\xE1n \u0111\u1EC3 ti\u1EBFp t\u1EE5c."), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 10,
+        justifyContent: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => window.UitAuth && window.UitAuth.logout(),
+      className: "btn btn-primary",
+      style: {
+        padding: '10px 24px'
+      }
+    }, "\u0110\u0103ng nh\u1EADp t\xE0i kho\u1EA3n kh\xE1c"), /*#__PURE__*/React.createElement("button", {
       onClick: () => onNav('home'),
       className: "btn btn-outline",
       style: {

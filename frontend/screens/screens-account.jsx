@@ -522,6 +522,9 @@ const MerchantScreen = ({ onNav, user }) => {
   };
   const chartData = getRevenueLast7Days();
 
+  const roles = (user && user.roles) || [];
+  const isMerchant = roles.includes('merchant');
+
   if (!user) {
     return (
       <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
@@ -534,6 +537,33 @@ const MerchantScreen = ({ onNav, user }) => {
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
             <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} className="btn btn-outline" style={{ padding: '10px 24px' }}>
               Đăng nhập
+            </button>
+            <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
+              Về trang mua sắm
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isMerchant) {
+    return (
+      <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
+        <div className="card" style={{ padding: 32, textAlign: 'center', border: '1px solid #FCA5A5' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%', background: '#FEE2E2',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
+          }}>
+            <Icon name="shield-check" size={40} color="#EF4444" />
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 600, margin: '12px 0 8px', color: '#B91C1C' }}>Không có quyền truy cập</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 20, lineHeight: 1.6 }}>
+            Tài khoản <b>{user.email || user.name}</b> không có quyền người bán (merchant). Vui lòng sử dụng tài khoản có quyền người bán để tiếp tục.
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+            <button onClick={() => window.UitAuth && window.UitAuth.logout()} className="btn btn-primary" style={{ padding: '10px 24px' }}>
+              Đăng nhập tài khoản khác
             </button>
             <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
               Về trang mua sắm
