@@ -58,7 +58,7 @@ class CRUDProduct(CRUDBase[Product, ProductCreate, ProductUpdate]):
         count_query = select(func.count()).select_from(query.subquery())
         
         total = await db.scalar(count_query)
-        result = await db.execute(query.offset(skip).limit(limit))
+        result = await db.execute(query.order_by(Product.created_at.desc()).offset(skip).limit(limit))
         return result.scalars().all(), total
 
 product = CRUDProduct(Product)

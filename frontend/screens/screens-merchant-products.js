@@ -143,6 +143,12 @@ const MerchantProductsSection = ({
       }
       return r.json();
     }).then(() => {
+      if (window.UitAPI && window.UitAPI.catalog && window.UitAPI.mapApiProduct) {
+        window.UitAPI.catalog.listProducts().then(res => {
+          const rows = res && Array.isArray(res.data) ? res.data : [];
+          window.PRODUCTS = rows.map(p => window.UitAPI.mapApiProduct(p));
+        }).catch(() => {});
+      }
       load();
       setShowAdd(false);
       setForm({
