@@ -1,14 +1,33 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+from sqlalchemy import select
 
 from app.api.dependencies import get_current_merchant_id, get_db
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.schemas.response import APIResponse
 from app.crud.product import product as crud_product
 from app.core.exceptions import EntityNotFoundException
+from app.models.product import Product
 
 router = APIRouter()
+
+@router.get("", response_model=APIResponse[List[ProductResponse]])
+async def list_products_for_merchant(
+    *,
+    db: AsyncSession = Depends(get_db),
+    merchant_id: str = Depends(get_current_merchant_id),
+):
+    result = await db.execute(
+        select(Product)
+        .filter(
+            Product.merchant_id == merchant_id,
+            Product.deleted_at.is_(None),
+        )
+        .order_by(Product.created_at.desc())
+    )
+    products = result.scalars().all()
+    return APIResponse(success=True, data=[ProductResponse.model_validate(p) for p in products])
 
 @router.post("", response_model=APIResponse[ProductResponse], status_code=201)
 async def create_product_for_merchant(

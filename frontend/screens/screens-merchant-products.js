@@ -47,7 +47,10 @@ const MerchantProductsSection = ({
     }
     fetch(`${BASE}/api/v1/catalog/merchant/products?merchant_id=${merchantId || ''}`, {
       headers: hdr()
-    }).then(r => r.json()).then(d => {
+    }).then(r => {
+      if (!r.ok) throw new Error('Không tải được danh sách sản phẩm.');
+      return r.json();
+    }).then(d => {
       const rows = Array.isArray(d.data) ? d.data : [];
       setProducts(rows.map(p => ({
         ...p,
@@ -77,12 +80,16 @@ const MerchantProductsSection = ({
         base_price: Number(editVals.price),
         version: product.version
       })
-    }).then(() => {
+    }).then(r => {
+      if (!r.ok) throw new Error('Không cập nhật được sản phẩm.');
       load();
       setEditId(null);
       showNotice('Đã cập nhật sản phẩm');
       setSaving(false);
-    }).catch(() => setSaving(false));
+    }).catch(err => {
+      showNotice(err.message || 'Không cập nhật được sản phẩm.', false);
+      setSaving(false);
+    });
   };
   const toggleActive = p => {
     fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
@@ -92,20 +99,22 @@ const MerchantProductsSection = ({
         is_active: !p.is_active,
         version: p.version
       })
-    }).then(() => {
+    }).then(r => {
+      if (!r.ok) throw new Error(`Không ${!p.is_active ? 'hiện' : 'ẩn'} được sản phẩm.`);
       load();
       showNotice(`${p.name} đã ${!p.is_active ? 'hiện' : 'ẩn'}`);
-    });
+    }).catch(err => showNotice(err.message || 'Không cập nhật được sản phẩm.', false));
   };
   const deleteProduct = p => {
     if (!window.confirm(`Xoá sản phẩm "${p.name}"?`)) return;
     fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
       method: 'DELETE',
       headers: hdr()
-    }).then(() => {
+    }).then(r => {
+      if (!r.ok) throw new Error('Không xoá được sản phẩm.');
       load();
       showNotice('Đã xoá sản phẩm');
-    });
+    }).catch(err => showNotice(err.message || 'Không xoá được sản phẩm.', false));
   };
   const addProduct = () => {
     if (!form.name.trim() || !form.sku.trim() || !form.price) return showNotice('Vui lòng điền tên, SKU và giá', false);
@@ -116,6 +125,7 @@ const MerchantProductsSection = ({
       body: JSON.stringify({
         sku: form.sku.trim(),
         name: form.name.trim(),
+        status: 'active',
         base_price: Number(form.price),
         metadata_json: {
           category: form.category,
@@ -125,9 +135,12 @@ const MerchantProductsSection = ({
         merchant_id: merchantId
       })
     }).then(r => {
-      if (!r.ok) return r.json().catch(() => ({})).then(d => {
-        throw new Error(d.error?.message || d.detail || ('HTTP ' + r.status));
-      });
+      if (!r.ok) {
+        return r.json().catch(() => null).then(body => {
+          const msg = body && body.detail ? body.detail : 'Không thêm được sản phẩm.';
+          throw new Error(msg);
+        });
+      }
       return r.json();
     }).then(() => {
       load();
@@ -143,7 +156,7 @@ const MerchantProductsSection = ({
       showNotice('Đã thêm sản phẩm mới');
       setSaving(false);
     }).catch(err => {
-      showNotice(err.message || 'Lỗi khi thêm sản phẩm', false);
+      showNotice(err.message || 'Không thêm được sản phẩm.', false);
       setSaving(false);
     });
   };
