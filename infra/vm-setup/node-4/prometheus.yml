@@ -1,0 +1,33 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # NODE-1: Ingress (Keycloak)
+  - job_name: 'keycloak'
+    static_configs:
+      - targets: ['${VM1_IP}:8080']
+
+  # NODE-2: Service Mesh
+  - job_name: 'catalog-service'
+    static_configs:
+      - targets: ['${VM2_IP}:8001']
+  - job_name: 'cart-service'
+    static_configs:
+      - targets: ['${VM2_IP}:8002']
+  - job_name: 'order-service'
+    static_configs:
+      - targets: ['${VM2_IP}:8003']
+  - job_name: 'inventory-service'
+    static_configs:
+      - targets: ['${VM2_IP}:8005']
+  - job_name: 'shipping-service'
+    static_configs:
+      - targets: ['${VM2_IP}:8007']
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['${VM2_IP}:8008']
+
+  # NODE-3: PCI DSS
+  - job_name: 'payment-service'
+    static_configs:
+      - targets: ['${VM3_IP}:8004']

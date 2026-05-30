@@ -358,7 +358,7 @@ const LoginScreen = ({
       fontWeight: 500,
       cursor: 'pointer'
     },
-    onClick: () => window.UitAuth && window.UitAuth.register()
+    onClick: () => onNav('register')
   }, "\u0110\u0103ng k\xFD ngay"))), step === 'mfa-pick' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
     onClick: next('credentials'),
     style: {
@@ -1886,12 +1886,62 @@ const RegisterScreen = ({
   const strengthColor = ['', '#EF4444', '#F59E0B', '#3B82F6', '#10B981'];
   const handleSubmit = async () => {
     setError('');
-    if (window.UitAuth) {
-      setLoading(true);
-      window.UitAuth.register();
+    if (!name.trim()) {
+      setError('Vui lòng nhập họ và tên.');
       return;
     }
-    setError('Dịch vụ xác thực chưa sẵn sàng.');
+    if (!email.trim()) {
+      setError('Vui lòng nhập email.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Mật khẩu phải có ít nhất 8 ký tự.');
+      return;
+    }
+    if (password !== confirm) {
+      setError('Mật khẩu không khớp.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const parts = name.trim().split(' ');
+      const firstName = parts.slice(0, -1).join(' ') || parts[0];
+      const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+      const backendUrl = window.UitAPI ? window.UitAPI.backendUrl : window.location.origin;
+      const res = await fetch(`${backendUrl}/api/v1/catalog/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email: email.trim(),
+          password
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.detail || 'Đăng ký thất bại. Vui lòng thử lại.');
+        setLoading(false);
+        return;
+      }
+
+      // Đăng ký thành công → tự động đăng nhập
+      if (window.UitAuth) {
+        const result = await window.UitAuth.loginWithPassword(email.trim(), password);
+        if (result.ok) {
+          onLogin(result.user);
+          return;
+        }
+      }
+      // Fallback: chuyển sang trang đăng nhập
+      onNav('login');
+    } catch (e) {
+      setError('Lỗi kết nối: ' + e.message);
+    }
+    setLoading(false);
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "login-container"
@@ -2019,7 +2069,7 @@ const RegisterScreen = ({
       color: 'var(--ink-600)',
       marginBottom: 22
     }
-  }, "Ti\u1EBFp t\u1EE5c tr\xEAn Keycloak \u0111\u1EC3 t\u1EA1o t\xE0i kho\u1EA3n"), /*#__PURE__*/React.createElement("div", {
+  }, "\u0110i\u1EC1n th\xF4ng tin \u0111\u1EC3 t\u1EA1o t\xE0i kho\u1EA3n UIT Store"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 14
     }
@@ -2159,7 +2209,7 @@ const RegisterScreen = ({
       padding: 12,
       opacity: loading ? 0.7 : 1
     }
-  }, loading ? 'Đang chuyển hướng...' : 'Tạo tài khoản trên Keycloak'), /*#__PURE__*/React.createElement("div", {
+  }, loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 14,
       fontSize: 13,
