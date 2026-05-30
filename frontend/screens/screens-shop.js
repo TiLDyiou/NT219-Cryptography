@@ -467,7 +467,7 @@ const ProductScreen = ({
     }, "V\u1EC1 trang ch\u1EE7"));
   }
   const merchant = {
-    name: product.merchant_id || 'Catalog Merchant',
+    name: product.merchant_name || product.brand || 'Nhà bán hàng UIT Store',
     is_verified: false,
     followers: '0',
     rating: 'N/A',

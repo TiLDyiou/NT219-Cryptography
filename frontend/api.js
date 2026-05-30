@@ -192,6 +192,7 @@ const BACKEND_URL = resolveBackendUrl();
     return {
       id:             p.id,
       merchant_id:    p.merchant_id,
+      merchant_name:  p.merchant_name || p.shop_name || (p.metadata_json && (p.metadata_json.merchant_name || p.metadata_json.shop_name)) || 'Nhà bán hàng UIT Store',
       sku:            p.sku,
       name:           p.name,
       brand:          p.brand || '',
