@@ -125,6 +125,7 @@ http {
         }
 
         location /auth/ {
+            proxy_http_version 1.1;
             add_header Cache-Control "no-store, private" always;
             proxy_pass http://127.0.0.1:10000;
             proxy_set_header Host $host;
