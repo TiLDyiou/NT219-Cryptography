@@ -110,6 +110,7 @@ const BACKEND_URL = resolveBackendUrl();
       return json.detail[0].msg;
     }
     if (json && typeof json.message === 'string') return json.message;
+    if (status === 503) return 'Catalog Service chưa sẵn sàng hoặc gateway không kết nối được backend. Vui lòng khởi động lại backend rồi thử lại.';
     return 'HTTP ' + status;
   }
 

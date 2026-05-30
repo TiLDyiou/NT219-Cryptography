@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # Admin token để tạo merchant (đổi trong .env khi deploy)
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "admin_secret_dev")
 
+    # Keycloak
+    KEYCLOAK_URL: str = os.getenv("KEYCLOAK_URL", "http://localhost:8080")
+    KEYCLOAK_REALM: str = os.getenv("KEYCLOAK_REALM", "nt219")
+    KC_ADMIN_USER: str = os.getenv("KC_ADMIN_USER", "admin")
+    KC_ADMIN_PASSWORD: str = os.getenv("KC_ADMIN_PASSWORD", "admin123")
+
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/1")
 
