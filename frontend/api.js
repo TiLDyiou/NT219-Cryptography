@@ -163,6 +163,16 @@ const BACKEND_URL = resolveBackendUrl();
     },
   };
 
+  // ── Merchant Service / Profile ─────────────────────────────────────────
+  const merchant = {
+    register: function (payload) {
+      return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/register', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    }
+  };
+
   // Map API product response → window.PRODUCTS schema.
   function mapApiProduct(p) {
     return {
@@ -197,5 +207,6 @@ const BACKEND_URL = resolveBackendUrl();
     catalog:        catalog,
     cart:           cart,
     order:          order,
+    merchant:       merchant,
   };
 })();

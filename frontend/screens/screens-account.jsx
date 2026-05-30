@@ -417,7 +417,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
 };
 
 // ─── Merchant Dashboard ──────────────────────────────────────────────
-const MerchantScreen = ({ onNav, user }) => {
+const MerchantScreen = ({ onNav, user, setUser }) => {
   const merchantId = user && user.id;
   const shopName = user ? (user.name || user.email || 'Seller Center') : 'Seller Center';
   const products = (window.PRODUCTS || []).filter(p => p.merchant_id === merchantId).slice(0, 6);
@@ -547,7 +547,116 @@ const MerchantScreen = ({ onNav, user }) => {
     );
   }
 
+  // Luồng Đăng ký người bán hoặc chặn quyền truy cập
   if (!isMerchant) {
+    const [showRegForm, setShowRegForm] = React.useState(false);
+    const [regShopName, setRegShopName] = React.useState('');
+    const [regShopCode, setRegShopCode] = React.useState('');
+    const [regLoading, setRegLoading] = React.useState(false);
+    const [regError, setRegError] = React.useState('');
+    const [regSuccess, setRegSuccess] = React.useState(false);
+
+    const handleRegisterSubmit = () => {
+      setRegError('');
+      const nameVal = regShopName.trim();
+      const codeVal = regShopCode.trim();
+      if (!nameVal || !codeVal) {
+        setRegError('Vui lòng điền đầy đủ tên cửa hàng và mã định danh.');
+        return;
+      }
+      if (!/^[a-z0-9-_]+$/.test(codeVal)) {
+        setRegError('Mã định danh chỉ được chứa chữ thường không dấu, số, gạch ngang (-) và gạch dưới (_).');
+        return;
+      }
+      setRegLoading(true);
+      window.UitAPI.merchant.register({ name: nameVal, code: codeVal })
+        .then(res => {
+          setRegSuccess(true);
+          setTimeout(() => {
+            const updatedUser = {
+              ...user,
+              roles: [...(user.roles || []), 'merchant']
+            };
+            if (setUser) setUser(updatedUser);
+            try {
+              sessionStorage.setItem('nt219_user', JSON.stringify(updatedUser));
+            } catch (e) {}
+          }, 2000);
+        })
+        .catch(err => {
+          setRegError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký.');
+        })
+        .finally(() => {
+          setRegLoading(false);
+        });
+    };
+
+    if (regSuccess) {
+      return (
+        <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
+          <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%', background: '#DEF7EC',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
+            }}>
+              <Icon name="check-circle" size={40} color="#10B981" stroke={3} />
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 12, color: '#10B981' }}>Đăng ký thành công!</div>
+            <div style={{ fontSize: 14, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+              Cửa hàng <b>{regShopName}</b> đã được tạo trên hệ thống.<br />Hệ thống đang chuẩn bị chuyển hướng bạn đến Dashboard...
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (showRegForm) {
+      return (
+        <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
+          <div className="card" style={{ padding: 32 }}>
+            <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Đăng ký Kênh người bán</div>
+            <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 20 }}>
+              Mở rộng kinh doanh của bạn bằng cách tạo một cửa hàng trên hệ thống.
+            </div>
+
+            {regError && (
+              <div style={{ padding: '10px 12px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 6, fontSize: 12, color: '#B91C1C', marginBottom: 16 }}>
+                {regError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Tên cửa hàng (Shop Name)</label>
+              <input className="input" value={regShopName} onChange={e => {
+                setRegShopName(e.target.value);
+                if (regShopCode === '') {
+                  setRegShopCode(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''));
+                }
+              }} placeholder="Tech World, Tiệm Sách Nhỏ..." disabled={regLoading} />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Mã định danh (Shop Code / Slug)</label>
+              <input className="input" value={regShopCode} onChange={e => setRegShopCode(e.target.value)}
+                placeholder="techworld, tiem-sach-nho" disabled={regLoading} />
+              <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 4 }}>
+                Dùng làm URL định danh cho cửa hàng. Chỉ gồm chữ thường, số và gạch ngang.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={handleRegisterSubmit} disabled={regLoading} className="btn btn-primary" style={{ flex: 1, padding: '10px 20px' }}>
+                {regLoading ? 'Đang xử lý...' : 'Xác nhận tạo Shop'}
+              </button>
+              <button onClick={() => setShowRegForm(false)} disabled={regLoading} className="btn btn-outline" style={{ padding: '10px 20px' }}>
+                Quay lại
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
         <div className="card" style={{ padding: 32, textAlign: 'center', border: '1px solid #FCA5A5' }}>
@@ -558,16 +667,21 @@ const MerchantScreen = ({ onNav, user }) => {
             <Icon name="shield-check" size={40} color="#EF4444" />
           </div>
           <div style={{ fontSize: 20, fontWeight: 600, margin: '12px 0 8px', color: '#B91C1C' }}>Không có quyền truy cập</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 20, lineHeight: 1.6 }}>
-            Tài khoản <b>{user.email || user.name}</b> không có quyền người bán (merchant). Vui lòng sử dụng tài khoản có quyền người bán để tiếp tục.
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24, lineHeight: 1.6 }}>
+            Tài khoản <b>{user.email || user.name}</b> không có quyền người bán (merchant). Hãy chọn đăng ký để bắt đầu bán hàng hoặc đăng nhập bằng tài khoản khác.
           </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button onClick={() => window.UitAuth && window.UitAuth.logout()} className="btn btn-primary" style={{ padding: '10px 24px' }}>
-              Đăng nhập tài khoản khác
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexDirection: 'column' }}>
+            <button onClick={() => setShowRegForm(true)} className="btn btn-primary" style={{ padding: '12px 24px', fontWeight: 600 }}>
+              Đăng ký làm Người bán ngay
             </button>
-            <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
-              Về trang mua sắm
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => window.UitAuth && window.UitAuth.logout()} className="btn btn-outline" style={{ flex: 1, padding: '10px 20px' }}>
+                Đăng nhập tài khoản khác
+              </button>
+              <button onClick={() => onNav('home')} className="btn btn-outline" style={{ flex: 1, padding: '10px 20px' }}>
+                Về trang mua sắm
+              </button>
+            </div>
           </div>
         </div>
       </div>

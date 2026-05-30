@@ -399,7 +399,7 @@ const App = () => {
         {screen === 'account' && <AccountScreen user={user} onNav={nav} onLogout={handleLogout} />}
         {screen === 'login' && <LoginScreen onLogin={handleLogin} onNav={nav} />}
         {screen === 'register' && <RegisterScreen onLogin={handleLogin} onNav={nav} />}
-        {screen === 'merchant' && <MerchantScreen onNav={nav} user={user} />}
+        {screen === 'merchant' && <MerchantScreen onNav={nav} user={user} setUser={setUser} />}
       </div>
 
       {!noHeaderScreens.includes(screen) && screen !== 'order' && <Footer />}

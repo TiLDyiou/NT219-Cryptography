@@ -478,7 +478,8 @@ const App = () => {
     onNav: nav
   }), screen === 'merchant' && /*#__PURE__*/React.createElement(MerchantScreen, {
     onNav: nav,
-    user: user
+    user: user,
+    setUser: setUser
   })), !noHeaderScreens.includes(screen) && screen !== 'order' && /*#__PURE__*/React.createElement(Footer, null), showNav && /*#__PURE__*/React.createElement("div", {
     className: "floating-nav",
     style: {

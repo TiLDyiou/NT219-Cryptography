@@ -842,7 +842,8 @@ const LoginScreen = ({
 // ─── Merchant Dashboard ──────────────────────────────────────────────
 const MerchantScreen = ({
   onNav,
-  user
+  user,
+  setUser
 }) => {
   const merchantId = user && user.id;
   const shopName = user ? user.name || user.email || 'Seller Center' : 'Seller Center';
@@ -1021,7 +1022,194 @@ const MerchantScreen = ({
       }
     }, "V\u1EC1 trang mua s\u1EAFm"))));
   }
+
+  // Luồng Đăng ký người bán hoặc chặn quyền truy cập
   if (!isMerchant) {
+    const [showRegForm, setShowRegForm] = React.useState(false);
+    const [regShopName, setRegShopName] = React.useState('');
+    const [regShopCode, setRegShopCode] = React.useState('');
+    const [regLoading, setRegLoading] = React.useState(false);
+    const [regError, setRegError] = React.useState('');
+    const [regSuccess, setRegSuccess] = React.useState(false);
+    const handleRegisterSubmit = () => {
+      setRegError('');
+      const nameVal = regShopName.trim();
+      const codeVal = regShopCode.trim();
+      if (!nameVal || !codeVal) {
+        setRegError('Vui lòng điền đầy đủ tên cửa hàng và mã định danh.');
+        return;
+      }
+      if (!/^[a-z0-9-_]+$/.test(codeVal)) {
+        setRegError('Mã định danh chỉ được chứa chữ thường không dấu, số, gạch ngang (-) và gạch dưới (_).');
+        return;
+      }
+      setRegLoading(true);
+      window.UitAPI.merchant.register({
+        name: nameVal,
+        code: codeVal
+      }).then(res => {
+        setRegSuccess(true);
+        setTimeout(() => {
+          const updatedUser = {
+            ...user,
+            roles: [...(user.roles || []), 'merchant']
+          };
+          if (setUser) setUser(updatedUser);
+          try {
+            sessionStorage.setItem('nt219_user', JSON.stringify(updatedUser));
+          } catch (e) {}
+        }, 2000);
+      }).catch(err => {
+        setRegError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký.');
+      }).finally(() => {
+        setRegLoading(false);
+      });
+    };
+    if (regSuccess) {
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          maxWidth: 520,
+          margin: '60px auto',
+          padding: '0 16px'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "card",
+        style: {
+          padding: 40,
+          textAlign: 'center'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: 72,
+          height: 72,
+          borderRadius: '50%',
+          background: '#DEF7EC',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 18px'
+        }
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "check-circle",
+        size: 40,
+        color: "#10B981",
+        stroke: 3
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 22,
+          fontWeight: 600,
+          marginBottom: 12,
+          color: '#10B981'
+        }
+      }, "\u0110\u0103ng k\xFD th\xE0nh c\xF4ng!"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 14,
+          color: 'var(--ink-600)',
+          lineHeight: 1.6
+        }
+      }, "C\u1EEDa h\xE0ng ", /*#__PURE__*/React.createElement("b", null, regShopName), " \u0111\xE3 \u0111\u01B0\u1EE3c t\u1EA1o tr\xEAn h\u1EC7 th\u1ED1ng.", /*#__PURE__*/React.createElement("br", null), "H\u1EC7 th\u1ED1ng \u0111ang chu\u1EA9n b\u1ECB chuy\u1EC3n h\u01B0\u1EDBng b\u1EA1n \u0111\u1EBFn Dashboard...")));
+    }
+    if (showRegForm) {
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          maxWidth: 520,
+          margin: '60px auto',
+          padding: '0 16px'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "card",
+        style: {
+          padding: 32
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 22,
+          fontWeight: 600,
+          marginBottom: 6
+        }
+      }, "\u0110\u0103ng k\xFD K\xEAnh ng\u01B0\u1EDDi b\xE1n"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 13,
+          color: 'var(--ink-600)',
+          marginBottom: 20
+        }
+      }, "M\u1EDF r\u1ED9ng kinh doanh c\u1EE7a b\u1EA1n b\u1EB1ng c\xE1ch t\u1EA1o m\u1ED9t c\u1EEDa h\xE0ng tr\xEAn h\u1EC7 th\u1ED1ng."), regError && /*#__PURE__*/React.createElement("div", {
+        style: {
+          padding: '10px 12px',
+          background: '#FEE2E2',
+          border: '1px solid #FCA5A5',
+          borderRadius: 6,
+          fontSize: 12,
+          color: '#B91C1C',
+          marginBottom: 16
+        }
+      }, regError), /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginBottom: 14
+        }
+      }, /*#__PURE__*/React.createElement("label", {
+        style: {
+          fontSize: 12,
+          color: 'var(--ink-600)',
+          marginBottom: 6,
+          display: 'block'
+        }
+      }, "T\xEAn c\u1EEDa h\xE0ng (Shop Name)"), /*#__PURE__*/React.createElement("input", {
+        className: "input",
+        value: regShopName,
+        onChange: e => {
+          setRegShopName(e.target.value);
+          if (regShopCode === '') {
+            setRegShopCode(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''));
+          }
+        },
+        placeholder: "Tech World, Ti\u1EC7m S\xE1ch Nh\u1ECF...",
+        disabled: regLoading
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginBottom: 20
+        }
+      }, /*#__PURE__*/React.createElement("label", {
+        style: {
+          fontSize: 12,
+          color: 'var(--ink-600)',
+          marginBottom: 6,
+          display: 'block'
+        }
+      }, "M\xE3 \u0111\u1ECBnh danh (Shop Code / Slug)"), /*#__PURE__*/React.createElement("input", {
+        className: "input",
+        value: regShopCode,
+        onChange: e => setRegShopCode(e.target.value),
+        placeholder: "techworld, tiem-sach-nho",
+        disabled: regLoading
+      }), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: 'var(--ink-500)',
+          marginTop: 4
+        }
+      }, "D\xF9ng l\xE0m URL \u0111\u1ECBnh danh cho c\u1EEDa h\xE0ng. Ch\u1EC9 g\u1ED3m ch\u1EEF th\u01B0\u1EDDng, s\u1ED1 v\xE0 g\u1EA1ch ngang.")), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 10
+        }
+      }, /*#__PURE__*/React.createElement("button", {
+        onClick: handleRegisterSubmit,
+        disabled: regLoading,
+        className: "btn btn-primary",
+        style: {
+          flex: 1,
+          padding: '10px 20px'
+        }
+      }, regLoading ? 'Đang xử lý...' : 'Xác nhận tạo Shop'), /*#__PURE__*/React.createElement("button", {
+        onClick: () => setShowRegForm(false),
+        disabled: regLoading,
+        className: "btn btn-outline",
+        style: {
+          padding: '10px 20px'
+        }
+      }, "Quay l\u1EA1i"))));
+    }
     return /*#__PURE__*/React.createElement("div", {
       style: {
         maxWidth: 520,
@@ -1061,28 +1249,43 @@ const MerchantScreen = ({
       style: {
         fontSize: 13,
         color: 'var(--ink-600)',
-        marginBottom: 20,
+        marginBottom: 24,
         lineHeight: 1.6
       }
-    }, "T\xE0i kho\u1EA3n ", /*#__PURE__*/React.createElement("b", null, user.email || user.name), " kh\xF4ng c\xF3 quy\u1EC1n ng\u01B0\u1EDDi b\xE1n (merchant). Vui l\xF2ng s\u1EED d\u1EE5ng t\xE0i kho\u1EA3n c\xF3 quy\u1EC1n ng\u01B0\u1EDDi b\xE1n \u0111\u1EC3 ti\u1EBFp t\u1EE5c."), /*#__PURE__*/React.createElement("div", {
+    }, "T\xE0i kho\u1EA3n ", /*#__PURE__*/React.createElement("b", null, user.email || user.name), " kh\xF4ng c\xF3 quy\u1EC1n ng\u01B0\u1EDDi b\xE1n (merchant). H\xE3y ch\u1ECDn \u0111\u0103ng k\xFD \u0111\u1EC3 b\u1EAFt \u0111\u1EA7u b\xE1n h\xE0ng ho\u1EB7c \u0111\u0103ng nh\u1EADp b\u1EB1ng t\xE0i kho\u1EA3n kh\xE1c."), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 10,
-        justifyContent: 'center'
+        justifyContent: 'center',
+        flexDirection: 'column'
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      onClick: () => setShowRegForm(true),
+      className: "btn btn-primary",
+      style: {
+        padding: '12px 24px',
+        fontWeight: 600
+      }
+    }, "\u0110\u0103ng k\xFD l\xE0m Ng\u01B0\u1EDDi b\xE1n ngay"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 10
       }
     }, /*#__PURE__*/React.createElement("button", {
       onClick: () => window.UitAuth && window.UitAuth.logout(),
-      className: "btn btn-primary",
+      className: "btn btn-outline",
       style: {
-        padding: '10px 24px'
+        flex: 1,
+        padding: '10px 20px'
       }
     }, "\u0110\u0103ng nh\u1EADp t\xE0i kho\u1EA3n kh\xE1c"), /*#__PURE__*/React.createElement("button", {
       onClick: () => onNav('home'),
       className: "btn btn-outline",
       style: {
-        padding: '10px 24px'
+        flex: 1,
+        padding: '10px 20px'
       }
-    }, "V\u1EC1 trang mua s\u1EAFm"))));
+    }, "V\u1EC1 trang mua s\u1EAFm")))));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "merchant-container"
