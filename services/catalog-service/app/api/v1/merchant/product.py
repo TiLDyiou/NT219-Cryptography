@@ -9,8 +9,26 @@ from app.schemas.response import APIResponse
 from app.crud.product import product as crud_product
 from app.core.exceptions import EntityNotFoundException
 from app.models.product import Product
+from app.models.merchant import Merchant
 
 router = APIRouter()
+
+def _merchant_name(merchant: Merchant | None) -> str:
+    if merchant:
+        shop_name = (merchant.metadata_json or {}).get("shop_name")
+        if shop_name:
+            return shop_name
+        if merchant.code:
+            return merchant.code
+    return "Nhà bán hàng UIT Store"
+
+async def _current_merchant(db: AsyncSession, merchant_id: str) -> Merchant | None:
+    return await db.get(Merchant, merchant_id)
+
+def _product_response(product: Product, merchant: Merchant | None) -> ProductResponse:
+    row = ProductResponse.model_validate(product)
+    row.merchant_name = _merchant_name(merchant)
+    return row
 
 @router.get("", response_model=APIResponse[List[ProductResponse]])
 async def list_products_for_merchant(
@@ -27,7 +45,8 @@ async def list_products_for_merchant(
         .order_by(Product.created_at.desc())
     )
     products = result.scalars().all()
-    return APIResponse(success=True, data=[ProductResponse.model_validate(p) for p in products])
+    merchant = await _current_merchant(db, merchant_id)
+    return APIResponse(success=True, data=[_product_response(p, merchant) for p in products])
 
 @router.post("", response_model=APIResponse[ProductResponse], status_code=201)
 async def create_product_for_merchant(
@@ -46,7 +65,8 @@ async def create_product_for_merchant(
         obj_in=product_in,
         ext_data={"merchant_id": merchant_id, "status": "active", "is_active": True},
     )
-    return APIResponse(success=True, data=ProductResponse.model_validate(product))
+    merchant = await _current_merchant(db, merchant_id)
+    return APIResponse(success=True, data=_product_response(product, merchant))
 
 @router.put("/{product_id}", response_model=APIResponse[ProductResponse])
 async def update_product_for_merchant(
@@ -63,7 +83,8 @@ async def update_product_for_merchant(
     product = await crud_product.update_with_lock(
         db, merchant_id=merchant_id, product_id=product_id, obj_in=product_in
     )
-    return APIResponse(success=True, data=ProductResponse.model_validate(product))
+    merchant = await _current_merchant(db, merchant_id)
+    return APIResponse(success=True, data=_product_response(product, merchant))
 
 @router.delete("/{product_id}", response_model=APIResponse[None])
 async def soft_delete_product_for_merchant(

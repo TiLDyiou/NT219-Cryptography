@@ -29,6 +29,7 @@ class ProductUpdate(BaseModel):
 class ProductResponse(ProductBase):
     id: str
     merchant_id: str
+    merchant_name: Optional[str] = None
     version: int
 
     model_config = ConfigDict(from_attributes=True)
