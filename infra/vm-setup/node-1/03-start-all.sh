@@ -73,8 +73,8 @@ echo ">>> Test end-to-end routing..."
 sleep 5
 CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost/" 2>/dev/null || echo "ERR")
 echo "  GET / → ${CODE} (frontend)"
-CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost/api/v1/catalog/health" 2>/dev/null || echo "ERR")
-echo "  GET /api/v1/catalog/health → ${CODE} (qua Envoy → NODE-2)"
+CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost/api/v1/catalog/public/products" 2>/dev/null || echo "ERR")
+echo "  GET /api/v1/catalog/public/products → ${CODE} (qua Envoy → NODE-2)"
 
 echo ""
 echo "============================================="
