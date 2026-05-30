@@ -1,0 +1,95 @@
+name: CI — Security & Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Dependency vulnerability scan ─────────────────────────────────────
+  dependency-scan:
+    name: Dependency Scan (pip-audit)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - cart-service
+          - catalog-service
+          - inventory-service
+          - noti-service
+          - order-service
+          - payment-service
+          - shipping-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Scan ${{ matrix.service }}
+        run: |
+          pip-audit -r services/${{ matrix.service }}/requirements.txt \
+            --format json --output audit-${{ matrix.service }}.json || true
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-${{ matrix.service }}
+          path: audit-${{ matrix.service }}.json
+
+  # ── Check security flags not re-enabled in .env.example ───────────────
+  security-config-check:
+    name: Security Config Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure dev flags are OFF in .env.example
+        run: |
+          FAIL=0
+          for f in services/*/.env.example; do
+            if grep -qE "^REQUIRE_INBOUND_HMAC=false|^REQUIRE_NONCE_GUARD=false" "$f"; then
+              echo "❌ SECURITY FLAG DISABLED in $f"
+              FAIL=1
+            fi
+            if grep -qE "^(PAYMENT|INVENTORY)_DEV_STUB_ON_FAILURE=true|^ENABLE_SQLITE_FALLBACK=true" "$f"; then
+              echo "❌ DEV STUB ENABLED in $f"
+              FAIL=1
+            fi
+          done
+          if [ $FAIL -eq 1 ]; then exit 1; fi
+          echo "✅ All security flags are production-safe"
+
+  # ── Secret leak detection ──────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Python lint / type check ───────────────────────────────────────────
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install ruff
+
+      - name: Ruff check
+        run: ruff check services/ --select E,F,W --ignore E501

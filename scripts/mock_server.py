@@ -53,6 +53,8 @@ _deleted_products  = set()
 _new_products = []  # products added via API (not in data.js)
 _api_keys  = {}   # { merchant_id: { current: {...}, history: [...] } }
 _audit_logs = {}  # { merchant_id: [ log_entry, ... ] }
+_vouchers   = {}  # { merchant_id: [ voucher, ... ] }
+_shop_settings = {}  # { merchant_id: { ... } }
 
 AUDIT_KEY = b'nt219-demo-audit-hmac-key-2026'
 
@@ -449,6 +451,77 @@ def handle_security_audit_log(qs, user):
             _add_audit(merchant_id, a, r, actor='system')
     return _ok(_audit_logs.get(merchant_id, []))
 
+def handle_promo_list(qs, user):
+    merchant_id = (qs.get('merchant_id') or [''])[0] or _merchant_for_user(user) or user
+    if merchant_id not in _vouchers:
+        now = _now()
+        _vouchers[merchant_id] = [
+            {'id': 'vc_' + uuid.uuid4().hex[:6], 'code': 'SUMMER20', 'type': 'percent', 'value': 20,
+             'min_order': 200000, 'quantity': 100, 'used': 34, 'expires_at': '2026-08-31T23:59:59Z', 'active': True, 'created_at': now},
+            {'id': 'vc_' + uuid.uuid4().hex[:6], 'code': 'FREESHIP', 'type': 'shipping', 'value': 0,
+             'min_order': 300000, 'quantity': 50, 'used': 12, 'expires_at': '2026-07-01T23:59:59Z', 'active': True, 'created_at': now},
+            {'id': 'vc_' + uuid.uuid4().hex[:6], 'code': 'NEWUSER50K', 'type': 'fixed', 'value': 50000,
+             'min_order': 500000, 'quantity': 200, 'used': 200, 'expires_at': '2026-06-01T23:59:59Z', 'active': False, 'created_at': now},
+        ]
+    return _ok(_vouchers[merchant_id])
+
+def handle_promo_create(body, user):
+    merchant_id = body.get('merchant_id') or _merchant_for_user(user) or user
+    code = body.get('code', '').strip().upper()
+    if not code: return _bad('Thiếu mã voucher')
+    existing = [v for v in _vouchers.get(merchant_id, []) if v['code'] == code]
+    if existing: return _bad(f'Mã {code} đã tồn tại')
+    voucher = {
+        'id': 'vc_' + uuid.uuid4().hex[:6],
+        'code': code,
+        'type': body.get('type', 'percent'),
+        'value': int(body.get('value', 10)),
+        'min_order': int(body.get('min_order', 0)),
+        'quantity': int(body.get('quantity', 100)),
+        'used': 0,
+        'expires_at': body.get('expires_at', '2026-12-31T23:59:59Z'),
+        'active': True,
+        'created_at': _now(),
+    }
+    _vouchers.setdefault(merchant_id, []).insert(0, voucher)
+    _add_audit(merchant_id, 'voucher_create', f'code={code}', actor=user)
+    return _created(voucher)
+
+def handle_promo_toggle(voucher_id, body, user):
+    merchant_id = body.get('merchant_id') or _merchant_for_user(user) or user
+    for v in _vouchers.get(merchant_id, []):
+        if v['id'] == voucher_id:
+            v['active'] = not v['active']
+            _add_audit(merchant_id, 'voucher_toggle', f'code={v["code"]} active={v["active"]}', actor=user)
+            return _ok(v)
+    return _not_found('Voucher không tồn tại')
+
+def handle_settings_get(qs, user):
+    merchant_id = (qs.get('merchant_id') or [''])[0] or _merchant_for_user(user) or user
+    if merchant_id not in _shop_settings:
+        _shop_settings[merchant_id] = {
+            'shop_name': 'UIT Store Shop',
+            'description': 'Cửa hàng chính hãng, uy tín, giao hàng nhanh toàn quốc.',
+            'address': '371 Nguyễn Kiệm, Phường 3, Gò Vấp, TP.HCM',
+            'processing_days': 1,
+            'return_policy': '7 ngày đổi trả miễn phí nếu lỗi do nhà sản xuất.',
+            'notify_new_order': True,
+            'notify_cancelled': True,
+            'shipping_fee_default': 25000,
+        }
+    return _ok(_shop_settings[merchant_id])
+
+def handle_settings_update(body, user):
+    merchant_id = body.pop('merchant_id', None) or _merchant_for_user(user) or user
+    current = _shop_settings.setdefault(merchant_id, {})
+    allowed = {'shop_name', 'description', 'address', 'processing_days',
+               'return_policy', 'notify_new_order', 'notify_cancelled', 'shipping_fee_default'}
+    for k, v in body.items():
+        if k in allowed:
+            current[k] = v
+    _add_audit(merchant_id, 'settings_update', 'shop_settings', actor=user)
+    return _ok(current)
+
 def handle_auth_register(body):
     email = body.get('email')
     password = body.get('password')
@@ -601,6 +674,21 @@ class MockHandler(BaseHTTPRequestHandler):
             return handle_security_rotate_key(self._read_body(), user)
         if method == 'GET'  and path == '/api/v1/security/merchant/audit-log':
             return handle_security_audit_log(qs, user)
+
+        # ── Promo / Vouchers ──────────────────────────────────────────────────
+        if method == 'GET'  and path == '/api/v1/promo/merchant/vouchers':
+            return handle_promo_list(qs, user)
+        if method == 'POST' and path == '/api/v1/promo/merchant/vouchers':
+            return handle_promo_create(self._read_body(), user)
+        m = re.match(r'^/api/v1/promo/merchant/vouchers/(.+)/toggle$', path)
+        if m and method == 'PUT':
+            return handle_promo_toggle(m.group(1), self._read_body(), user)
+
+        # ── Shop Settings ─────────────────────────────────────────────────────
+        if method == 'GET' and path == '/api/v1/settings/merchant/shop':
+            return handle_settings_get(qs, user)
+        if method == 'PUT' and path == '/api/v1/settings/merchant/shop':
+            return handle_settings_update(self._read_body(), user)
 
         return 404, {'error': {'code': 'NOT_FOUND', 'message': f'Route {method} {path} not found'}}
 

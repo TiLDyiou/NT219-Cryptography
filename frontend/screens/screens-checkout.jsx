@@ -787,7 +787,7 @@ const OrdersScreen = ({ onNav, user }) => {
             var date  = new Date(o.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
             return (
               <div key={o.id} className="card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}
-                onClick={() => onNav('order')}>
+                onClick={() => onNav('order', o.id)}>
                 <div style={{
                   width: 44, height: 44, borderRadius: 8, background: 'var(--primary-tint)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,

@@ -25,8 +25,8 @@ class PgPaymentRepository(PaymentRepository):
             db_obj.psp_transaction_id = tx.psp_intent_id
             db_obj.psp_status = tx.psp_status
             db_obj.payment_method_id = tx.payment_method_id
-            db_obj.error_code = tx.error_code
-            db_obj.error_message = tx.error_message
+            db_obj.failure_code = tx.error_code
+            db_obj.failure_message = tx.error_message
             db_obj.client_secret = tx.client_secret
             db_obj.version = tx.version + 1
             db_obj.paid_at = tx.paid_at

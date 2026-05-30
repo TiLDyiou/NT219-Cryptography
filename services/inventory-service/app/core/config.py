@@ -44,7 +44,7 @@ class Settings(BaseSettings):
         "DATABASE_SQLITE_FALLBACK_URL",
         "sqlite+aiosqlite:///./inventory_service.db",
     )
-    ENABLE_SQLITE_FALLBACK: bool = os.getenv("ENABLE_SQLITE_FALLBACK", "true").lower() == "true"
+    ENABLE_SQLITE_FALLBACK: bool = os.getenv("ENABLE_SQLITE_FALLBACK", "false").lower() == "true"
     DATABASE_POOL_SIZE: int = int(os.getenv("DATABASE_POOL_SIZE", "10"))
     DATABASE_MAX_OVERFLOW: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
     DATABASE_POOL_TIMEOUT: int = int(os.getenv("DATABASE_POOL_TIMEOUT", "30"))
@@ -56,8 +56,8 @@ class Settings(BaseSettings):
     INTERNAL_API_TOKEN: str = os.getenv("INTERNAL_API_TOKEN", "inventory_internal_dev_token")
 
     TIMESTAMP_TOLERANCE_SECONDS: int = int(os.getenv("TIMESTAMP_TOLERANCE_SECONDS", "300"))
-    REQUIRE_INBOUND_HMAC: bool = os.getenv("REQUIRE_INBOUND_HMAC", "false").lower() == "true"
-    REQUIRE_NONCE_GUARD: bool = os.getenv("REQUIRE_NONCE_GUARD", "false").lower() == "true"
+    REQUIRE_INBOUND_HMAC: bool = os.getenv("REQUIRE_INBOUND_HMAC", "true").lower() == "true"
+    REQUIRE_NONCE_GUARD: bool = os.getenv("REQUIRE_NONCE_GUARD", "true").lower() == "true"
 
     VAULT_ADDR: str = os.getenv("VAULT_ADDR", "http://localhost:8200")
     VAULT_TOKEN: str | None = os.getenv("VAULT_TOKEN")

@@ -103,7 +103,8 @@ const App = () => {
 
   const nav = (target, id) => {
     setScreen(target);
-    if (id) setProductId(id);
+    if (target === 'order' && id) setRealOrderId(id);
+    else if (id) setProductId(id);
     else if (target === 'product' && !productId) {
       const first = window.PRODUCTS && window.PRODUCTS[0];
       if (first) setProductId(first.id);
