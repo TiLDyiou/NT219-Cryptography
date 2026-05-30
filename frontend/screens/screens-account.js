@@ -2048,7 +2048,7 @@ const RegisterScreen = ({
       flexDirection: 'column'
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => window.UitAuth && window.UitAuth.loginRedirect(),
+    onClick: () => onNav('login'),
     style: {
       color: 'var(--ink-500)',
       fontSize: 12,
@@ -2226,7 +2226,7 @@ const RegisterScreen = ({
       fontWeight: 500,
       cursor: 'pointer'
     },
-    onClick: () => window.UitAuth && window.UitAuth.loginRedirect()
+    onClick: () => onNav('login')
   }, "\u0110\u0103ng nh\u1EADp")))));
 };
 
@@ -2237,7 +2237,7 @@ const AccountScreen = ({
   onLogout
 }) => {
   if (!user) {
-    window.UitAuth && window.UitAuth.loginRedirect();
+    onNav('login');
     return null;
   }
   const roles = (user.roles || []).filter(r => !['default-roles-nt219', 'offline_access', 'uma_authorization'].includes(r));

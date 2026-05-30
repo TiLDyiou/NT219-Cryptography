@@ -1083,7 +1083,7 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
         {/* Right form */}
         <div style={{ padding: 36, display: 'flex', flexDirection: 'column' }}>
-          <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+          <button onClick={() => onNav('login')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
             <Icon name="arrow-left" size={12} /> Quay lại đăng nhập
           </button>
 
@@ -1161,7 +1161,7 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
           <div style={{ marginTop: 14, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
             Đã có tài khoản?{' '}
-            <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }} onClick={() => window.UitAuth && window.UitAuth.loginRedirect()}>
+            <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }} onClick={() => onNav('login')}>
               Đăng nhập
             </a>
           </div>
@@ -1173,7 +1173,7 @@ const RegisterScreen = ({ onLogin, onNav }) => {
 
 // ─── Account Screen ──────────────────────────────────────────────────
 const AccountScreen = ({ user, onNav, onLogout }) => {
-  if (!user) { window.UitAuth && window.UitAuth.loginRedirect(); return null; }
+  if (!user) { onNav('login'); return null; }
 
   const roles = (user.roles || []).filter(r => !['default-roles-nt219','offline_access','uma_authorization'].includes(r));
   const isAdmin = roles.includes('admin');

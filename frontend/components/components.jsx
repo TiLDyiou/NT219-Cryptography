@@ -156,7 +156,7 @@ const Header = ({ nav, cartCount, onNav, user, onLogout, onSearch, onCategory, o
             <span style={{ cursor: 'pointer', opacity: 0.85 }} onClick={onLogout}>Đăng xuất</span>
           </span>
         ) : (
-          <span style={{ cursor: 'pointer' }} onClick={() => window.UitAuth && window.UitAuth.loginRedirect()}>Đăng ký · Đăng nhập</span>
+          <span style={{ cursor: 'pointer' }} onClick={() => onNav('login')}>Đăng ký · Đăng nhập</span>
         )}
       </div>
     </div>

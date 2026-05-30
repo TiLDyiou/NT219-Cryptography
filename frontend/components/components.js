@@ -605,7 +605,7 @@ const Header = ({
     style: {
       cursor: 'pointer'
     },
-    onClick: () => window.UitAuth && window.UitAuth.loginRedirect()
+    onClick: () => onNav('login')
   }, "\u0110\u0103ng k\xFD \xB7 \u0110\u0103ng nh\u1EADp"))), /*#__PURE__*/React.createElement("div", {
     className: "header-main-bar"
   }, /*#__PURE__*/React.createElement("div", {
