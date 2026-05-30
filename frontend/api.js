@@ -84,7 +84,7 @@ const BACKEND_URL = resolveBackendUrl();
         const retryRes = await fetch(url, retryOpts);
         const retryJson = await retryRes.json().catch(() => null);
         if (!retryRes.ok) {
-          const msg = (retryJson && retryJson.error && retryJson.error.message) || ('HTTP ' + retryRes.status);
+          const msg = getErrorMessage(retryJson, retryRes.status);
           const err = new Error(msg); err.status = retryRes.status; err.body = retryJson;
           throw err;
         }
@@ -94,13 +94,23 @@ const BACKEND_URL = resolveBackendUrl();
 
     const json = await res.json().catch(() => null);
     if (!res.ok) {
-      const msg = (json && json.error && json.error.message) || ('HTTP ' + res.status);
+      const msg = getErrorMessage(json, res.status);
       const err = new Error(msg);
       err.status = res.status;
       err.body = json;
       throw err;
     }
     return json;
+  }
+
+  function getErrorMessage(json, status) {
+    if (json && json.error && json.error.message) return json.error.message;
+    if (json && typeof json.detail === 'string') return json.detail;
+    if (json && Array.isArray(json.detail) && json.detail[0] && json.detail[0].msg) {
+      return json.detail[0].msg;
+    }
+    if (json && typeof json.message === 'string') return json.message;
+    return 'HTTP ' + status;
   }
 
   // ── Catalog Service ──────────────────────────────────────────────────
@@ -165,6 +175,9 @@ const BACKEND_URL = resolveBackendUrl();
 
   // ── Merchant Service / Profile ─────────────────────────────────────────
   const merchant = {
+    me: function () {
+      return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/me');
+    },
     register: function (payload) {
       return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/register', {
         method: 'POST',

@@ -55,3 +55,17 @@ async def register_merchant(
     await db.refresh(db_obj)
     
     return APIResponse(success=True, data=MerchantResponse.model_validate(db_obj))
+
+@router.get("/me", response_model=APIResponse[MerchantResponse])
+async def get_my_merchant_profile(
+    *,
+    db: AsyncSession = Depends(get_db),
+    merchant_id: str = Depends(get_current_merchant_id),
+):
+    merchant_obj = await crud_merchant.get(db, id=merchant_id)
+    if not merchant_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tài khoản này chưa đăng ký làm người bán.",
+        )
+    return APIResponse(success=True, data=MerchantResponse.model_validate(merchant_obj))

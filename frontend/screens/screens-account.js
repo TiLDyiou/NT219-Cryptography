@@ -845,13 +845,43 @@ const MerchantScreen = ({
   user,
   setUser
 }) => {
-  const merchantId = user && user.id;
-  const shopName = user ? user.name || user.email || 'Seller Center' : 'Seller Center';
+  const [merchantProfile, setMerchantProfile] = React.useState(null);
+  const [merchantChecked, setMerchantChecked] = React.useState(false);
+  const [showRegForm, setShowRegForm] = React.useState(false);
+  const [regShopName, setRegShopName] = React.useState('');
+  const [regShopCode, setRegShopCode] = React.useState('');
+  const [regLoading, setRegLoading] = React.useState(false);
+  const [regError, setRegError] = React.useState('');
+  const [regSuccess, setRegSuccess] = React.useState(false);
+  const currentMerchantProfile = merchantProfile && user && merchantProfile.id === user.id ? merchantProfile : null;
+  const merchantId = currentMerchantProfile && currentMerchantProfile.id || user && user.id;
+  const shopName = currentMerchantProfile && currentMerchantProfile.metadata_json && currentMerchantProfile.metadata_json.shop_name || (user ? user.name || user.email || 'Seller Center' : 'Seller Center');
   const products = (window.PRODUCTS || []).filter(p => p.merchant_id === merchantId).slice(0, 6);
   const [activeSection, setActiveSection] = React.useState('dash');
   const [orders, setOrders] = React.useState([]);
+  const roles = user && user.roles || [];
+  const isMerchant = roles.includes('merchant') || !!currentMerchantProfile;
   React.useEffect(() => {
-    if (!merchantId) return;
+    if (!user || !window.UitAPI || !window.UitAPI.merchant || !window.UitAPI.merchant.me) {
+      setMerchantProfile(null);
+      setMerchantChecked(!!user);
+      return;
+    }
+    let cancelled = false;
+    setMerchantChecked(false);
+    window.UitAPI.merchant.me().then(res => {
+      if (!cancelled && res && res.data) setMerchantProfile(res.data);
+    }).catch(() => {
+      if (!cancelled) setMerchantProfile(null);
+    }).finally(() => {
+      if (!cancelled) setMerchantChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user && user.id]);
+  React.useEffect(() => {
+    if (!merchantId || !isMerchant) return;
     const BASE = window.UitAPI && window.UitAPI.backendUrl;
     if (!BASE) return;
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
@@ -869,7 +899,7 @@ const MerchantScreen = ({
         setOrders(d.data);
       }
     }).catch(e => console.error("Error loading merchant orders in dashboard:", e));
-  }, [merchantId, user]);
+  }, [merchantId, user, isMerchant]);
   const pendingCount = orders.filter(o => o.status === 'pending').length;
   const confirmedCount = orders.filter(o => o.status === 'confirmed').length;
   const SECTION_TITLES = {
@@ -970,8 +1000,6 @@ const MerchantScreen = ({
     }));
   };
   const chartData = getRevenueLast7Days();
-  const roles = user && user.roles || [];
-  const isMerchant = roles.includes('merchant');
   if (!user) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1022,15 +1050,85 @@ const MerchantScreen = ({
       }
     }, "V\u1EC1 trang mua s\u1EAFm"))));
   }
+  if (!merchantChecked) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 520,
+        margin: '60px auto',
+        padding: '0 16px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "card",
+      style: {
+        padding: 32,
+        textAlign: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "spinner",
+      style: {
+        margin: '0 auto 16px'
+      }
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 20,
+        fontWeight: 600,
+        marginBottom: 8
+      }
+    }, "\u0110ang ki\u1EC3m tra tr\u1EA1ng th\xE1i ng\u01B0\u1EDDi b\xE1n"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        color: 'var(--ink-600)',
+        lineHeight: 1.6
+      }
+    }, "H\u1EC7 th\u1ED1ng \u0111ang x\xE1c nh\u1EADn c\u1EEDa h\xE0ng g\u1EAFn v\u1EDBi t\xE0i kho\u1EA3n hi\u1EC7n t\u1EA1i.")));
+  }
+  if (regSuccess) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        maxWidth: 520,
+        margin: '60px auto',
+        padding: '0 16px'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "card",
+      style: {
+        padding: 40,
+        textAlign: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 72,
+        height: 72,
+        borderRadius: '50%',
+        background: '#DEF7EC',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: '0 auto 18px'
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "check-circle",
+      size: 40,
+      color: "#10B981",
+      stroke: 3
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 22,
+        fontWeight: 600,
+        marginBottom: 12,
+        color: '#10B981'
+      }
+    }, "\u0110\u0103ng k\xFD th\xE0nh c\xF4ng!"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 14,
+        color: 'var(--ink-600)',
+        lineHeight: 1.6
+      }
+    }, "C\u1EEDa h\xE0ng ", /*#__PURE__*/React.createElement("b", null, regShopName), " \u0111\xE3 \u0111\u01B0\u1EE3c t\u1EA1o tr\xEAn h\u1EC7 th\u1ED1ng.", /*#__PURE__*/React.createElement("br", null), "H\u1EC7 th\u1ED1ng \u0111ang chu\u1EA9n b\u1ECB chuy\u1EC3n h\u01B0\u1EDBng b\u1EA1n \u0111\u1EBFn Dashboard...")));
+  }
 
   // Luồng Đăng ký người bán hoặc chặn quyền truy cập
   if (!isMerchant) {
-    const [showRegForm, setShowRegForm] = React.useState(false);
-    const [regShopName, setRegShopName] = React.useState('');
-    const [regShopCode, setRegShopCode] = React.useState('');
-    const [regLoading, setRegLoading] = React.useState(false);
-    const [regError, setRegError] = React.useState('');
-    const [regSuccess, setRegSuccess] = React.useState(false);
     const handleRegisterSubmit = () => {
       setRegError('');
       const nameVal = regShopName.trim();
@@ -1048,67 +1146,26 @@ const MerchantScreen = ({
         name: nameVal,
         code: codeVal
       }).then(res => {
+        if (res && res.data) setMerchantProfile(res.data);
         setRegSuccess(true);
         setTimeout(() => {
           const updatedUser = {
             ...user,
-            roles: [...(user.roles || []), 'merchant']
+            roles: (user.roles || []).includes('merchant') ? user.roles : [...(user.roles || []), 'merchant']
           };
           if (setUser) setUser(updatedUser);
           try {
             sessionStorage.setItem('nt219_user', JSON.stringify(updatedUser));
           } catch (e) {}
-        }, 2000);
+          setShowRegForm(false);
+          setRegSuccess(false);
+        }, 1200);
       }).catch(err => {
         setRegError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký.');
       }).finally(() => {
         setRegLoading(false);
       });
     };
-    if (regSuccess) {
-      return /*#__PURE__*/React.createElement("div", {
-        style: {
-          maxWidth: 520,
-          margin: '60px auto',
-          padding: '0 16px'
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "card",
-        style: {
-          padding: 40,
-          textAlign: 'center'
-        }
-      }, /*#__PURE__*/React.createElement("div", {
-        style: {
-          width: 72,
-          height: 72,
-          borderRadius: '50%',
-          background: '#DEF7EC',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 18px'
-        }
-      }, /*#__PURE__*/React.createElement(Icon, {
-        name: "check-circle",
-        size: 40,
-        color: "#10B981",
-        stroke: 3
-      })), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 22,
-          fontWeight: 600,
-          marginBottom: 12,
-          color: '#10B981'
-        }
-      }, "\u0110\u0103ng k\xFD th\xE0nh c\xF4ng!"), /*#__PURE__*/React.createElement("div", {
-        style: {
-          fontSize: 14,
-          color: 'var(--ink-600)',
-          lineHeight: 1.6
-        }
-      }, "C\u1EEDa h\xE0ng ", /*#__PURE__*/React.createElement("b", null, regShopName), " \u0111\xE3 \u0111\u01B0\u1EE3c t\u1EA1o tr\xEAn h\u1EC7 th\u1ED1ng.", /*#__PURE__*/React.createElement("br", null), "H\u1EC7 th\u1ED1ng \u0111ang chu\u1EA9n b\u1ECB chuy\u1EC3n h\u01B0\u1EDBng b\u1EA1n \u0111\u1EBFn Dashboard...")));
-    }
     if (showRegForm) {
       return /*#__PURE__*/React.createElement("div", {
         style: {

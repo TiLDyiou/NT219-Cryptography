@@ -81,6 +81,8 @@ def _not_found(msg='Not found'):
     return 404, {'error': {'code': 'NOT_FOUND', 'message': msg}}
 def _bad(msg):
     return 400, {'error': {'code': 'BAD_REQUEST', 'message': msg}}
+def _conflict(msg):
+    return 409, {'error': {'code': 'CONFLICT', 'message': msg}}
 
 # ── Audit log helper ─────────────────────────────────────────────────────────
 def _add_audit(merchant_id, action, resource, actor='merchant', ip='127.0.0.1'):
@@ -124,10 +126,62 @@ def _ensure_api_key(merchant_id):
 
 # ── Merchant lookup ──────────────────────────────────────────────────────────
 def _merchant_for_user(user_id):
+    if user_id in MERCHANTS:
+        return user_id
     for mid, m in MERCHANTS.items():
         if isinstance(m, dict) and m.get('owner_id') == user_id:
             return mid
     return None
+
+def _merchant_response(merchant_id, merchant_obj):
+    meta = merchant_obj.get('metadata_json') or {}
+    if 'shop_name' not in meta and merchant_obj.get('name'):
+        meta = dict(meta)
+        meta['shop_name'] = merchant_obj.get('name')
+    return {
+        'id':              merchant_id,
+        'code':            merchant_obj.get('code', merchant_id),
+        'logo_url':        merchant_obj.get('logo_url'),
+        'banner_url':      merchant_obj.get('banner_url'),
+        'status':          merchant_obj.get('status', 'active'),
+        'commission_rate': merchant_obj.get('commission_rate', 0.05),
+        'is_verified':     merchant_obj.get('is_verified', True),
+        'metadata_json':   meta,
+        'is_active':       merchant_obj.get('is_active', True),
+        'rating_avg':      merchant_obj.get('rating_avg', 0),
+        'rating_count':    merchant_obj.get('rating_count', 0),
+        'version':         merchant_obj.get('version', 1),
+    }
+
+def handle_merchant_me(user):
+    merchant_id = _merchant_for_user(user)
+    if not merchant_id:
+        return _not_found('Tài khoản này chưa đăng ký làm người bán.')
+    return _ok(_merchant_response(merchant_id, MERCHANTS.get(merchant_id, {})))
+
+def handle_merchant_register(body, user):
+    existing_id = _merchant_for_user(user)
+    if existing_id:
+        return _bad('Tài khoản này đã được đăng ký làm người bán.')
+
+    code = (body.get('code') or '').strip()
+    name = (body.get('name') or '').strip()
+    if not name or not code:
+        return _bad('Vui lòng điền đầy đủ tên cửa hàng và mã định danh.')
+    for merchant in MERCHANTS.values():
+        if isinstance(merchant, dict) and merchant.get('code') == code:
+            return _conflict(f"Mã cửa hàng '{code}' đã được sử dụng. Vui lòng chọn mã khác.")
+
+    MERCHANTS[user] = {
+        'owner_id': user,
+        'code': code,
+        'status': 'active',
+        'is_verified': True,
+        'is_active': True,
+        'metadata_json': {'shop_name': name},
+        'version': 1,
+    }
+    return _created(_merchant_response(user, MERCHANTS[user]))
 
 def _get_all_products(merchant_id=None):
     base = [dict(p) for p in PRODUCTS if p['id'] not in _deleted_products]
@@ -598,6 +652,10 @@ class MockHandler(BaseHTTPRequestHandler):
             return handle_catalog_get(m.group(1), user)
 
         # Merchant catalog
+        if method == 'GET' and path == '/api/v1/catalog/merchant/me':
+            return handle_merchant_me(user)
+        if method == 'POST' and path == '/api/v1/catalog/merchant/register':
+            return handle_merchant_register(self._read_body(), user)
         if method == 'GET' and path == '/api/v1/catalog/merchant/products':
             return handle_merchant_product_list(qs, user)
         if method == 'POST' and path == '/api/v1/catalog/merchant/products':

@@ -418,14 +418,50 @@ const LoginScreen = ({ onLogin, onNav }) => {
 
 // ─── Merchant Dashboard ──────────────────────────────────────────────
 const MerchantScreen = ({ onNav, user, setUser }) => {
-  const merchantId = user && user.id;
-  const shopName = user ? (user.name || user.email || 'Seller Center') : 'Seller Center';
+  const [merchantProfile, setMerchantProfile] = React.useState(null);
+  const [merchantChecked, setMerchantChecked] = React.useState(false);
+  const [showRegForm, setShowRegForm] = React.useState(false);
+  const [regShopName, setRegShopName] = React.useState('');
+  const [regShopCode, setRegShopCode] = React.useState('');
+  const [regLoading, setRegLoading] = React.useState(false);
+  const [regError, setRegError] = React.useState('');
+  const [regSuccess, setRegSuccess] = React.useState(false);
+
+  const currentMerchantProfile = merchantProfile && user && merchantProfile.id === user.id ? merchantProfile : null;
+  const merchantId = (currentMerchantProfile && currentMerchantProfile.id) || (user && user.id);
+  const shopName = (currentMerchantProfile && currentMerchantProfile.metadata_json && currentMerchantProfile.metadata_json.shop_name)
+    || (user ? (user.name || user.email || 'Seller Center') : 'Seller Center');
   const products = (window.PRODUCTS || []).filter(p => p.merchant_id === merchantId).slice(0, 6);
   const [activeSection, setActiveSection] = React.useState('dash');
   const [orders, setOrders] = React.useState([]);
+  const roles = (user && user.roles) || [];
+  const isMerchant = roles.includes('merchant') || !!currentMerchantProfile;
 
   React.useEffect(() => {
-    if (!merchantId) return;
+    if (!user || !window.UitAPI || !window.UitAPI.merchant || !window.UitAPI.merchant.me) {
+      setMerchantProfile(null);
+      setMerchantChecked(!!user);
+      return;
+    }
+
+    let cancelled = false;
+    setMerchantChecked(false);
+    window.UitAPI.merchant.me()
+      .then(res => {
+        if (!cancelled && res && res.data) setMerchantProfile(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setMerchantProfile(null);
+      })
+      .finally(() => {
+        if (!cancelled) setMerchantChecked(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [user && user.id]);
+
+  React.useEffect(() => {
+    if (!merchantId || !isMerchant) return;
     const BASE = window.UitAPI && window.UitAPI.backendUrl;
     if (!BASE) return;
     const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
@@ -441,7 +477,7 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
         }
       })
       .catch(e => console.error("Error loading merchant orders in dashboard:", e));
-  }, [merchantId, user]);
+  }, [merchantId, user, isMerchant]);
 
   const pendingCount = orders.filter(o => o.status === 'pending').length;
   const confirmedCount = orders.filter(o => o.status === 'confirmed').length;
@@ -522,9 +558,6 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
   };
   const chartData = getRevenueLast7Days();
 
-  const roles = (user && user.roles) || [];
-  const isMerchant = roles.includes('merchant');
-
   if (!user) {
     return (
       <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
@@ -547,15 +580,41 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
     );
   }
 
+  if (!merchantChecked) {
+    return (
+      <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
+        <div className="card" style={{ padding: 32, textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto 16px' }} />
+          <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>Đang kiểm tra trạng thái người bán</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+            Hệ thống đang xác nhận cửa hàng gắn với tài khoản hiện tại.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (regSuccess) {
+    return (
+      <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
+        <div className="card" style={{ padding: 40, textAlign: 'center' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%', background: '#DEF7EC',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
+          }}>
+            <Icon name="check-circle" size={40} color="#10B981" stroke={3} />
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 12, color: '#10B981' }}>Đăng ký thành công!</div>
+          <div style={{ fontSize: 14, color: 'var(--ink-600)', lineHeight: 1.6 }}>
+            Cửa hàng <b>{regShopName}</b> đã được tạo trên hệ thống.<br />Hệ thống đang chuẩn bị chuyển hướng bạn đến Dashboard...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Luồng Đăng ký người bán hoặc chặn quyền truy cập
   if (!isMerchant) {
-    const [showRegForm, setShowRegForm] = React.useState(false);
-    const [regShopName, setRegShopName] = React.useState('');
-    const [regShopCode, setRegShopCode] = React.useState('');
-    const [regLoading, setRegLoading] = React.useState(false);
-    const [regError, setRegError] = React.useState('');
-    const [regSuccess, setRegSuccess] = React.useState(false);
-
     const handleRegisterSubmit = () => {
       setRegError('');
       const nameVal = regShopName.trim();
@@ -571,17 +630,20 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
       setRegLoading(true);
       window.UitAPI.merchant.register({ name: nameVal, code: codeVal })
         .then(res => {
+          if (res && res.data) setMerchantProfile(res.data);
           setRegSuccess(true);
           setTimeout(() => {
             const updatedUser = {
               ...user,
-              roles: [...(user.roles || []), 'merchant']
+              roles: (user.roles || []).includes('merchant') ? user.roles : [...(user.roles || []), 'merchant']
             };
             if (setUser) setUser(updatedUser);
             try {
               sessionStorage.setItem('nt219_user', JSON.stringify(updatedUser));
             } catch (e) {}
-          }, 2000);
+            setShowRegForm(false);
+            setRegSuccess(false);
+          }, 1200);
         })
         .catch(err => {
           setRegError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký.');
@@ -590,25 +652,6 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
           setRegLoading(false);
         });
     };
-
-    if (regSuccess) {
-      return (
-        <div style={{ maxWidth: 520, margin: '60px auto', padding: '0 16px' }}>
-          <div className="card" style={{ padding: 40, textAlign: 'center' }}>
-            <div style={{
-              width: 72, height: 72, borderRadius: '50%', background: '#DEF7EC',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
-            }}>
-              <Icon name="check-circle" size={40} color="#10B981" stroke={3} />
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 12, color: '#10B981' }}>Đăng ký thành công!</div>
-            <div style={{ fontSize: 14, color: 'var(--ink-600)', lineHeight: 1.6 }}>
-              Cửa hàng <b>{regShopName}</b> đã được tạo trên hệ thống.<br />Hệ thống đang chuẩn bị chuyển hướng bạn đến Dashboard...
-            </div>
-          </div>
-        </div>
-      );
-    }
 
     if (showRegForm) {
       return (
