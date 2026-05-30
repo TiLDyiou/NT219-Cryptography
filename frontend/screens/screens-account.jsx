@@ -445,19 +445,27 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
     }
 
     let cancelled = false;
+    let timeoutId = null;
     setMerchantChecked(false);
-    window.UitAPI.merchant.me()
+    const checkTimeout = new Promise(resolve => {
+      timeoutId = setTimeout(() => resolve(null), 2500);
+    });
+    Promise.race([
+      window.UitAPI.merchant.me().catch(() => null),
+      checkTimeout,
+    ])
       .then(res => {
         if (!cancelled && res && res.data) setMerchantProfile(res.data);
       })
-      .catch(() => {
-        if (!cancelled) setMerchantProfile(null);
-      })
       .finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
         if (!cancelled) setMerchantChecked(true);
       });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [user && user.id]);
 
   React.useEffect(() => {
@@ -709,9 +717,9 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
           }}>
             <Icon name="shield-check" size={40} color="#EF4444" />
           </div>
-          <div style={{ fontSize: 20, fontWeight: 600, margin: '12px 0 8px', color: '#B91C1C' }}>Không có quyền truy cập</div>
+          <div style={{ fontSize: 20, fontWeight: 600, margin: '12px 0 8px', color: '#B91C1C' }}>Bạn chưa có cửa hàng người bán</div>
           <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24, lineHeight: 1.6 }}>
-            Tài khoản <b>{user.email || user.name}</b> không có quyền người bán (merchant). Hãy chọn đăng ký để bắt đầu bán hàng hoặc đăng nhập bằng tài khoản khác.
+            Tài khoản <b>{user.email || user.name}</b> đang là tài khoản mua hàng. Hãy tạo cửa hàng để bắt đầu bán sản phẩm trên UIT Store.
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexDirection: 'column' }}>
             <button onClick={() => setShowRegForm(true)} className="btn btn-primary" style={{ padding: '12px 24px', fontWeight: 600 }}>

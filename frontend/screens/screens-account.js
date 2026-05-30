@@ -868,16 +868,20 @@ const MerchantScreen = ({
       return;
     }
     let cancelled = false;
+    let timeoutId = null;
     setMerchantChecked(false);
-    window.UitAPI.merchant.me().then(res => {
+    const checkTimeout = new Promise(resolve => {
+      timeoutId = setTimeout(() => resolve(null), 2500);
+    });
+    Promise.race([window.UitAPI.merchant.me().catch(() => null), checkTimeout]).then(res => {
       if (!cancelled && res && res.data) setMerchantProfile(res.data);
-    }).catch(() => {
-      if (!cancelled) setMerchantProfile(null);
     }).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
       if (!cancelled) setMerchantChecked(true);
     });
     return () => {
       cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [user && user.id]);
   React.useEffect(() => {
@@ -1302,14 +1306,14 @@ const MerchantScreen = ({
         margin: '12px 0 8px',
         color: '#B91C1C'
       }
-    }, "Kh\xF4ng c\xF3 quy\u1EC1n truy c\u1EADp"), /*#__PURE__*/React.createElement("div", {
+    }, "B\u1EA1n ch\u01B0a c\xF3 c\u1EEDa h\xE0ng ng\u01B0\u1EDDi b\xE1n"), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 13,
         color: 'var(--ink-600)',
         marginBottom: 24,
         lineHeight: 1.6
       }
-    }, "T\xE0i kho\u1EA3n ", /*#__PURE__*/React.createElement("b", null, user.email || user.name), " kh\xF4ng c\xF3 quy\u1EC1n ng\u01B0\u1EDDi b\xE1n (merchant). H\xE3y ch\u1ECDn \u0111\u0103ng k\xFD \u0111\u1EC3 b\u1EAFt \u0111\u1EA7u b\xE1n h\xE0ng ho\u1EB7c \u0111\u0103ng nh\u1EADp b\u1EB1ng t\xE0i kho\u1EA3n kh\xE1c."), /*#__PURE__*/React.createElement("div", {
+    }, "T\xE0i kho\u1EA3n ", /*#__PURE__*/React.createElement("b", null, user.email || user.name), " \u0111ang l\xE0 t\xE0i kho\u1EA3n mua h\xE0ng. H\xE3y t\u1EA1o c\u1EEDa h\xE0ng \u0111\u1EC3 b\u1EAFt \u0111\u1EA7u b\xE1n s\u1EA3n ph\u1EA9m tr\xEAn UIT Store."), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 10,
