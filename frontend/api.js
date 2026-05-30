@@ -1,7 +1,7 @@
 // UIT Store — Backend API client
 // Chạy local với NODE-1 Nginx proxy sang Envoy:
 //   http://localhost:3000/?api=http://<NODE1_IP>
-const DEFAULT_BACKEND_URL = 'http://192.168.122.11';
+const DEFAULT_BACKEND_URL = (window.location.protocol === 'file:' || window.location.hostname === 'localhost') ? 'http://192.168.122.11' : window.location.origin;
 const LEGACY_BACKEND_URLS = ['http://192.168.122.11:10000'];
 
 function normalizeBackendUrl(url) {
@@ -59,7 +59,10 @@ const BACKEND_URL = resolveBackendUrl();
 
   function authHeaders(extra) {
     const token = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
-    const base = { 'Content-Type': 'application/json' };
+    const base = { 
+      'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true'
+    };
     if (token) {
       base['Authorization'] = 'Bearer ' + token;
     }

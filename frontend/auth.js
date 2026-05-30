@@ -12,11 +12,21 @@
     try {
       const p = new URLSearchParams(window.location.search);
       const override = p.get('authUrl') || p.get('auth_url');
-      if (override) return override.replace(/\/+$/, '');
+      if (override) {
+        const url = override.replace(/\/+$/, '');
+        localStorage.setItem('UIT_AUTH_URL', url);
+        return url;
+      }
+      const stored = localStorage.getItem('UIT_AUTH_URL');
+      if (stored) return stored;
     } catch (e) {}
-    // Mặc định trỏ thẳng vào IP của máy ảo, cổng 8080 (cổng mặc định của Keycloak)
-    // để bypass lỗi 403 của Nginx ở port 80.
-    return 'http://192.168.122.11:8080/auth';
+    
+    // Tự động nhận diện Origin hiện tại (VD: https://abc.ngrok.io hoặc http://192.168.122.11)
+    // Nếu đang chạy file local (file://), fallback về IP của máy ảo
+    if (window.location.protocol === 'file:' || window.location.hostname === 'localhost') {
+      return 'http://192.168.122.11:8080/auth';
+    }
+    return window.location.origin + '/auth';
   }
 
   const AUTH_BASE        = resolveAuthBase();
