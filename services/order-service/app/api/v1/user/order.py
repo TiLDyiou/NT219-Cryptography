@@ -18,6 +18,7 @@ from app.application.use_cases.checkout import (
     ListOrdersUseCase,
 )
 from app.schemas.order import (
+    CheckoutOrderSummary,
     CheckoutRequest,
     CheckoutResponse,
     OrderItemResponse,
@@ -52,7 +53,16 @@ async def checkout(
         order_group_id=result.order_group_id,
         parent_order_number=result.parent_order_number,
         status=result.status,
-        orders=result.orders,
+        orders=[
+            CheckoutOrderSummary(
+                order_id=order.order_id,
+                order_number=order.order_number,
+                merchant_id=order.merchant_id,
+                status=order.status,
+                total_amount=order.total_amount,
+            )
+            for order in result.orders
+        ],
     )
     return APIResponse(success=True, data=response, correlation_id=correlation_id)
 
