@@ -396,6 +396,13 @@ const App = () => {
     }
     setUser(u);
     if (u) window.UitAPI.setUserId(u.id || u.email || u.name);
+    // Tải lại dữ liệu giỏ hàng từ server (giờ đã có token hợp lệ)
+    loadData();
+    // Đồng bộ các item đã thêm trước khi đăng nhập lên server
+    cart.forEach(function (c) {
+      var product = (window.PRODUCTS || []).find(function (p) { return p.id === c.productId; });
+      if (product) syncCartAdd(product, c.qty);
+    });
     nav('home');
     toast('Đăng nhập thành công · Phiên JWT đã được tạo');
   };

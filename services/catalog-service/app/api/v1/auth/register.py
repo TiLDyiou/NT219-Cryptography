@@ -1,14 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, EmailStr
 import httpx
-import os
+
+from app.core.config import settings
 
 router = APIRouter()
-
-KEYCLOAK_URL      = os.getenv("KEYCLOAK_URL", "http://localhost:8080")
-KEYCLOAK_REALM    = os.getenv("KEYCLOAK_REALM", "nt219")
-KC_ADMIN_USER     = os.getenv("KC_ADMIN_USER", "admin")
-KC_ADMIN_PASSWORD = os.getenv("KC_ADMIN_PASSWORD", "admin123")
 
 
 class RegisterRequest(BaseModel):
@@ -19,32 +15,37 @@ class RegisterRequest(BaseModel):
 
 
 async def _get_admin_token() -> str:
+    kc = settings.KEYCLOAK_URL.rstrip("/")
+    base_url = kc if kc.endswith("/auth") else f"{kc}/auth"
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            f"{KEYCLOAK_URL}/realms/master/protocol/openid-connect/token",
+            f"{base_url}/realms/master/protocol/openid-connect/token",
             data={
                 "grant_type": "password",
                 "client_id":  "admin-cli",
-                "username":   KC_ADMIN_USER,
-                "password":   KC_ADMIN_PASSWORD,
+                "username":   settings.KC_ADMIN_USER,
+                "password":   settings.KC_ADMIN_PASSWORD,
             },
         )
     if resp.status_code != 200:
-        raise HTTPException(502, "Không thể kết nối Keycloak admin")
+        raise HTTPException(502, f"Không thể kết nối Keycloak admin: {resp.status_code} {resp.text}")
     return resp.json()["access_token"]
 
 
 @router.post("")
 async def register_user(body: RegisterRequest):
     token = await _get_admin_token()
+    kc = settings.KEYCLOAK_URL.rstrip("/")
+    base_url = kc if kc.endswith("/auth") else f"{kc}/auth"
 
     user_payload = {
-        "firstName": body.firstName,
-        "lastName":  body.lastName,
-        "email":     body.email,
-        "username":  body.email,
-        "enabled":   True,
-        "realmRoles": ["user"],
+        "firstName":     body.firstName,
+        "lastName":      body.lastName,
+        "email":         body.email,
+        "username":      body.email,
+        "enabled":       True,
+        "emailVerified": True,
+        "realmRoles":    ["user"],
         "credentials": [{
             "type":      "password",
             "value":     body.password,
@@ -54,7 +55,7 @@ async def register_user(body: RegisterRequest):
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
-            f"{KEYCLOAK_URL}/admin/realms/{KEYCLOAK_REALM}/users",
+            f"{base_url}/admin/realms/{settings.KEYCLOAK_REALM}/users",
             json=user_payload,
             headers={"Authorization": f"Bearer {token}"},
         )

@@ -1,3 +1,5 @@
+import json
+import base64
 from typing import Optional
 
 from fastapi import Header
@@ -13,6 +15,24 @@ __all__ = [
     "get_current_merchant_id",
     "verify_internal_token",
 ]
+
+
+def _decode_jwt_sub(token: str) -> str:
+    """Decode JWT payload (không verify signature vì gateway đã verify)
+    và trả về claim 'sub' — ID cố định của merchant trong Keycloak."""
+    try:
+        payload_b64 = token.split(".")[1]
+        # Thêm padding cho base64
+        padding = 4 - len(payload_b64) % 4
+        if padding != 4:
+            payload_b64 += "=" * padding
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        sub = payload.get("sub")
+        if sub:
+            return sub
+    except Exception:
+        pass
+    raise UnauthorizedException("Invalid token: cannot extract merchant identity.")
 
 
 async def get_idempotency_key(
@@ -38,7 +58,7 @@ async def get_current_merchant_id(
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ", 1)[1].strip()
         if token:
-            return token
+            return _decode_jwt_sub(token)
     raise UnauthorizedException("Could not validate merchant identity.")
 
 
