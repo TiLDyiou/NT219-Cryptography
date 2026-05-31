@@ -870,6 +870,7 @@ const ProductCard = ({
 }) => {
   const phColors = ['#FFE5D9', '#D9E8FF', '#E5F4DD', '#FFEACD', '#F0E2FF', '#FFE0E0', '#D9F4F0', '#FCE7F3', '#FFF4D9', '#E0F2FE', '#FEE2E2', '#DCFCE7'];
   const phColor = phColors[parseInt(product.id.split('_')[1]) % phColors.length];
+  const imgUrl = window.UitAPI && window.UitAPI.productImageUrl ? window.UitAPI.productImageUrl(product) : product.images && product.images[0] && (product.images[0].url || product.images[0]) || null;
   return /*#__PURE__*/React.createElement("div", {
     className: "card",
     onClick: onClick,
@@ -887,12 +888,30 @@ const ProductCard = ({
       position: 'relative',
       height: dense ? 160 : 180,
       background: phColor,
+      overflow: 'hidden',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, imgUrl && /*#__PURE__*/React.createElement("img", {
+    src: imgUrl,
+    alt: product.name,
     style: {
+      position: 'absolute',
+      inset: 0,
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover'
+    },
+    onError: e => {
+      e.target.style.display = 'none';
+      if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex';
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: imgUrl ? 'none' : 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: 10,
       color: 'var(--ink-500)',

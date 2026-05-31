@@ -273,6 +273,14 @@ const BACKEND_URL = resolveBackendUrl();
     }
   };
 
+  function productImageUrl(product) {
+    const imgs = product && product.images;
+    if (!imgs || !imgs.length) return null;
+    const first = imgs[0];
+    if (typeof first === 'string') return first;
+    return first.url || first.src || null;
+  }
+
   // Map API product response → window.PRODUCTS schema.
   function mapApiProduct(p) {
     return {
@@ -295,7 +303,7 @@ const BACKEND_URL = resolveBackendUrl();
       color_options:  [],
       description:    p.metadata_json && p.metadata_json.description || '',
       specs:          {},
-      images:         [],
+      images:         Array.isArray(p.images) ? p.images : [],
     };
   }
 
@@ -306,6 +314,7 @@ const BACKEND_URL = resolveBackendUrl();
     setUserId:      function (id) { _userId = id; },
     getUserId:      function () { return _userId; },
     mapApiProduct:  mapApiProduct,
+    productImageUrl: productImageUrl,
     mapCartItemRow: mapCartItemRow,
     productFromCartLine: productFromCartLine,
     mergeCartSnapshotsIntoProducts: mergeCartSnapshotsIntoProducts,

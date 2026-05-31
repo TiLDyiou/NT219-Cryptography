@@ -489,6 +489,8 @@ const ProductScreen = ({
   const phColors = ['#FFE5D9', '#D9E8FF', '#E5F4DD', '#FFEACD', '#F0E2FF', '#FFE0E0', '#D9F4F0', '#FCE7F3', '#FFF4D9', '#E0F2FE', '#FEE2E2', '#DCFCE7'];
   const phColor = phColors[parseInt(product.id.split('_')[1]) % phColors.length];
   const related = products.filter(p => p.id !== product.id).slice(0, 5);
+  const galleryImages = (product.images || []).map(img => typeof img === 'string' ? img : img && (img.url || img.src)).filter(Boolean);
+  const mainImg = galleryImages[activeThumb] || galleryImages[0] || null;
   const weightLabel = product.weight_g >= 1000 ? `${(product.weight_g / 1000).toFixed(1)} kg` : `${product.weight_g} g`;
   const specRows = [['SKU', product.sku], ['Thương hiệu', product.brand], ...(product.warranty_months > 0 ? [['Bảo hành', `${product.warranty_months} tháng chính hãng`]] : []), ['Trọng lượng', weightLabel], ['Tồn kho', `${product.stock} sản phẩm`], ['Mã sản phẩm', product.id], ...Object.entries(product.specs || {})];
   return /*#__PURE__*/React.createElement("div", {
@@ -532,9 +534,21 @@ const ProductScreen = ({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      position: 'relative'
+      position: 'relative',
+      overflow: 'hidden'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, mainImg ? /*#__PURE__*/React.createElement("img", {
+    src: mainImg,
+    alt: product.name,
+    style: {
+      position: 'absolute',
+      inset: 0,
+      width: '100%',
+      height: '100%',
+      objectFit: 'contain',
+      background: '#fff'
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: 'JetBrains Mono, monospace',
       fontSize: 11,
@@ -544,7 +558,7 @@ const ProductScreen = ({
       borderRadius: 4,
       background: 'rgba(255,255,255,0.6)'
     }
-  }, product.brand, " \xB7 ", product.sku), /*#__PURE__*/React.createElement("div", {
+  }, product.brand, " \xB7 ", product.sku), galleryImages.length > 1 && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       bottom: 12,
@@ -555,13 +569,13 @@ const ProductScreen = ({
       fontSize: 11,
       borderRadius: 4
     }
-  }, activeThumb + 1, " / 8")), /*#__PURE__*/React.createElement("div", {
+  }, activeThumb + 1, " / ", galleryImages.length)), galleryImages.length > 1 && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
       marginTop: 12
     }
-  }, [0, 1, 2, 3, 4, 5].map(i => /*#__PURE__*/React.createElement("div", {
+  }, galleryImages.map((url, i) => /*#__PURE__*/React.createElement("div", {
     key: i,
     onClick: () => setActiveThumb(i),
     style: {
@@ -569,12 +583,21 @@ const ProductScreen = ({
       height: 56,
       borderRadius: 4,
       background: phColor,
+      overflow: 'hidden',
       opacity: i === activeThumb ? 1 : 0.45,
       cursor: 'pointer',
       border: i === activeThumb ? '2px solid var(--primary)' : '1px solid var(--ink-200)',
       transition: 'opacity 0.15s, border-color 0.15s'
     }
-  }))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("img", {
+    src: url,
+    alt: "",
+    style: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover'
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 10,

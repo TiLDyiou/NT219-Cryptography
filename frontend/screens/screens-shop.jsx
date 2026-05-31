@@ -302,6 +302,10 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow, wishlist, onTo
   const phColors = ['#FFE5D9','#D9E8FF','#E5F4DD','#FFEACD','#F0E2FF','#FFE0E0','#D9F4F0','#FCE7F3','#FFF4D9','#E0F2FE','#FEE2E2','#DCFCE7'];
   const phColor  = phColors[parseInt(product.id.split('_')[1]) % phColors.length];
   const related  = products.filter(p => p.id !== product.id).slice(0, 5);
+  const galleryImages = (product.images || [])
+    .map(img => typeof img === 'string' ? img : (img && (img.url || img.src)))
+    .filter(Boolean);
+  const mainImg = galleryImages[activeThumb] || galleryImages[0] || null;
 
   const weightLabel = product.weight_g >= 1000
     ? `${(product.weight_g / 1000).toFixed(1)} kg`
@@ -333,31 +337,42 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow, wishlist, onTo
         <div className="card" style={{ padding: 16 }}>
           <div style={{
             width: '100%', height: 380, borderRadius: 6, background: phColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden',
           }}>
-            <div style={{
-              fontFamily: 'JetBrains Mono, monospace', fontSize: 11,
-              color: 'var(--ink-500)', padding: '6px 12px',
-              border: '1px dashed var(--ink-400)', borderRadius: 4, background: 'rgba(255,255,255,0.6)',
-            }}>
-              {product.brand} · {product.sku}
+            {mainImg ? (
+              <img src={mainImg} alt={product.name}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} />
+            ) : (
+              <div style={{
+                fontFamily: 'JetBrains Mono, monospace', fontSize: 11,
+                color: 'var(--ink-500)', padding: '6px 12px',
+                border: '1px dashed var(--ink-400)', borderRadius: 4, background: 'rgba(255,255,255,0.6)',
+              }}>
+                {product.brand} · {product.sku}
+              </div>
+            )}
+            {galleryImages.length > 1 && (
+              <div style={{
+                position: 'absolute', bottom: 12, left: 12,
+                padding: '4px 10px', background: 'rgba(0,0,0,0.6)', color: 'white',
+                fontSize: 11, borderRadius: 4,
+              }}>{activeThumb + 1} / {galleryImages.length}</div>
+            )}
+          </div>
+          {galleryImages.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              {galleryImages.map((url, i) => (
+                <div key={i} onClick={() => setActiveThumb(i)} style={{
+                  width: 56, height: 56, borderRadius: 4, background: phColor, overflow: 'hidden',
+                  opacity: i === activeThumb ? 1 : 0.45, cursor: 'pointer',
+                  border: i === activeThumb ? '2px solid var(--primary)' : '1px solid var(--ink-200)',
+                  transition: 'opacity 0.15s, border-color 0.15s',
+                }}>
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </div>
+              ))}
             </div>
-            <div style={{
-              position: 'absolute', bottom: 12, left: 12,
-              padding: '4px 10px', background: 'rgba(0,0,0,0.6)', color: 'white',
-              fontSize: 11, borderRadius: 4,
-            }}>{activeThumb + 1} / 8</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            {[0,1,2,3,4,5].map(i => (
-              <div key={i} onClick={() => setActiveThumb(i)} style={{
-                width: 56, height: 56, borderRadius: 4, background: phColor,
-                opacity: i === activeThumb ? 1 : 0.45, cursor: 'pointer',
-                border: i === activeThumb ? '2px solid var(--primary)' : '1px solid var(--ink-200)',
-                transition: 'opacity 0.15s, border-color 0.15s',
-              }} />
-            ))}
-          </div>
+          )}
           <div style={{ display: 'flex', gap: 10, marginTop: 14, fontSize: 12 }}>
             <button onClick={() => onToggleWishlist && onToggleWishlist(product.id)}
               style={{ flex: 1, padding: '8px', border: '1px solid var(--ink-200)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
