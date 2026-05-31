@@ -5,6 +5,18 @@ from decimal import Decimal
 
 class StripeGateway(ABC):
     @abstractmethod
+    async def create_checkout_session(
+        self,
+        order_id: str,
+        amount: Decimal,
+        currency: str,
+        line_items: list[dict[str, Any]],
+        idempotency_key: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
     async def create_payment_intent(
         self,
         amount: Decimal,

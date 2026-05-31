@@ -24,3 +24,4 @@ class PaymentTransaction:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     paid_at: datetime | None = None
+    failed_at: datetime | None = None

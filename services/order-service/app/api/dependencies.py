@@ -191,7 +191,7 @@ def get_cancel_order_use_case(db: AsyncSession = Depends(get_db)) -> CancelOrder
 from app.domain.ports.crypto_service import CryptoService
 
 def get_crypto_service() -> CryptoService:
-    return get_container().crypto_service()
+    return get_container().crypto_service
 
 
 def build_checkout_context(

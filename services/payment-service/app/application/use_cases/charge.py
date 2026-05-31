@@ -45,9 +45,10 @@ class ChargeUseCase:
         currency = payload.get("currency", "VND")
         payment_method_type = payload["payment_method_type"]
         idempotency_key = payload["idempotency_key"]
+        line_items = payload.get("line_items") or []
 
         # Calculate payload hash for idempotency lock
-        raw_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        raw_payload = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
         payload_hash = hashlib.sha256(raw_payload.encode("utf-8")).hexdigest()
 
         # 1. Atomic Idempotency check
@@ -57,6 +58,19 @@ class ChargeUseCase:
         if claim_status == IdempotencyClaimStatus.CACHED and cached_res:
             logger.info("Idempotency key hit. Replaying cached response.")
             return cached_res
+
+        existing = await self._repo.get_transaction_by_order_id(order_id, session=self._session)
+        if existing and existing.client_secret:
+            response = {
+                "payment_id": existing.id,
+                "status": existing.status.value,
+                "checkout_url": existing.client_secret,
+                "transaction_ref": existing.psp_intent_id,
+            }
+            await self._idemp.save_response(
+                user_id=user_id, key=idempotency_key, request_hash=payload_hash, response=response
+            )
+            return response
 
         # 2. Start transaction
         tx_id = f"tx-{hashlib.mdxdigest(idempotency_key.encode()) if False else idempotency_key[:12]}-{order_id[:8]}"
@@ -87,61 +101,81 @@ class ChargeUseCase:
                 new_data={"id": tx.id, "status": tx.status.value, "amount": str(tx.amount)},
             )
             
-            # Execute Stripe payment intent creation (simulating confirm=true with payment method)
+            # Execute Stripe Checkout creation for card payments. Webhook is the source of truth.
             stripe_res = {}
             try:
-                # We forward our internal key to Stripe for downstream idempotency
-                stripe_res = await self._stripe.create_payment_intent(
-                    amount=amount,
-                    currency=currency,
-                    idempotency_key=idempotency_key,
-                    metadata={"order_id": order_id, "user_id": user_id},
-                )
-                
-                intent_id = stripe_res.get("id")
-                intent_status = stripe_res.get("status")
-                client_secret = stripe_res.get("client_secret")
-
-                tx.psp_intent_id = intent_id
-                tx.psp_status = intent_status
-                tx.client_secret = client_secret
-
-                # 3. Analyze stripe status
-                if intent_status == "succeeded":
-                    tx.status = PaymentStatus.SUCCEEDED
-                    tx.paid_at = datetime.now(timezone.utc)
-                    
-                    # Outbox event
-                    from app.domain.events import PaymentCompleted
-                    event = PaymentCompleted(
-                        payment_id=tx.id,
-                        order_id=tx.order_id,
-                        amount=tx.amount,
-                        currency=tx.currency,
-                        paid_at=tx.paid_at.isoformat(),
+                if payment_method_type == "credit_card":
+                    stripe_res = await self._stripe.create_checkout_session(
+                        order_id=order_id,
+                        amount=amount,
+                        currency=currency,
+                        line_items=line_items,
+                        idempotency_key=order_id,
+                        metadata={"order_id": order_id, "user_id": user_id},
                     )
-                    await self._outbox.save_event(
-                        aggregate_type="payment",
-                        aggregate_id=tx.id,
-                        event_type="PaymentCompleted",
-                        payload=event.to_dict(),
-                        session=self._session,
-                    )
-                    
-                    response = {"payment_id": tx.id, "status": "succeeded", "transaction_ref": intent_id}
-                elif intent_status == "requires_action":
-                    # For compatibility with order-svc, map to 'processing'
+                    session_id = stripe_res.get("id")
+                    checkout_url = stripe_res.get("url")
+
+                    tx.psp_intent_id = session_id
+                    tx.psp_status = stripe_res.get("payment_status") or stripe_res.get("status")
+                    tx.client_secret = checkout_url
                     tx.status = PaymentStatus.PROCESSING
-                    
+
                     response = {
                         "payment_id": tx.id,
                         "status": "processing",
-                        "client_secret": client_secret,
-                        "next_action": stripe_res.get("next_action"),
+                        "checkout_url": checkout_url,
+                        "transaction_ref": session_id,
                     }
                 else:
-                    tx.status = PaymentStatus.PROCESSING
-                    response = {"payment_id": tx.id, "status": "processing", "transaction_ref": intent_id}
+                    stripe_res = await self._stripe.create_payment_intent(
+                        amount=amount,
+                        currency=currency,
+                        idempotency_key=idempotency_key,
+                        metadata={"order_id": order_id, "user_id": user_id},
+                    )
+
+                    intent_id = stripe_res.get("id")
+                    intent_status = stripe_res.get("status")
+                    client_secret = stripe_res.get("client_secret")
+
+                    tx.psp_intent_id = intent_id
+                    tx.psp_status = intent_status
+                    tx.client_secret = client_secret
+
+                    if intent_status == "succeeded":
+                        tx.status = PaymentStatus.SUCCEEDED
+                        tx.paid_at = datetime.now(timezone.utc)
+
+                        from app.domain.events import PaymentCompleted
+                        event = PaymentCompleted(
+                            payment_id=tx.id,
+                            order_id=tx.order_id,
+                            amount=tx.amount,
+                            currency=tx.currency,
+                            paid_at=tx.paid_at.isoformat(),
+                        )
+                        await self._outbox.save_event(
+                            aggregate_type="payment",
+                            aggregate_id=tx.id,
+                            event_type="PaymentCompleted",
+                            payload=event.to_dict(),
+                            session=self._session,
+                        )
+
+                        response = {"payment_id": tx.id, "status": "succeeded", "transaction_ref": intent_id}
+                    elif intent_status == "requires_action":
+                        tx.status = PaymentStatus.PROCESSING
+
+                        response = {
+                            "payment_id": tx.id,
+                            "status": "processing",
+                            "client_secret": client_secret,
+                            "next_action": stripe_res.get("next_action"),
+                        }
+                    else:
+                        tx.status = PaymentStatus.PROCESSING
+                        response = {"payment_id": tx.id, "status": "processing", "transaction_ref": intent_id}
 
             except Exception as stripe_err:
                 logger.warning("Stripe payment declined or errored: %s", stripe_err)

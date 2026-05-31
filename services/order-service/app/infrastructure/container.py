@@ -62,6 +62,7 @@ class AppContainer:
             crypto_service=self.crypto_service,
             event_publisher=self.event_publisher,
             audit_logger=self.audit_logger,
+            payment_gateway=self.payment_gateway,
             saga_orchestrator=saga,
         )
 

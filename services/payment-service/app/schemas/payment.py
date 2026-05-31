@@ -9,6 +9,7 @@ class ChargeRequest(BaseModel):
     currency: str = Field(default="VND", min_length=3, max_length=3)
     payment_method_type: str = Field(..., min_length=3, max_length=30)
     merchant_id: str = Field(default="m_default", min_length=1, max_length=36)
+    line_items: list[dict[str, Any]] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_payment_method(self):
@@ -22,14 +23,3 @@ class RefundRequest(BaseModel):
     payment_id: str = Field(..., min_length=1, max_length=36)
     amount: Decimal = Field(..., ge=0)
     reason: Optional[str] = Field(default="Customer request")
-
-
-class CreateIntentRequest(BaseModel):
-    order_id: str = Field(..., min_length=1, max_length=36)
-
-
-class PaymentIntentResponse(BaseModel):
-    payment_id: str
-    client_secret: str
-    publishable_key: str
-    status: str

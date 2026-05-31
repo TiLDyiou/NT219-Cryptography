@@ -23,7 +23,7 @@ VALID_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
     OrderStatus.PAYMENT_PROCESSING: frozenset(
         {OrderStatus.CONFIRMED, OrderStatus.PAYMENT_FAILED, OrderStatus.CANCELLED}
     ),
-    OrderStatus.PAYMENT_FAILED: frozenset({OrderStatus.CANCELLED}),
+    OrderStatus.PAYMENT_FAILED: frozenset({OrderStatus.CONFIRMED, OrderStatus.CANCELLED}),
     OrderStatus.CONFIRMED: frozenset({OrderStatus.PROCESSING, OrderStatus.CANCELLED}),
     OrderStatus.PROCESSING: frozenset({OrderStatus.READY_TO_SHIP, OrderStatus.CANCELLED}),
     OrderStatus.READY_TO_SHIP: frozenset({OrderStatus.SHIPPED, OrderStatus.CANCELLED}),

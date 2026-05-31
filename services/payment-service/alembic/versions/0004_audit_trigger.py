@@ -29,13 +29,6 @@ def upgrade() -> None:
                 diff_cols VARCHAR(100)[] := '{}';
                 corr_id VARCHAR(255) := NULL;
             BEGIN
-                -- Find correlation_id from transaction context if available (optional)
-                IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-                    IF (NEW.metadata_json IS NOT NULL) AND (NEW.metadata_json ? 'correlation_id') THEN
-                        corr_id := NEW.metadata_json->>'correlation_id';
-                    END IF;
-                END IF;
-
                 IF TG_OP = 'DELETE' THEN
                     old_row := to_jsonb(OLD);
                 ELSIF TG_OP = 'INSERT' THEN
@@ -48,6 +41,15 @@ def upgrade() -> None:
                     SELECT array_agg(key) INTO diff_cols
                     FROM jsonb_each(new_row)
                     WHERE new_row->key IS DISTINCT FROM old_row->key;
+                END IF;
+
+                -- Find correlation_id from transaction context if available (optional)
+                IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+                    IF (new_row ? 'metadata_json') AND jsonb_typeof(new_row->'metadata_json') = 'object' THEN
+                        IF (new_row->'metadata_json') ? 'correlation_id' THEN
+                            corr_id := new_row->'metadata_json'->>'correlation_id';
+                        END IF;
+                    END IF;
                 END IF;
 
                 INSERT INTO payment_audit_log (

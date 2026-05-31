@@ -23,7 +23,6 @@ from app.infrastructure.crypto.vault_transit import VaultTransit
 
 from app.infrastructure.external.stripe_client import StripeClient
 from app.infrastructure.external.bank_payout_stub import BankPayoutStub
-from app.infrastructure.external.order_client import OrderHttpClient
 from app.infrastructure.messaging.kafka_producer import KafkaEventPublisher, NullEventPublisher, create_kafka_producer
 from app.infrastructure.persistence.database import AsyncSessionLocal
 
@@ -74,23 +73,6 @@ class AppContainer:
             stripe_gateway=self.stripe_gateway,
             audit_logger=self.audit_logger,
             session=session
-        )
-
-    def create_intent_use_case(self, session: AsyncSession):
-        from app.application.use_cases.create_intent import CreatePaymentIntentUseCase
-        from app.infrastructure.persistence.repositories.payment_repository import PgPaymentRepository
-
-        order_client = OrderHttpClient(
-            base_url=self.settings.ORDER_SERVICE_URL,
-            internal_token=self.settings.ORDER_SERVICE_INTERNAL_TOKEN,
-        )
-        return CreatePaymentIntentUseCase(
-            payment_repository=PgPaymentRepository(),
-            stripe_gateway=self.stripe_gateway,
-            order_client=order_client,
-            audit_logger=self.audit_logger,
-            publishable_key=self.settings.STRIPE_PUBLISHABLE_KEY,
-            session=session,
         )
 
     def get_payment_use_case(self, session: AsyncSession):

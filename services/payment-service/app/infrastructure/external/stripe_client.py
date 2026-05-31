@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from decimal import Decimal
 from typing import Any
 import stripe
@@ -8,6 +9,15 @@ from app.core.config import StripeConfig
 from app.domain.ports.stripe_gateway import StripeGateway
 
 logger = logging.getLogger(__name__)
+
+
+ZERO_DECIMAL_CURRENCIES = {"vnd", "jpy", "krw"}
+
+
+def to_minor_units(amount: Decimal, currency: str) -> int:
+    if currency.lower() in ZERO_DECIMAL_CURRENCIES:
+        return int(amount)
+    return int(amount * 100)
 
 
 def mask_psp_response(response: dict[str, Any]) -> dict[str, Any]:
@@ -47,6 +57,67 @@ class StripeClient(StripeGateway):
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
+    async def create_checkout_session(
+        self,
+        order_id: str,
+        amount: Decimal,
+        currency: str,
+        line_items: list[dict[str, Any]],
+        idempotency_key: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        currency_code = currency.lower()
+        stripe_line_items = []
+        for item in line_items:
+            quantity = int(item.get("quantity", 1))
+            unit_amount = to_minor_units(Decimal(str(item["unit_amount"])), currency_code)
+            stripe_line_items.append(
+                {
+                    "quantity": quantity,
+                    "price_data": {
+                        "currency": currency_code,
+                        "unit_amount": unit_amount,
+                        "product_data": {"name": str(item["name"])[:500]},
+                    },
+                }
+            )
+
+        if not stripe_line_items:
+            stripe_line_items.append(
+                {
+                    "quantity": 1,
+                    "price_data": {
+                        "currency": currency_code,
+                        "unit_amount": to_minor_units(amount, currency_code),
+                        "product_data": {"name": f"Order {order_id}"},
+                    },
+                }
+            )
+
+        metadata = metadata or {}
+        success_url = self._config.checkout_success_url.replace("{ORDER_ID}", order_id)
+        cancel_url = self._config.checkout_cancel_url.replace("{ORDER_ID}", order_id)
+
+        logger.info("Calling Stripe Checkout Session.create (order_id=%s)", order_id)
+        res = await asyncio.to_thread(
+            stripe.checkout.Session.create,
+            mode="payment",
+            line_items=stripe_line_items,
+            success_url=success_url,
+            cancel_url=cancel_url,
+            client_reference_id=order_id,
+            metadata=metadata,
+            payment_intent_data={"metadata": metadata},
+            expires_at=int(time.time()) + 3600,
+            idempotency_key=idempotency_key,
+        )
+        return mask_psp_response(res.to_dict())
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
     async def create_payment_intent(
         self,
         amount: Decimal,
@@ -55,7 +126,7 @@ class StripeClient(StripeGateway):
         metadata: dict[str, Any] | None = None,
         automatic_payment_methods: bool = False,
     ) -> dict[str, Any]:
-        amount_cents = int(amount * 100)
+        amount_cents = to_minor_units(amount, currency)
 
         if automatic_payment_methods:
             # Decoupled flow: FE uses PaymentElement + stripe.confirmPayment

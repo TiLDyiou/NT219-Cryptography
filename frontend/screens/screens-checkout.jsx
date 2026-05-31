@@ -330,15 +330,12 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
   })).filter(i => i.product);
 
   const subtotal = items.reduce((s, i) => s + i.product.base_price * i.qty, 0);
-  const deliveryFee = delivery === 'instant' ? 35000 : (subtotal > 500000 ? 0 : 25000);
+  const deliveryFee = delivery === 'instant' ? 35000 : 0;
   const ship     = deliveryFee;
   const total    = subtotal + ship;
 
   const paymentOptions = [
-    { id: 'credit',   label: 'Thẻ tín dụng / ghi nợ',        desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'credit-card' },
-    { id: 'momo',     label: 'Ví MoMo',                      desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'wallet' },
-    { id: 'vnpay',    label: 'VNPay QR',                     desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'qr' },
-    { id: 'transfer', label: 'Chuyển khoản ngân hàng',       desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'wallet' },
+    { id: 'credit_card',   label: 'Thẻ tín dụng / ghi nợ',        desc: 'Chuyển sang Stripe Checkout để thanh toán', icon: 'credit-card' },
     { id: 'cod',      label: 'Thanh toán khi nhận hàng (COD)', desc: 'Gửi phương thức thanh toán sang Order Service', icon: 'truck' },
   ];
 
@@ -476,11 +473,11 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
               ))}
             </div>
 
-            {payment === 'credit' && (
+            {payment === 'credit_card' && (
               <div style={{ marginTop: 14, padding: 16, background: 'var(--ink-100)', borderRadius: 6 }}>
                 <div style={{ fontSize: 11, color: 'var(--success)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                   <Icon name="lock" size={12} color="var(--success)" />
-                  <span>Frontend chỉ gửi payment_method_type sang Order Service. Chưa có endpoint backend để nhập hoặc tokenize thẻ.</span>
+                  <span>Bạn sẽ được chuyển sang Stripe Checkout. UIT Store không lưu thông tin thẻ.</span>
                 </div>
               </div>
             )}

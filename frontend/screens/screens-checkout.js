@@ -611,29 +611,14 @@ const CheckoutScreen = ({
     product: resolveProduct(c)
   })).filter(i => i.product);
   const subtotal = items.reduce((s, i) => s + i.product.base_price * i.qty, 0);
-  const deliveryFee = delivery === 'instant' ? 35000 : subtotal > 500000 ? 0 : 25000;
+  const deliveryFee = delivery === 'instant' ? 35000 : 0;
   const ship = deliveryFee;
   const total = subtotal + ship;
   const paymentOptions = [{
-    id: 'credit',
+    id: 'credit_card',
     label: 'Thẻ tín dụng / ghi nợ',
-    desc: 'Gửi phương thức thanh toán sang Order Service',
+    desc: 'Chuyển sang Stripe Checkout để thanh toán',
     icon: 'credit-card'
-  }, {
-    id: 'momo',
-    label: 'Ví MoMo',
-    desc: 'Gửi phương thức thanh toán sang Order Service',
-    icon: 'wallet'
-  }, {
-    id: 'vnpay',
-    label: 'VNPay QR',
-    desc: 'Gửi phương thức thanh toán sang Order Service',
-    icon: 'qr'
-  }, {
-    id: 'transfer',
-    label: 'Chuyển khoản ngân hàng',
-    desc: 'Gửi phương thức thanh toán sang Order Service',
-    icon: 'wallet'
   }, {
     id: 'cod',
     label: 'Thanh toán khi nhận hàng (COD)',
@@ -985,7 +970,7 @@ const CheckoutScreen = ({
       color: 'var(--ink-600)',
       marginTop: 2
     }
-  }, p.desc))))), payment === 'credit' && /*#__PURE__*/React.createElement("div", {
+  }, p.desc))))), payment === 'credit_card' && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 14,
       padding: 16,
@@ -1005,7 +990,7 @@ const CheckoutScreen = ({
     name: "lock",
     size: 12,
     color: "var(--success)"
-  }), /*#__PURE__*/React.createElement("span", null, "Frontend ch\u1EC9 g\u1EEDi payment_method_type sang Order Service. Ch\u01B0a c\xF3 endpoint backend \u0111\u1EC3 nh\u1EADp ho\u1EB7c tokenize th\u1EBB."))))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, "B\u1EA1n s\u1EBD \u0111\u01B0\u1EE3c chuy\u1EC3n sang Stripe Checkout. UIT Store kh\xF4ng l\u01B0u th\xF4ng tin th\u1EBB."))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexDirection: 'column',

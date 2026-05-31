@@ -34,6 +34,8 @@ class StripeConfig(BaseModel):
     api_key: str = "sk_test_mock"
     webhook_secret: str = "whsec_mock"
     publishable_key: str = "pk_test_mock"
+    checkout_success_url: str = "http://localhost:3000/?stripe_session_id={CHECKOUT_SESSION_ID}"
+    checkout_cancel_url: str = "http://localhost:3000/?payment_cancelled=true"
 
 
 class Settings(BaseSettings):
@@ -87,6 +89,14 @@ class Settings(BaseSettings):
     STRIPE_API_KEY: str = os.getenv("STRIPE_API_KEY", "sk_test_mock")
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_mock")
     STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_mock")
+    STRIPE_CHECKOUT_SUCCESS_URL: str = os.getenv(
+        "STRIPE_CHECKOUT_SUCCESS_URL",
+        "http://localhost:3000/?stripe_session_id={CHECKOUT_SESSION_ID}",
+    )
+    STRIPE_CHECKOUT_CANCEL_URL: str = os.getenv(
+        "STRIPE_CHECKOUT_CANCEL_URL",
+        "http://localhost:3000/?payment_cancelled=true",
+    )
 
     ORDER_SERVICE_URL: str = os.getenv("ORDER_SERVICE_URL", "http://localhost:8003")
     ORDER_SERVICE_INTERNAL_TOKEN: str = os.getenv("ORDER_SERVICE_INTERNAL_TOKEN", "payment_to_order_dev_token")
@@ -138,6 +148,8 @@ class Settings(BaseSettings):
             api_key=self.STRIPE_API_KEY,
             webhook_secret=self.STRIPE_WEBHOOK_SECRET,
             publishable_key=self.STRIPE_PUBLISHABLE_KEY,
+            checkout_success_url=self.STRIPE_CHECKOUT_SUCCESS_URL,
+            checkout_cancel_url=self.STRIPE_CHECKOUT_CANCEL_URL,
         )
 
 

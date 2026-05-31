@@ -288,7 +288,7 @@ const App = () => {
     const subtotal = items.reduce(function (s, i) {
       return s + i.unit_price * i.quantity;
     }, 0);
-    const shipping_fee = deliveryFee !== undefined ? deliveryFee : subtotal > 500000 ? 0 : 25000;
+    const shipping_fee = deliveryFee !== undefined ? deliveryFee : 0;
     const firstMerchantId = items.length > 0 ? items[0].merchant_id : 'unknown';
     var cartMeta = cartVersions[firstMerchantId];
     try {
@@ -314,7 +314,7 @@ const App = () => {
       throw new Error('Giỏ hàng chưa được đồng bộ với server. Vui lòng kiểm tra đăng nhập và thử thêm lại sản phẩm vào giỏ.');
     }
     const cartId = cartMeta.cartId;
-    const pmType = paymentMethod === 'credit' ? 'credit_card' : paymentMethod === 'cod' ? 'cod' : 'e_wallet';
+    const pmType = paymentMethod === 'credit_card' ? 'credit_card' : paymentMethod === 'cod' ? 'cod' : 'e_wallet';
     const address = checkoutAddress || {};
     if (!address.full_name || !address.phone || !address.address_line1 || !address.city) {
       throw new Error('Vui lòng nhập đầy đủ tên, số điện thoại, địa chỉ và tỉnh/thành phố.');
@@ -344,6 +344,7 @@ const App = () => {
     setLastOrderPayload(payload);
     return window.UitAPI.order.checkout(payload, idempotencyKey).then(function (res) {
       const orderNum = res && res.data && res.data.parent_order_number || null;
+      const checkoutUrl = res && res.data && res.data.checkout_url || null;
       if (orderNum) setRealOrderId(orderNum);
       setApiStatus(function (prev) {
         return Object.assign({}, prev, {
@@ -351,6 +352,10 @@ const App = () => {
         });
       });
       setCart([]);
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
       nav('order');
     }).catch(function (err) {
       console.warn('[UIT Store] Order API:', err.message);

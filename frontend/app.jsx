@@ -241,7 +241,7 @@ const App = () => {
     }).filter(Boolean);
 
     const subtotal     = items.reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
-    const shipping_fee = deliveryFee !== undefined ? deliveryFee : (subtotal > 500000 ? 0 : 25000);
+    const shipping_fee = deliveryFee !== undefined ? deliveryFee : 0;
 
     const firstMerchantId = items.length > 0 ? items[0].merchant_id : 'unknown';
     var cartMeta = cartVersions[firstMerchantId];
@@ -266,8 +266,8 @@ const App = () => {
     }
     const cartId = cartMeta.cartId;
 
-    const pmType = paymentMethod === 'credit' ? 'credit_card'
-                 : paymentMethod === 'cod'    ? 'cod'
+    const pmType = paymentMethod === 'credit_card' ? 'credit_card'
+                 : paymentMethod === 'cod'         ? 'cod'
                  : 'e_wallet';
     const address = checkoutAddress || {};
     if (!address.full_name || !address.phone || !address.address_line1 || !address.city) {
@@ -300,9 +300,14 @@ const App = () => {
     return window.UitAPI.order.checkout(payload, idempotencyKey)
       .then(function (res) {
         const orderNum = (res && res.data && res.data.parent_order_number) || null;
+        const checkoutUrl = (res && res.data && res.data.checkout_url) || null;
         if (orderNum) setRealOrderId(orderNum);
         setApiStatus(function (prev) { return Object.assign({}, prev, { order: 'ok' }); });
         setCart([]);
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+          return;
+        }
         nav('order');
       })
       .catch(function (err) {

@@ -67,6 +67,7 @@ class CheckoutResponse(BaseModel):
     parent_order_number: str
     status: str
     orders: List[CheckoutOrderSummary]
+    checkout_url: Optional[str] = None
 
 
 class OrderItemResponse(BaseModel):

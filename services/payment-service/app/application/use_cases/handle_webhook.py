@@ -54,21 +54,28 @@ class HandleWebhookUseCase:
         # Commit insert log immediately to ensure locking/deduplication works between parallel threads
         await self._session.commit()
 
-        # Extract Stripe object
         data_object = event["data"]["object"]
-        intent_id = data_object.get("id")
+        is_checkout_event = event_type.startswith("checkout.session.")
+        order_id = None
+        intent_id = None
+        stripe_state = data_object
 
-        if not intent_id:
-            logger.warning("Stripe event has no payment intent ID associated. Skipping.")
-            return {"success": True, "reason": "no_intent_id"}
+        if is_checkout_event:
+            metadata = data_object.get("metadata") or {}
+            order_id = data_object.get("client_reference_id") or metadata.get("order_id")
+            intent_id = data_object.get("payment_intent") or data_object.get("id")
+            canonical_status = data_object.get("payment_status") or data_object.get("status")
+            target_status = self._map_checkout_status(event_type, canonical_status)
+        else:
+            intent_id = data_object.get("payment_intent") or data_object.get("id")
+            if not intent_id:
+                logger.warning("Stripe event has no payment intent ID associated. Skipping.")
+                return {"success": True, "reason": "no_intent_id"}
 
-        # 3. Retrieve canonical Stripe state (R6)
-        # Webhook payload might be stale. Re-fetching ensures we have the latest truth.
-        stripe_state = await self._stripe.retrieve_payment_intent(intent_id)
-        canonical_status = stripe_state.get("status")
-        
-        # Mapping Stripe status
-        target_status = self._map_stripe_status(canonical_status)
+            # Webhook payload might be stale. Re-fetching ensures we have the latest truth.
+            stripe_state = await self._stripe.retrieve_payment_intent(intent_id)
+            canonical_status = stripe_state.get("status")
+            target_status = self._map_stripe_status(canonical_status)
 
         # 4. Row locking and state machine execution (R1, R3)
         # Re-open session and transaction for business updates
@@ -79,11 +86,11 @@ class HandleWebhookUseCase:
             from sqlalchemy import select
             from app.infrastructure.persistence.models.payment_transaction import PaymentTransactionModel
             
-            stmt = (
-                select(PaymentTransactionModel)
-                .where(PaymentTransactionModel.psp_transaction_id == intent_id)
-                .with_for_update()
-            )
+            stmt = select(PaymentTransactionModel).with_for_update()
+            if order_id:
+                stmt = stmt.where(PaymentTransactionModel.order_id == order_id)
+            else:
+                stmt = stmt.where(PaymentTransactionModel.psp_transaction_id == intent_id)
             result = await self._session.execute(stmt)
             db_obj = result.scalars().first()
 
@@ -103,6 +110,8 @@ class HandleWebhookUseCase:
                     
                 tx.status = target_status
                 tx.psp_status = canonical_status
+                if intent_id and str(intent_id).startswith("pi_"):
+                    tx.psp_intent_id = intent_id
 
                 # If transitions to succeeded
                 if target_status == PaymentStatus.SUCCEEDED:
@@ -184,3 +193,10 @@ class HandleWebhookUseCase:
             "canceled": PaymentStatus.CANCELLED,
         }
         return mapping.get(stripe_status, PaymentStatus.PROCESSING)
+
+    def _map_checkout_status(self, event_type: str, checkout_status: str | None) -> PaymentStatus:
+        if event_type == "checkout.session.completed" and checkout_status == "paid":
+            return PaymentStatus.SUCCEEDED
+        if event_type == "checkout.session.expired":
+            return PaymentStatus.CANCELLED
+        return PaymentStatus.PROCESSING

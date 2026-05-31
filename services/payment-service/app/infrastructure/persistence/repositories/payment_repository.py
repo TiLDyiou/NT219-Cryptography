@@ -139,4 +139,5 @@ class PgPaymentRepository(PaymentRepository):
             created_at=db_obj.created_at,
             updated_at=db_obj.updated_at,
             paid_at=db_obj.paid_at,
+            failed_at=db_obj.failed_at,
         )

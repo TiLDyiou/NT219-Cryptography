@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -11,6 +12,7 @@ class PaymentChargeRequest:
     payment_method_type: str
     idempotency_key: str
     currency: str = "VND"
+    line_items: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -18,6 +20,7 @@ class PaymentChargeResult:
     payment_id: str
     status: str
     transaction_ref: str | None = None
+    checkout_url: str | None = None
 
 
 @dataclass(frozen=True)

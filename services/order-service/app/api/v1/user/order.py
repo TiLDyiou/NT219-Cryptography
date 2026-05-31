@@ -52,9 +52,9 @@ async def _build_shipping_payload(
                 state_province=addr.state_province,
                 postal_code=addr.postal_code,
             )
-        except (InvalidTag, UnicodeDecodeError, ValueError) as exc:
+        except Exception as exc:
             logger.warning(
-                "Could not decrypt shipping address for order %s: %s",
+                "Could not decrypt shipping address for order %s: %r",
                 order.id,
                 exc,
             )
@@ -90,6 +90,7 @@ async def checkout(
         order_group_id=result.order_group_id,
         parent_order_number=result.parent_order_number,
         status=result.status,
+        checkout_url=result.checkout_url,
         orders=[
             CheckoutOrderSummary(
                 order_id=order.order_id,

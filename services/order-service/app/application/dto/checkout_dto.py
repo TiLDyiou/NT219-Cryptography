@@ -53,6 +53,7 @@ class CheckoutOutput:
     parent_order_number: str
     status: str
     orders: list[CheckoutOrderSummaryDTO]
+    checkout_url: str | None = None
 
 
 @dataclass(frozen=True)

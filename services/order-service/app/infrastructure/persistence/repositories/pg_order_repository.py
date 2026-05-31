@@ -305,6 +305,7 @@ class PgOrderRepository(OrderRepository):
         model.status = order.status.value
         model.payment_id = order.payment_id
         model.fraud_status = order.fraud_status
+        model.metadata_json = order.metadata
         await self._session.commit()
         return order
 

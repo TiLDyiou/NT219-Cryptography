@@ -51,13 +51,20 @@ class PaymentHttpClient(PaymentGateway):
             "currency": request.currency,
             "payment_method_type": request.payment_method_type,
             "idempotency_key": request.idempotency_key,
+            "line_items": request.line_items,
         }
         body_bytes = json.dumps(body, separators=(",", ":")).encode("utf-8")
-        response_data = await self._signed_post(path, body_bytes)
+        response_data = await self._signed_post(
+            path,
+            body_bytes,
+            user_id=request.user_id,
+            idempotency_key=request.idempotency_key,
+        )
         return PaymentChargeResult(
             payment_id=response_data.get("payment_id", str(uuid4())),
             status=response_data.get("status", "succeeded"),
             transaction_ref=response_data.get("transaction_ref"),
+            checkout_url=response_data.get("checkout_url"),
         )
 
     async def refund(self, request: PaymentRefundRequest) -> PaymentRefundResult:
@@ -75,7 +82,13 @@ class PaymentHttpClient(PaymentGateway):
             status=response_data.get("status", "succeeded"),
         )
 
-    async def _signed_post(self, path: str, body: bytes) -> dict:
+    async def _signed_post(
+        self,
+        path: str,
+        body: bytes,
+        user_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict:
         timestamp = str(int(time.time()))
         nonce = str(uuid4())
         signature = await self._crypto.sign_request(
@@ -92,6 +105,10 @@ class PaymentHttpClient(PaymentGateway):
             "X-Nonce": signature.nonce,
             "X-Key-Version": str(signature.key_version),
         }
+        if user_id:
+            headers["X-User-Id"] = user_id
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
         try:
             response = await self._client.post(path, content=body, headers=headers)
             response.raise_for_status()
@@ -112,6 +129,7 @@ class StubPaymentGateway(PaymentGateway):
             payment_id=str(uuid4()),
             status="succeeded",
             transaction_ref=f"stub-{request.order_id[:8]}",
+            checkout_url=None,
         )
 
     async def refund(self, request: PaymentRefundRequest) -> PaymentRefundResult:

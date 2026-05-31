@@ -30,20 +30,31 @@ async def _handle_payment_event(envelope: dict) -> None:
             logger.warning("Order %s not found for payment event %s", order_id, event_type)
             return
 
-        try:
-            if event_type == "PaymentCompleted":
-                order.transition_to(OrderStatus.CONFIRMED)
-                await repo.update_order(order)
-                logger.info("Order %s → CONFIRMED via PaymentCompleted", order_id)
-            elif event_type == "PaymentFailed":
-                order.transition_to(OrderStatus.PAYMENT_FAILED)
-                await repo.update_order(order)
-                logger.info("Order %s → PAYMENT_FAILED via PaymentFailed", order_id)
-            else:
-                logger.debug("Ignoring payment event type: %s", event_type)
-        except ValueError as exc:
-            # Invalid state machine transition — likely already processed (idempotent)
-            logger.warning("Skipping order %s transition: %s", order_id, exc)
+        if event_type == "PaymentCompleted":
+            target_status = OrderStatus.CONFIRMED
+        elif event_type == "PaymentFailed":
+            target_status = OrderStatus.PAYMENT_FAILED
+        else:
+            logger.debug("Ignoring payment event type: %s", event_type)
+            return
+
+        orders = [order]
+        if order.is_parent:
+            orders.extend(await repo.find_children_by_parent(order.id))
+
+        for current_order in orders:
+            try:
+                current_order.transition_to(target_status)
+                await repo.update_order(current_order)
+                logger.info(
+                    "Order %s -> %s via %s",
+                    current_order.id,
+                    target_status.value,
+                    event_type,
+                )
+            except ValueError as exc:
+                # Invalid state machine transition — likely already processed (idempotent)
+                logger.warning("Skipping order %s transition: %s", current_order.id, exc)
 
 
 async def build_payment_event_consumer(

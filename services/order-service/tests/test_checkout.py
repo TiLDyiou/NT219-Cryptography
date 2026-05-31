@@ -53,7 +53,11 @@ class MemoryEventPublisher(EventPublisher):
 
 class SuccessPaymentGateway(PaymentGateway):
     async def charge(self, request: PaymentChargeRequest) -> PaymentChargeResult:
-        return PaymentChargeResult(payment_id="pay-123", status="succeeded")
+        return PaymentChargeResult(
+            payment_id="pay-123",
+            status="processing",
+            checkout_url="https://checkout.stripe.test/session",
+        )
 
     async def refund(self, request: PaymentRefundRequest) -> PaymentRefundResult:
         return PaymentRefundResult(refund_id="ref-123", status="succeeded")
@@ -86,7 +90,7 @@ async def checkout_use_case():
     async with AsyncSessionLocal() as session:
         repo = PgOrderRepository(session)
         saga = CheckoutSagaOrchestrator(repo, payment, inventory, events)
-        use_case = CheckoutUseCase(repo, crypto, events, audit, saga)
+        use_case = CheckoutUseCase(repo, crypto, events, audit, payment, saga)
         yield use_case, events, audit
 
 
@@ -145,7 +149,8 @@ async def test_checkout_creates_child_orders(checkout_use_case):
     )
 
     result = await use_case.execute(ctx)
-    assert result.status == "confirmed"
+    assert result.status == "payment_processing"
+    assert result.checkout_url == "https://checkout.stripe.test/session"
     assert len(result.orders) == 2
     assert events.published
     assert audit.events

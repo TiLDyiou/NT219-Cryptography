@@ -25,6 +25,7 @@ from app.domain.ports.audit_logger import AuditEvent, AuditLogger
 from app.domain.ports.crypto_service import CryptoService
 from app.domain.ports.event_publisher import EventPublisher
 from app.domain.ports.order_repository import OrderRepository
+from app.domain.ports.payment_gateway import PaymentChargeRequest, PaymentGateway
 from app.domain.value_objects.order_status import OrderStatus, status_for_payment_method
 from app.application.saga.orchestrator import CheckoutSagaOrchestrator
 
@@ -66,12 +67,14 @@ class CheckoutUseCase:
         crypto_service: CryptoService,
         event_publisher: EventPublisher,
         audit_logger: AuditLogger,
+        payment_gateway: PaymentGateway,
         saga_orchestrator: CheckoutSagaOrchestrator,
     ):
         self._orders = order_repository
         self._crypto = crypto_service
         self._events = event_publisher
         self._audit = audit_logger
+        self._payment = payment_gateway
         self._saga = saga_orchestrator
 
     async def execute(self, ctx: CheckoutContext) -> CheckoutOutput:
@@ -131,7 +134,28 @@ class CheckoutUseCase:
                 )
                 await self._saga.run(child, saga, ctx)
 
-        return self._to_output(result.parent, result.children)
+        checkout_url = None
+        if ctx.payload.payment_method_type == "credit_card":
+            payment_result = await self._payment.charge(
+                PaymentChargeRequest(
+                    order_id=result.parent.id,
+                    user_id=result.parent.user_id,
+                    amount=result.parent.total_amount,
+                    payment_method_type="credit_card",
+                    idempotency_key=ctx.idempotency_key,
+                    line_items=self._to_payment_line_items(ctx),
+                )
+            )
+            if payment_result.status == "failed":
+                from app.core.exceptions import BusinessRuleException
+                raise BusinessRuleException("Payment Gateway failed to create checkout session.")
+
+            result.parent.payment_id = payment_result.payment_id
+            result.parent.metadata["stripe_checkout_url"] = payment_result.checkout_url
+            await self._orders.update_order(result.parent)
+            checkout_url = payment_result.checkout_url
+
+        return self._to_output(result.parent, result.children, checkout_url)
 
     async def _build_orders(
         self, ctx: CheckoutContext, fingerprint: str
@@ -292,7 +316,31 @@ class CheckoutUseCase:
         return [shipping, billing]
 
     @staticmethod
-    def _to_output(parent: OrderEntity, children: list[OrderEntity]) -> CheckoutOutput:
+    def _to_payment_line_items(ctx: CheckoutContext) -> list[dict]:
+        items = [
+            {
+                "name": item.product_name,
+                "quantity": item.quantity,
+                "unit_amount": str(item.unit_price),
+            }
+            for item in ctx.payload.items
+        ]
+        if ctx.payload.shipping_fee > 0:
+            items.append(
+                {
+                    "name": "Shipping fee",
+                    "quantity": 1,
+                    "unit_amount": str(ctx.payload.shipping_fee),
+                }
+            )
+        return items
+
+    @staticmethod
+    def _to_output(
+        parent: OrderEntity,
+        children: list[OrderEntity],
+        checkout_url: str | None = None,
+    ) -> CheckoutOutput:
         status = parent.status.value
         if children and all(child.status == OrderStatus.CONFIRMED for child in children):
             status = OrderStatus.CONFIRMED.value
@@ -303,6 +351,7 @@ class CheckoutUseCase:
             order_group_id=parent.order_group_id,
             parent_order_number=parent.order_number,
             status=status,
+            checkout_url=checkout_url or parent.metadata.get("stripe_checkout_url"),
             orders=[
                 CheckoutOrderSummaryDTO(
                     order_id=child.id,
