@@ -266,7 +266,7 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
               </button>
             ) : (
               <div style={{ marginTop: 14 }}>
-                <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 14 }}>
+                <button onClick={() => onNav('login')} className="btn btn-primary" style={{ width: '100%', padding: '12px', fontSize: 14 }}>
                   Đăng nhập để thanh toán
                 </button>
                 <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-500)', textAlign: 'center' }}>
@@ -728,7 +728,7 @@ const OrdersScreen = ({ onNav, user }) => {
   const [error, setError]     = React.useState('');
 
   React.useEffect(function () {
-    if (!user) { window.UitAuth && window.UitAuth.loginRedirect(); return; }
+    if (!user) { onNav('login'); return; }
     window.UitAPI.order.list()
       .then(function (res) {
         setOrders((res && res.data) || []);

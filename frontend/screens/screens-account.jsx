@@ -65,8 +65,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
   };
 
   const tryWebAuthn = () => {
-    if (window.UitAuth) window.UitAuth.loginRedirect();
-    else setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
+    setStep('mfa-webauthn');
   };
 
   return (
@@ -147,11 +146,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
                   <input type="checkbox" checked={rememberDevice} onChange={e => setRememberDevice(e.target.checked)} /> Ghi nhớ thiết bị này
                 </label>
                 <a style={{ color: 'var(--primary)', cursor: 'pointer' }}
-                   onClick={() => {
-                     const url = window.UitAuth ? window.UitAuth.issuer + '/login-actions/reset-credentials' : null;
-                     if (url) window.open(url, '_blank');
-                     else setLoginError('Tính năng khôi phục mật khẩu cần kết nối Keycloak.');
-                   }}>
+                   onClick={() => setLoginError('Tính năng quên mật khẩu chưa hỗ trợ trong bản demo. Liên hệ admin để reset.')}>
                   Quên mật khẩu?
                 </a>
               </div>
@@ -171,7 +166,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
                 <div style={{ flex: 1, height: 1, background: 'var(--ink-200)' }} />
               </div>
 
-              <button onClick={() => window.UitAuth ? window.UitAuth.loginRedirect() : tryWebAuthn()} style={{
+              <button onClick={tryWebAuthn} style={{
                 width: '100%', padding: 11, border: '1px solid var(--ink-200)',
                 borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 gap: 8, fontSize: 13, background: 'white',
@@ -579,7 +574,7 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
             Seller Center chỉ hiển thị dữ liệu từ backend sau khi đăng nhập.
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} className="btn btn-outline" style={{ padding: '10px 24px' }}>
+            <button onClick={() => onNav('login')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
               Đăng nhập
             </button>
             <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>

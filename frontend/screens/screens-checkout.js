@@ -522,7 +522,7 @@ const CartScreen = ({
       marginTop: 14
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => window.UitAuth && window.UitAuth.loginRedirect(),
+    onClick: () => onNav('login'),
     className: "btn btn-primary",
     style: {
       width: '100%',
@@ -1623,7 +1623,7 @@ const OrdersScreen = ({
   const [error, setError] = React.useState('');
   React.useEffect(function () {
     if (!user) {
-      window.UitAuth && window.UitAuth.loginRedirect();
+      onNav('login');
       return;
     }
     window.UitAPI.order.list().then(function (res) {

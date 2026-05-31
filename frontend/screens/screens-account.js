@@ -64,7 +64,7 @@ const LoginScreen = ({
     }
   };
   const tryWebAuthn = () => {
-    if (window.UitAuth) window.UitAuth.loginRedirect();else setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
+    setStep('mfa-webauthn');
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "login-container"
@@ -269,8 +269,7 @@ const LoginScreen = ({
       cursor: 'pointer'
     },
     onClick: () => {
-      const url = window.UitAuth ? window.UitAuth.issuer + '/login-actions/reset-credentials' : null;
-      if (url) window.open(url, '_blank');else setLoginError('Tính năng khôi phục mật khẩu cần kết nối Keycloak.');
+      setLoginError('Tính năng quên mật khẩu chưa hỗ trợ trong bản demo. Liên hệ admin để reset.');
     }
   }, "Qu\xEAn m\u1EADt kh\u1EA9u?")), loginError && /*#__PURE__*/React.createElement("div", {
     style: {
@@ -313,7 +312,7 @@ const LoginScreen = ({
       background: 'var(--ink-200)'
     }
   })), /*#__PURE__*/React.createElement("button", {
-    onClick: () => window.UitAuth ? window.UitAuth.loginRedirect() : tryWebAuthn(),
+    onClick: tryWebAuthn,
     style: {
       width: '100%',
       padding: 11,
@@ -1043,7 +1042,7 @@ const MerchantScreen = ({
         justifyContent: 'center'
       }
     }, /*#__PURE__*/React.createElement("button", {
-      onClick: () => window.UitAuth && window.UitAuth.loginRedirect(),
+      onClick: () => onNav('login'),
       className: "btn btn-outline",
       style: {
         padding: '10px 24px'
