@@ -135,10 +135,10 @@ const LoginScreen = ({ onLogin, onNav }) => {
               </div>
               <div style={{ marginBottom: 6 }}>
                 <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Mật khẩu</label>
-                <div style={{ position: 'relative' }}>
-                  <input className="input" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={{ paddingRight: 36 }} />
-                  <span onClick={() => setShowPw(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', lineHeight: 0 }}>
-                    <Icon name={showPw ? 'eye-off' : 'eye'} size={16} color="var(--ink-400)" />
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--ink-200)', borderRadius: 'var(--r-sm)', background: 'white', transition: 'border 0.15s ease' }}>
+                  <input style={{ flex: 1, padding: '10px 12px', border: 'none', outline: 'none', background: 'transparent' }} type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
+                  <span onClick={() => setShowPw(v => !v)} style={{ padding: '0 10px', cursor: 'pointer', lineHeight: 0, flexShrink: 0 }}>
+                    <Icon name="eye" size={16} color="var(--ink-400)" />
                   </span>
                 </div>
               </div>

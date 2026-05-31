@@ -231,21 +231,18 @@ const LoginScreen = ({
       display: 'block'
     }
   }, "M\u1EADt kh\u1EA9u"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'relative'
-    }
+    style: { display: 'flex', alignItems: 'center', border: '1px solid var(--ink-200)', borderRadius: 'var(--r-sm)', background: 'white', transition: 'border 0.15s ease' }
   }, /*#__PURE__*/React.createElement("input", {
-    className: "input",
+    style: { flex: 1, padding: '10px 12px', border: 'none', outline: 'none', background: 'transparent' },
     type: showPw ? 'text' : 'password',
     value: password,
     onChange: e => setPassword(e.target.value),
-    placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
-    style: { paddingRight: 36 }
+    placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
   }), /*#__PURE__*/React.createElement("span", {
     onClick: () => setShowPw(v => !v),
-    style: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', lineHeight: 0 }
+    style: { padding: '0 10px', cursor: 'pointer', lineHeight: 0, flexShrink: 0 }
   }, /*#__PURE__*/React.createElement(Icon, {
-    name: showPw ? 'eye-off' : 'eye',
+    name: "eye",
     size: 16,
     color: "var(--ink-400)"
   }))), /*#__PURE__*/React.createElement("div", {
