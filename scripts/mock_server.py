@@ -55,6 +55,7 @@ _api_keys  = {}   # { merchant_id: { current: {...}, history: [...] } }
 _audit_logs = {}  # { merchant_id: [ log_entry, ... ] }
 _vouchers   = {}  # { merchant_id: [ voucher, ... ] }
 _shop_settings = {}  # { merchant_id: { ... } }
+_uploaded_media = {}  # { (merchant_id, filename): (bytes, content_type) }
 
 AUDIT_KEY = b'nt219-demo-audit-hmac-key-2026'
 
@@ -358,16 +359,21 @@ def handle_merchant_product_create(body, user):
         'sku':          body.get('sku', 'SKU-' + new_id[-6:].upper()),
         'name':         body.get('name', 'Sản phẩm mới'),
         'brand':        body.get('brand', ''),
-        'category':     body.get('category', 'other'),
+        'category':     (body.get('metadata_json') or {}).get('category') or body.get('category', 'other'),
         'base_price':   int(body.get('price', body.get('base_price', 0))),
         'currency_code':'VND',
         'rating':       5.0, 'rating_count': 0, 'sold': 0,
-        'stock':        int(body.get('stock', 0)),
+        'stock':        (body.get('metadata_json') or {}).get('stock', body.get('stock', 0)),
         'weight_g':     int(body.get('weight_g', 0)),
         'warranty_months': int(body.get('warranty_months', 0)),
-        'official':     False, 'color_options': [], 'images': [],
-        'description':  body.get('description', ''),
-        'specs':        body.get('specs', {}),
+        'official':     False, 'color_options': [], 'specs': {},
+        'description':  (body.get('metadata_json') or {}).get('description') or body.get('description', ''),
+        'images': body.get('images') or [],
+        'metadata_json': body.get('metadata_json') or {
+            'category': body.get('category', 'other'),
+            'stock': int(body.get('stock', 0)),
+            'description': body.get('description', ''),
+        },
         'is_active':    True,
         'created_at':   _now(),
     }
@@ -383,14 +389,52 @@ def handle_merchant_product_update(product_id, body, user):
         return _not_found(f'Product {product_id} not found')
     override = _product_overrides.setdefault(product_id, {})
     for field in ('name', 'brand', 'category', 'base_price', 'stock', 'description',
-                  'is_active', 'warranty_months', 'weight_g'):
+                  'is_active', 'warranty_months', 'weight_g', 'status'):
         if field in body:
             override[field] = body[field]
+    if 'images' in body:
+        override['images'] = body['images']
     if 'price' in body:
         override['base_price'] = int(body['price'])
     _add_audit(merchant_id, 'product_update', product_id, actor=user)
     updated = dict(found, **override)
     return _ok(updated)
+
+def _parse_multipart_file(headers, body_bytes):
+    import cgi
+    from io import BytesIO
+    ct = headers.get('Content-Type') or headers.get('content-type') or ''
+    environ = {
+        'REQUEST_METHOD': 'POST',
+        'CONTENT_TYPE': ct,
+        'CONTENT_LENGTH': str(len(body_bytes)),
+    }
+    fs = cgi.FieldStorage(fp=BytesIO(body_bytes), environ=environ, keep_blank_values=True)
+    if 'file' not in fs:
+        return None, None
+    field = fs['file']
+    return field.file.read(), (field.type or 'application/octet-stream').split(';')[0].strip()
+
+def handle_merchant_product_upload(body_bytes, headers, user):
+    merchant_id = _merchant_for_user(user) or 'user_demo_001'
+    data, content_type = _parse_multipart_file(headers, body_bytes)
+    if not data:
+        return _bad('File rỗng')
+    ext_map = {'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif'}
+    ext = ext_map.get(content_type)
+    if not ext:
+        return _bad('Chỉ chấp nhận JPEG, PNG, WebP hoặc GIF')
+    filename = uuid.uuid4().hex + ext
+    _uploaded_media[(merchant_id, filename)] = (data, content_type)
+    url = f'/api/v1/catalog/public/media/{merchant_id}/{filename}'
+    return _created({'url': url})
+
+def handle_public_media(merchant_id, filename):
+    item = _uploaded_media.get((merchant_id, filename))
+    if not item:
+        return _not_found('Media not found')
+    data, content_type = item
+    return ('BINARY', 200, data, content_type)
 
 def handle_merchant_product_delete(product_id, user):
     merchant_id = _merchant_for_user(user) or ''
@@ -617,7 +661,15 @@ class MockHandler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header('Access-Control-Allow-Origin',  '*')
         self.send_header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-User-Id,Idempotency-Key')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-User-Id,Idempotency-Key,X-Timestamp,X-Nonce')
+
+    def _send_binary(self, status, data, content_type):
+        self.send_response(status)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', len(data))
+        self._cors()
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_OPTIONS(self):
         self.send_response(204); self._cors(); self.end_headers()
@@ -627,6 +679,10 @@ class MockHandler(BaseHTTPRequestHandler):
         if length:
             return json.loads(self.rfile.read(length))
         return {}
+
+    def _read_raw_body(self):
+        length = int(self.headers.get('Content-Length') or 0)
+        return self.rfile.read(length) if length else b''
 
     def _respond(self, status, body):
         data = json.dumps(body, ensure_ascii=False).encode()
@@ -647,6 +703,9 @@ class MockHandler(BaseHTTPRequestHandler):
         # ── Catalog ──────────────────────────────────────────────────────────
         if method == 'GET' and path == '/api/v1/catalog/public/products':
             return handle_catalog_list(qs, user)
+        m = re.match(r'^/api/v1/catalog/public/media/([^/]+)/([^/]+)$', path)
+        if m and method == 'GET':
+            return handle_public_media(m.group(1), m.group(2))
         m = re.match(r'^/api/v1/catalog/public/products/(.+)$', path)
         if m and method == 'GET':
             return handle_catalog_get(m.group(1), user)
@@ -658,6 +717,8 @@ class MockHandler(BaseHTTPRequestHandler):
             return handle_merchant_register(self._read_body(), user)
         if method == 'GET' and path == '/api/v1/catalog/merchant/products':
             return handle_merchant_product_list(qs, user)
+        if method == 'POST' and path == '/api/v1/catalog/merchant/products/upload-image':
+            return handle_merchant_product_upload(self._read_raw_body(), self.headers, user)
         if method == 'POST' and path == '/api/v1/catalog/merchant/products':
             return handle_merchant_product_create(self._read_body(), user)
         m = re.match(r'^/api/v1/catalog/merchant/products/(.+)$', path)
@@ -750,7 +811,13 @@ class MockHandler(BaseHTTPRequestHandler):
 
         return 404, {'error': {'code': 'NOT_FOUND', 'message': f'Route {method} {path} not found'}}
 
-    def do_GET(self):    self._respond(*self._route())
+    def do_GET(self):
+        result = self._route()
+        if isinstance(result, tuple) and len(result) == 4 and result[0] == 'BINARY':
+            _, status, data, content_type = result
+            return self._send_binary(status, data, content_type)
+        self._respond(*result)
+
     def do_POST(self):   self._respond(*self._route())
     def do_PUT(self):    self._respond(*self._route())
     def do_DELETE(self): self._respond(*self._route())

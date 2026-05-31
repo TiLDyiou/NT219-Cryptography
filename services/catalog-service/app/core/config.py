@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/1")
 
+    # Product image uploads (filesystem; production → object storage)
+    UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
+    PUBLIC_MEDIA_PREFIX: str = "/api/v1/catalog/public/media"
+    MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
 

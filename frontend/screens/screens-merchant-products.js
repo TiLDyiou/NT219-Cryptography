@@ -22,15 +22,30 @@ const MerchantProductsSection = ({
     imageUrl: ''
   });
   const [saving, setSaving] = React.useState(false);
-  const hdr = () => {
-    const t = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
-    return t ? {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + t
-    } : {
-      'Content-Type': 'application/json',
-      'X-User-Id': user && user.id
-    };
+  const [uploading, setUploading] = React.useState(false);
+  const resolveImg = url => window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(url) : url;
+  const parseErr = (err, fallback) => {
+    if (!err) return fallback;
+    if (err.message && err.message !== 'HTTP ' + (err.status || '')) return err.message;
+    if (err.body) {
+      const fromApi = window.UitAPI && window.UitAPI.parseApiError && window.UitAPI.parseApiError(err.body, err.status);
+      if (fromApi) return fromApi;
+    }
+    return fallback;
+  };
+  const buildImages = (imageUrl, alt) => {
+    if (!imageUrl) return [];
+    const trimmed = imageUrl.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/api/')) {
+      return [{
+        url: trimmed,
+        alt: alt || ''
+      }];
+    }
+    if (trimmed.startsWith('data:')) {
+      return 'embedded';
+    }
+    return 'invalid';
   };
   const showNotice = (msg, ok) => {
     setNotice({
@@ -41,17 +56,12 @@ const MerchantProductsSection = ({
   };
   const load = () => {
     setLoading(true);
-    if (!BASE || !user) {
+    if (!window.UitAPI || !window.UitAPI.merchantProducts || !user) {
       setProducts([]);
       setLoading(false);
       return;
     }
-    fetch(`${BASE}/api/v1/catalog/merchant/products?merchant_id=${merchantId || ''}`, {
-      headers: hdr()
-    }).then(r => {
-      if (!r.ok) throw new Error('Không tải được danh sách sản phẩm.');
-      return r.json();
-    }).then(d => {
+    window.UitAPI.merchantProducts.list().then(d => {
       const rows = Array.isArray(d.data) ? d.data : [];
       setProducts(rows.map(p => ({
         ...p,
@@ -69,9 +79,26 @@ const MerchantProductsSection = ({
   const pickImage = (e, onUrl) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => onUrl(ev.target.result);
-    reader.readAsDataURL(file);
+    if (!file.type.startsWith('image/')) {
+      showNotice('File phải là ảnh (JPEG, PNG, ...)', false);
+      return;
+    }
+    if (!window.UitAPI || !window.UitAPI.merchantProducts || !window.UitAPI.merchantProducts.uploadImage) {
+      showNotice('API upload chưa sẵn sàng', false);
+      return;
+    }
+    setUploading(true);
+    window.UitAPI.merchantProducts.uploadImage(file).then(res => {
+      const url = res && res.data && res.data.url;
+      if (!url) throw new Error('Upload không trả URL ảnh');
+      onUrl(url);
+      showNotice('Đã tải ảnh lên');
+      setUploading(false);
+    }).catch(err => {
+      showNotice(parseErr(err, 'Không tải được ảnh lên'), false);
+      setUploading(false);
+    });
+    e.target.value = '';
   };
   const startEdit = p => {
     const imgUrl = p.images && p.images.length > 0 ? p.images[0].url || '' : '';
@@ -87,82 +114,69 @@ const MerchantProductsSection = ({
       base_price: Number(editVals.price),
       version: product.version
     };
-    if (editVals.imageUrl !== undefined) body.images = editVals.imageUrl ? [{
-      url: editVals.imageUrl,
-      alt: product.name
-    }] : [];
-    fetch(`${BASE}/api/v1/catalog/merchant/products/${product.id}`, {
-      method: 'PUT',
-      headers: hdr(),
-      body: JSON.stringify(body)
-    }).then(r => {
-      if (!r.ok) throw new Error('Không cập nhật được sản phẩm.');
+    if (editVals.imageUrl !== undefined) {
+      const imgs = buildImages(editVals.imageUrl, product.name);
+      if (imgs === 'invalid') {
+        showNotice('URL ảnh không hợp lệ. Dùng https://... hoặc nút Tải ảnh lên.', false);
+        setSaving(false);
+        return;
+      }
+      if (imgs === 'embedded') {
+        showNotice('Ảnh chưa upload xong. Dùng nút Tải ảnh lên — không gửi base64 trong JSON.', false);
+        setSaving(false);
+        return;
+      }
+      body.images = imgs;
+    }
+    window.UitAPI.merchantProducts.update(product.id, body).then(() => {
       load();
       setEditId(null);
       showNotice('Đã cập nhật sản phẩm');
       setSaving(false);
     }).catch(err => {
-      showNotice(err.message || 'Không cập nhật được sản phẩm.', false);
+      showNotice(parseErr(err, 'Không cập nhật được sản phẩm.'), false);
       setSaving(false);
     });
   };
   const toggleActive = p => {
     const isPublic = p.is_active && p.status === 'active';
-    fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
-      method: 'PUT',
-      headers: hdr(),
-      body: JSON.stringify({
-        is_active: !isPublic,
-        status: isPublic ? 'inactive' : 'active',
-        version: p.version
-      })
-    }).then(r => {
-      if (!r.ok) throw new Error(`Không ${isPublic ? 'ẩn' : 'công khai'} được sản phẩm.`);
+    window.UitAPI.merchantProducts.update(p.id, {
+      is_active: !isPublic,
+      status: isPublic ? 'inactive' : 'active',
+      version: p.version
+    }).then(() => {
       load();
       showNotice(`${p.name} đã ${isPublic ? 'ẩn' : 'công khai'}`);
-    }).catch(err => showNotice(err.message || 'Không cập nhật được sản phẩm.', false));
+    }).catch(err => showNotice(parseErr(err, 'Không cập nhật được sản phẩm.'), false));
   };
   const deleteProduct = p => {
     if (!window.confirm(`Xoá sản phẩm "${p.name}"?`)) return;
-    fetch(`${BASE}/api/v1/catalog/merchant/products/${p.id}`, {
-      method: 'DELETE',
-      headers: hdr()
-    }).then(r => {
-      if (!r.ok) throw new Error('Không xoá được sản phẩm.');
+    window.UitAPI.merchantProducts.delete(p.id).then(() => {
       load();
       showNotice('Đã xoá sản phẩm');
-    }).catch(err => showNotice(err.message || 'Không xoá được sản phẩm.', false));
+    }).catch(err => showNotice(parseErr(err, 'Không xoá được sản phẩm.'), false));
   };
   const addProduct = () => {
     if (!form.name.trim() || !form.sku.trim() || !form.price) return showNotice('Vui lòng điền tên, SKU và giá', false);
+    const images = buildImages(form.imageUrl, form.name.trim());
+    if (images === 'invalid') {
+      return showNotice('URL ảnh không hợp lệ. Dùng https://... hoặc nút Tải ảnh lên.', false);
+    }
+    if (images === 'embedded') {
+      return showNotice('Ảnh chưa upload. Bấm Tải ảnh lên trước khi lưu sản phẩm.', false);
+    }
     setSaving(true);
-    fetch(`${BASE}/api/v1/catalog/merchant/products`, {
-      method: 'POST',
-      headers: hdr(),
-      body: JSON.stringify({
-        sku: form.sku.trim(),
-        name: form.name.trim(),
-        status: 'active',
-        base_price: Number(form.price),
-        images: form.imageUrl ? [{
-          url: form.imageUrl,
-          alt: form.name.trim()
-        }] : [],
-        metadata_json: {
-          category: form.category,
-          stock: Number(form.stock || 0),
-          description: form.description
-        },
-        merchant_id: merchantId
-      })
-    }).then(r => {
-      if (!r.ok) {
-        return r.json().catch(() => null).then(body => {
-          const msg = body && body.detail ? body.detail : 'Không thêm được sản phẩm.';
-          throw new Error(msg);
-        });
+    window.UitAPI.merchantProducts.create({
+      sku: form.sku.trim(),
+      name: form.name.trim(),
+      status: 'active',
+      base_price: Number(form.price),
+      images,
+      metadata_json: {
+        category: form.category,
+        stock: Number(form.stock || 0),
+        description: form.description
       }
-      return r.json();
     }).then(() => {
       if (window.UitAPI && window.UitAPI.catalog && window.UitAPI.mapApiProduct) {
         window.UitAPI.catalog.listProducts().then(res => {
@@ -184,7 +198,7 @@ const MerchantProductsSection = ({
       showNotice('Đã thêm sản phẩm mới');
       setSaving(false);
     }).catch(err => {
-      showNotice(err.message || 'Không thêm được sản phẩm.', false);
+      showNotice(parseErr(err, 'Không thêm được sản phẩm.'), false);
       setSaving(false);
     });
   };
@@ -304,7 +318,7 @@ const MerchantProductsSection = ({
         background: !(p.is_active && p.status === 'active') ? '#FAFAFA' : 'white'
       }
     }, p.images && p.images[0] && p.images[0].url ? /*#__PURE__*/React.createElement("img", {
-      src: p.images[0].url,
+      src: resolveImg(p.images[0].url),
       alt: p.name,
       style: {
         width: 38,
@@ -618,12 +632,18 @@ const MerchantProductsSection = ({
     }
   }, "\u1EA2nh s\u1EA3n ph\u1EA9m"), /*#__PURE__*/React.createElement("div", {
     style: {
+      fontSize: 11,
+      color: 'var(--ink-500)',
+      marginBottom: 8
+    }
+  }, "T\u1EA3i \u1EA3nh l\xEAn server tr\u01B0\u1EDBc, ho\u1EB7c d\xE1n URL https://..."), /*#__PURE__*/React.createElement("div", {
+    style: {
       display: 'flex',
       gap: 10,
       alignItems: 'center'
     }
   }, form.imageUrl ? /*#__PURE__*/React.createElement("img", {
-    src: form.imageUrl,
+    src: resolveImg(form.imageUrl),
     alt: "preview",
     style: {
       width: 56,
@@ -655,20 +675,22 @@ const MerchantProductsSection = ({
       padding: '6px 10px',
       border: '1px solid var(--primary)',
       borderRadius: 6,
-      cursor: 'pointer',
+      cursor: uploading ? 'wait' : 'pointer',
       fontSize: 12,
       color: 'var(--primary)',
-      width: 'fit-content'
+      width: 'fit-content',
+      opacity: uploading ? 0.6 : 1
     }
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "camera",
     size: 13
-  }), " T\u1EA3i \u1EA3nh l\xEAn", /*#__PURE__*/React.createElement("input", {
+  }), " ", uploading ? 'Đang tải...' : 'Tải ảnh lên', /*#__PURE__*/React.createElement("input", {
     type: "file",
-    accept: "image/*",
+    accept: "image/jpeg,image/png,image/webp,image/gif",
     style: {
       display: 'none'
     },
+    disabled: uploading,
     onChange: e => pickImage(e, url => setForm({
       ...form,
       imageUrl: url

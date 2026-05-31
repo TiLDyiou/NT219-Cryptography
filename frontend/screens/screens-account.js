@@ -1,12 +1,74 @@
 // UIT Store — Login (with MFA) and Merchant Dashboard
 
 // ─── Login Screen: Keycloak PKCE redirect ──────────────────────────
-const LoginScreen = ({ onLogin, onNav }) => {
+const LoginScreen = ({
+  onLogin,
+  onNav
+}) => {
   React.useEffect(() => {
     if (window.UitAuth) window.UitAuth.loginRedirect();
   }, []);
-
-  return /*#__PURE__*/React.createElement("div", { className: "login-container" }, /*#__PURE__*/React.createElement("div", { className: "login-grid" }, /*#__PURE__*/React.createElement("div", { className: "login-visual" }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { style: { width: 40, height: 40, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 800, fontSize: 16, marginBottom: 24 } }, "UIT"), /*#__PURE__*/React.createElement("h2", { style: { fontSize: 26, lineHeight: 1.25, margin: '0 0 12px' } }, "Dang chuyen sang Keycloak"), /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, opacity: 0.9, lineHeight: 1.6, maxWidth: 340 } }, "Form dang nhap custom duoc xu ly trong Keycloak theme de mat khau khong di qua SPA."))), /*#__PURE__*/React.createElement("div", { style: { padding: 36, display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, /*#__PURE__*/React.createElement("div", { style: { fontSize: 22, fontWeight: 600, marginBottom: 8 } }, "Dang nhap an toan"), /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6, marginBottom: 18 } }, "UIT Store dung Authorization Code + PKCE. PKCE giup SPA lay token ma khong giu mat khau."), /*#__PURE__*/React.createElement("button", { onClick: () => window.UitAuth && window.UitAuth.loginRedirect(), className: "btn btn-primary", style: { width: '100%', padding: 12 } }, "Tiep tuc dang nhap"))));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "login-container"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "login-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "login-visual"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      background: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--primary)',
+      fontWeight: 800,
+      fontSize: 16,
+      marginBottom: 24
+    }
+  }, "UIT"), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 26,
+      lineHeight: 1.25,
+      margin: '0 0 12px'
+    }
+  }, "\u0110ang chuy\u1EC3n sang Keycloak"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      opacity: 0.9,
+      lineHeight: 1.6,
+      maxWidth: 340
+    }
+  }, "Form \u0111\u0103ng nh\u1EADp custom \u0111\u01B0\u1EE3c x\u1EED l\xFD trong Keycloak theme \u0111\u1EC3 m\u1EADt kh\u1EA9u kh\xF4ng \u0111i qua SPA."))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 36,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 22,
+      fontWeight: 600,
+      marginBottom: 8
+    }
+  }, "\u0110\u0103ng nh\u1EADp an to\xE0n"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-600)',
+      lineHeight: 1.6,
+      marginBottom: 18
+    }
+  }, "UIT Store d\xF9ng Authorization Code + PKCE. PKCE gi\xFAp SPA l\u1EA5y token m\xE0 kh\xF4ng gi\u1EEF m\u1EADt kh\u1EA9u."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.UitAuth && window.UitAuth.loginRedirect(),
+    className: "btn btn-primary",
+    style: {
+      width: '100%',
+      padding: 12
+    }
+  }, "Ti\u1EBFp t\u1EE5c \u0111\u0103ng nh\u1EADp"))));
 };
 
 // ─── Merchant Dashboard ──────────────────────────────────────────────
@@ -29,8 +91,7 @@ const MerchantScreen = ({
   const products = (window.PRODUCTS || []).filter(p => p.merchant_id === merchantId).slice(0, 6);
   const [activeSection, setActiveSection] = React.useState('dash');
   const [orders, setOrders] = React.useState([]);
-  const roles = user && user.roles || [];
-  const isMerchant = roles.includes('merchant') || !!currentMerchantProfile;
+  const isMerchant = !!currentMerchantProfile;
   React.useEffect(() => {
     if (!user || !window.UitAPI || !window.UitAPI.merchant || !window.UitAPI.merchant.me) {
       setMerchantProfile(null);
@@ -335,7 +396,18 @@ const MerchantScreen = ({
           setRegSuccess(false);
         }, 1200);
       }).catch(err => {
-        setRegError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký.');
+        const msg = err.message || 'Có lỗi xảy ra trong quá trình đăng ký.';
+        if (/đã được đăng ký|already registered/i.test(msg)) {
+          window.UitAPI.merchant.me().then(res => {
+            if (res && res.data) {
+              setMerchantProfile(res.data);
+              setShowRegForm(false);
+              setRegError('');
+            }
+          }).catch(() => setRegError(msg));
+          return;
+        }
+        setRegError(msg);
       }).finally(() => {
         setRegLoading(false);
       });
@@ -1031,12 +1103,74 @@ const MerchantScreen = ({
 };
 
 // ─── Register Screen: Keycloak registration redirect ───────────────
-const RegisterScreen = ({ onLogin, onNav }) => {
+const RegisterScreen = ({
+  onLogin,
+  onNav
+}) => {
   React.useEffect(() => {
     if (window.UitAuth) window.UitAuth.register();
   }, []);
-
-  return /*#__PURE__*/React.createElement("div", { className: "login-container" }, /*#__PURE__*/React.createElement("div", { className: "login-grid" }, /*#__PURE__*/React.createElement("div", { className: "login-visual" }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", { style: { width: 40, height: 40, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 800, fontSize: 16, marginBottom: 24 } }, "UIT"), /*#__PURE__*/React.createElement("h2", { style: { fontSize: 26, lineHeight: 1.25, margin: '0 0 12px' } }, "Dang chuyen sang Keycloak"), /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, opacity: 0.9, lineHeight: 1.6, maxWidth: 340 } }, "Form dang ky custom duoc chuyen sang Keycloak theme de Keycloak xu ly password policy, MFA va SSO."))), /*#__PURE__*/React.createElement("div", { style: { padding: 36, display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, /*#__PURE__*/React.createElement("div", { style: { fontSize: 22, fontWeight: 600, marginBottom: 8 } }, "Dang ky tai khoan"), /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6, marginBottom: 18 } }, "Mat khau va chinh sach tai khoan do Keycloak dam nhan, SPA khong nhan hay chuyen tiep mat khau."), /*#__PURE__*/React.createElement("button", { onClick: () => window.UitAuth && window.UitAuth.register(), className: "btn btn-primary", style: { width: '100%', padding: 12 } }, "Tiep tuc dang ky"))));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "login-container"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "login-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "login-visual"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    style: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      background: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: 'var(--primary)',
+      fontWeight: 800,
+      fontSize: 16,
+      marginBottom: 24
+    }
+  }, "UIT"), /*#__PURE__*/React.createElement("h2", {
+    style: {
+      fontSize: 26,
+      lineHeight: 1.25,
+      margin: '0 0 12px'
+    }
+  }, "\u0110ang chuy\u1EC3n sang Keycloak"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      opacity: 0.9,
+      lineHeight: 1.6,
+      maxWidth: 340
+    }
+  }, "Form \u0111\u0103ng k\xFD custom \u0111\u01B0\u1EE3c chuy\u1EC3n sang Keycloak theme \u0111\u1EC3 Keycloak x\u1EED l\xFD password policy, MFA v\xE0 SSO."))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 36,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 22,
+      fontWeight: 600,
+      marginBottom: 8
+    }
+  }, "\u0110\u0103ng k\xFD t\xE0i kho\u1EA3n"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-600)',
+      lineHeight: 1.6,
+      marginBottom: 18
+    }
+  }, "M\u1EADt kh\u1EA9u v\xE0 ch\xEDnh s\xE1ch t\xE0i kho\u1EA3n do Keycloak \u0111\u1EA3m nh\u1EADn, SPA kh\xF4ng nh\u1EADn hay chuy\u1EC3n ti\u1EBFp m\u1EADt kh\u1EA9u."), /*#__PURE__*/React.createElement("button", {
+    onClick: () => window.UitAuth && window.UitAuth.register(),
+    className: "btn btn-primary",
+    style: {
+      width: '100%',
+      padding: 12
+    }
+  }, "Ti\u1EBFp t\u1EE5c \u0111\u0103ng k\xFD"))));
 };
 
 // ─── Account Screen ──────────────────────────────────────────────────

@@ -454,22 +454,29 @@ function envoy_on_request(request_handle)
   end
 
   if method == "POST" or method == "PUT" or method == "PATCH" then
-    local body = request_handle:body()
-    if body then
-      local body_str = body:getBytes(0, math.min(body:length(), 8192))
-      match = check_patterns(body_str, sqli_patterns, "sqli_body")
-      if match then
-        request_handle:respond(
-          {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="sqli_body"},
-          blocked_response("SQL injection in body detected", "sqli_body", request_id))
-        return
-      end
-      match = check_patterns(body_str, xss_patterns, "xss_body")
-      if match then
-        request_handle:respond(
-          {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="xss_body"},
-          blocked_response("XSS in body detected", "xss_body", request_id))
-        return
+    -- Chỉ quét body dạng JSON; multipart/binary (upload ảnh) không áp dụng rule text SQLi/XSS
+    local content_type = (request_handle:headers():get("content-type") or ""):lower()
+    local scan_body = content_type:find("application/json", 1, true) ~= nil
+      or content_type:find("application/merge-patch+json", 1, true) ~= nil
+      or content_type:find("application/vnd.api+json", 1, true) ~= nil
+    if scan_body then
+      local body = request_handle:body()
+      if body then
+        local body_str = body:getBytes(0, math.min(body:length(), 8192))
+        match = check_patterns(body_str, sqli_patterns, "sqli_body")
+        if match then
+          request_handle:respond(
+            {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="sqli_body"},
+            blocked_response("SQL injection in body detected", "sqli_body", request_id))
+          return
+        end
+        match = check_patterns(body_str, xss_patterns, "xss_body")
+        if match then
+          request_handle:respond(
+            {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="xss_body"},
+            blocked_response("XSS in body detected", "xss_body", request_id))
+          return
+        end
       end
     end
   end

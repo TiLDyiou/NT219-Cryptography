@@ -129,6 +129,43 @@ const BACKEND_URL = resolveBackendUrl();
     return json;
   }
 
+  function authHeadersMultipart(extra) {
+    const token = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
+    const base = {
+      'ngrok-skip-browser-warning': 'true',
+      'X-Timestamp': Math.floor(Date.now() / 1000).toString(),
+      'X-Nonce': generateNonce(),
+    };
+    if (token) base['Authorization'] = 'Bearer ' + token;
+    return Object.assign(base, extra || {});
+  }
+
+  async function uploadFetch(url, formData) {
+    const doUpload = function () {
+      return fetch(url, { method: 'POST', headers: authHeadersMultipart(), body: formData });
+    };
+    let res = await doUpload();
+    if (res.status === 401 && window.UitAuth && window.UitAuth.refreshToken) {
+      const ok = await window.UitAuth.refreshToken();
+      if (ok) res = await doUpload();
+    }
+    const json = await res.json().catch(function () { return null; });
+    if (!res.ok) {
+      const err = new Error(getErrorMessage(json, res.status));
+      err.status = res.status;
+      err.body = json;
+      throw err;
+    }
+    return json;
+  }
+
+  function resolveMediaUrl(url) {
+    if (!url) return null;
+    if (url.indexOf('http://') === 0 || url.indexOf('https://') === 0) return url;
+    if (url.indexOf('/') === 0) return BACKEND_URL + url;
+    return url;
+  }
+
   function getErrorMessage(json, status) {
     if (json && json.error && json.error.message) return json.error.message;
     if (json && typeof json.detail === 'string') return json.detail;
@@ -273,12 +310,41 @@ const BACKEND_URL = resolveBackendUrl();
     }
   };
 
+  // ── Merchant catalog (products) ────────────────────────────────────────
+  const merchantProducts = {
+    list: function () {
+      return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/products');
+    },
+    create: function (payload) {
+      return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/products', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+    },
+    update: function (productId, payload) {
+      return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/products/' + productId, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    },
+    delete: function (productId) {
+      return apiFetch(BACKEND_URL + '/api/v1/catalog/merchant/products/' + productId, {
+        method: 'DELETE',
+      });
+    },
+    uploadImage: function (file) {
+      const formData = new FormData();
+      formData.append('file', file);
+      return uploadFetch(BACKEND_URL + '/api/v1/catalog/merchant/products/upload-image', formData);
+    },
+  };
+
   function productImageUrl(product) {
     const imgs = product && product.images;
     if (!imgs || !imgs.length) return null;
     const first = imgs[0];
-    if (typeof first === 'string') return first;
-    return first.url || first.src || null;
+    const raw = typeof first === 'string' ? first : (first.url || first.src || null);
+    return resolveMediaUrl(raw);
   }
 
   // Map API product response → window.PRODUCTS schema.
@@ -315,6 +381,9 @@ const BACKEND_URL = resolveBackendUrl();
     getUserId:      function () { return _userId; },
     mapApiProduct:  mapApiProduct,
     productImageUrl: productImageUrl,
+    resolveMediaUrl: resolveMediaUrl,
+    parseApiError:  getErrorMessage,
+    merchantProducts: merchantProducts,
     mapCartItemRow: mapCartItemRow,
     productFromCartLine: productFromCartLine,
     mergeCartSnapshotsIntoProducts: mergeCartSnapshotsIntoProducts,

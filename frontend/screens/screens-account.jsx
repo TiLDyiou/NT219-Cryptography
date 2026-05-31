@@ -50,8 +50,7 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
   const products = (window.PRODUCTS || []).filter(p => p.merchant_id === merchantId).slice(0, 6);
   const [activeSection, setActiveSection] = React.useState('dash');
   const [orders, setOrders] = React.useState([]);
-  const roles = (user && user.roles) || [];
-  const isMerchant = roles.includes('merchant') || !!currentMerchantProfile;
+  const isMerchant = !!currentMerchantProfile;
 
   React.useEffect(() => {
     if (!user || !window.UitAPI || !window.UitAPI.merchant || !window.UitAPI.merchant.me) {
@@ -270,7 +269,20 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
           }, 1200);
         })
         .catch(err => {
-          setRegError(err.message || 'Có lỗi xảy ra trong quá trình đăng ký.');
+          const msg = err.message || 'Có lỗi xảy ra trong quá trình đăng ký.';
+          if (/đã được đăng ký|already registered/i.test(msg)) {
+            window.UitAPI.merchant.me()
+              .then(res => {
+                if (res && res.data) {
+                  setMerchantProfile(res.data);
+                  setShowRegForm(false);
+                  setRegError('');
+                }
+              })
+              .catch(() => setRegError(msg));
+            return;
+          }
+          setRegError(msg);
         })
         .finally(() => {
           setRegLoading(false);
