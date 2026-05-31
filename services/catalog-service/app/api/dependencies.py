@@ -13,31 +13,31 @@ __all__ = ["get_current_merchant_id", "get_db"]
 
 logger = logging.getLogger(__name__)
 
-# JWKS cache — refresh mỗi 1 giờ để tránh gọi Keycloak mỗi request
-_jwks_cache: dict = {"keys": None, "expires_at": 0.0}
+# Cache public key — refresh mỗi 1 giờ
+_pubkey_cache: dict = {"pem": None, "expires_at": 0.0}
 
 
-async def _get_jwks() -> dict:
+async def _get_public_key() -> str:
+    """Lấy RSA public key từ Keycloak realm endpoint, cache 1 giờ."""
     now = time.time()
-    if _jwks_cache["keys"] and now < _jwks_cache["expires_at"]:
-        return _jwks_cache["keys"]
+    if _pubkey_cache["pem"] and now < _pubkey_cache["expires_at"]:
+        return _pubkey_cache["pem"]
 
-    jwks_url = (
-        f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}"
-        "/protocol/openid-connect/certs"
-    )
+    realm_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}"
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(jwks_url)
+            resp = await client.get(realm_url)
             resp.raise_for_status()
-            _jwks_cache["keys"] = resp.json()
-            _jwks_cache["expires_at"] = now + 3600
-            return _jwks_cache["keys"]
+            raw_key = resp.json()["public_key"]
+            # Bọc thành định dạng PEM chuẩn để python-jose đọc được
+            pem = f"-----BEGIN PUBLIC KEY-----\n{raw_key}\n-----END PUBLIC KEY-----"
+            _pubkey_cache["pem"] = pem
+            _pubkey_cache["expires_at"] = now + 3600
+            return pem
     except Exception as exc:
-        logger.error("Failed to fetch JWKS from Keycloak: %s", exc)
-        if _jwks_cache["keys"]:
-            # Dùng cache cũ nếu Keycloak tạm thời không khả dụng
-            return _jwks_cache["keys"]
+        logger.error("Failed to fetch Keycloak public key: %s", exc)
+        if _pubkey_cache["pem"]:
+            return _pubkey_cache["pem"]
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Authentication service unavailable",
@@ -48,8 +48,8 @@ async def get_current_merchant_id(
     authorization: Optional[str] = Header(None, description="Bearer JWT từ Keycloak"),
 ) -> str:
     """
-    Verify JWT signature với RS256 public key từ Keycloak JWKS endpoint,
-    rồi trả về merchant_id (= sub claim).
+    Verify JWT signature với RSA public key từ Keycloak,
+    trả về merchant_id (= sub claim).
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -61,12 +61,12 @@ async def get_current_merchant_id(
     token = authorization.split(" ", 1)[1].strip()
 
     try:
-        jwks = await _get_jwks()
+        public_key = await _get_public_key()
         payload = jwt.decode(
             token,
-            jwks,
+            public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False},  # Keycloak không luôn set audience
+            options={"verify_aud": False},
         )
     except JWTError as exc:
         logger.warning("JWT validation failed: %s", exc)
@@ -93,5 +93,3 @@ async def get_current_merchant_id(
         )
 
     return merchant_id
-
-
