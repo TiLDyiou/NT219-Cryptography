@@ -22,6 +22,286 @@
 
 ---
 
+## Chuẩn benchmark tham chiếu
+
+### OWASP ASVS v4.0 — Framework chính
+
+**Application Security Verification Standard** — checklist có 3 cấp độ, được công nhận rộng rãi nhất cho web app/API. Hệ thống e-commerce này áp dụng **Level 2**, một số phần payment áp dụng **Level 3**.
+
+| Level | Mô tả | Áp dụng cho |
+|---|---|---|
+| **L1** | Automated scan, basic hygiene | Tất cả app |
+| **L2** | Manual test + automated, standard assurance | **E-commerce — mức này** |
+| **L3** | High-security, formal verification | Banking, HSM, PCI scope |
+
+> Tải checklist Excel: https://github.com/OWASP/ASVS/releases
+
+Mapping ASVS vào hệ thống này:
+
+| ASVS Chapter | Nội dung | Mức áp dụng | Trạng thái |
+|---|---|---|---|
+| V2 — Authentication | Keycloak, MFA, brute-force | L2 | Partial |
+| V3 — Session Management | JWT lifetime, refresh rotation | L2 | **FAIL** — không check exp |
+| V4 — Access Control | RBAC, IDOR | L2 | **FAIL** — IDOR payment |
+| V5 — Validation | Input validation, SQLi | L1 | PASS (Pydantic + ORM) |
+| V6 — Cryptography | AES-GCM, key length, Vault | L2/L3 | Partial |
+| V7 — Error Handling | Logging, PII masking | L2 | **FAIL** — PII in logs |
+| V8 — Data Protection | TDE, FLE, PAN | L2/L3 | Partial |
+| V9 — Communication | TLS, HSTS, mTLS | L2 | **FAIL** — HTTP only |
+| V10 — Malicious Code | Dependency scan, secrets | L2 | **FAIL** — hardcoded keys |
+| V11 — Business Logic | Payment idempotency, fraud | L2 | PASS |
+| V13 — API | CORS, rate limit, versioning | L2 | **FAIL** — wildcard CORS |
+| V14 — Configuration | Defaults, secrets mgmt | L1 | **FAIL** — weak passwords |
+
+---
+
+### OWASP API Security Top 10 (2023)
+
+Áp dụng trực tiếp cho kiến trúc microservices REST API:
+
+| ID | Threat | Trạng thái hệ thống |
+|---|---|---|
+| **API1** | Broken Object Level Auth (IDOR) | **FAIL** — `/refund`, `/payments/{id}` không check owner |
+| **API2** | Broken Authentication | **FAIL** — JWT không verify signature |
+| **API3** | Broken Object Property Level Auth | Cần kiểm tra (test 2.4) |
+| **API4** | Unrestricted Resource Consumption | **FAIL** — không có rate limit trên `/api/*` |
+| **API5** | Broken Function Level Auth | Partial — HMAC disabled by default |
+| **API6** | Unrestricted Access to Sensitive Flows | PASS — idempotency key triển khai |
+| **API7** | Server Side Request Forgery | Cần kiểm tra |
+| **API8** | Security Misconfiguration | **FAIL** — CORS `*`, Vault disabled, HTTP |
+| **API9** | Improper Inventory Management | Cần kiểm tra — `/docs` exposed |
+| **API10** | Unsafe Consumption of APIs | PASS — webhook signature verified |
+
+---
+
+### PCI DSS v4.0 — Cho phần Payment
+
+Hệ thống dùng Stripe sandbox → SAQ A-EP applicable:
+
+| Requirement | Nội dung | Trạng thái |
+|---|---|---|
+| Req 2.2 | Không dùng default credentials | **FAIL** — `admin123`, `uitstore_dev`, `123456` |
+| Req 3.3 | Không lưu SAD/PAN sau auth | **PASS** — Stripe tokenization |
+| Req 4.2.1 | TLS 1.2+ cho cardholder data | **FAIL** — HTTP only |
+| Req 6.3.3 | Patch vulnerabilities | Cần pip-audit/Trivy |
+| Req 7.2 | Least-privilege access | Partial |
+| Req 8.3.6 | MFA cho admin access | Keycloak TOTP — cần verify bật chưa |
+| Req 10.2 | Audit log events | **PASS** — Kafka audit + HMAC signed |
+| Req 12.3.2 | Targeted risk analysis | STRIDE threat model có sẵn |
+
+---
+
+## Automated Tools — Chạy ngay không cần hệ thống chạy
+
+Các tool sau chạy được ngay trên codebase mà không cần deploy.
+
+### Tool 1 — Bandit (Python SAST, chuẩn CWE)
+
+Kiểm tra static code theo CWE IDs: B106 (hardcoded password), B105 (hardcoded token), B501 (weak TLS), B608 (SQL injection).
+
+```bash
+pip install bandit
+
+# Scan toàn bộ services — xuất JSON để lưu kết quả
+bandit -r /Users/nergy/NT219-Cryptography/services \
+  --exclude "*/tests/*,*/__pycache__/*" \
+  -f json -o /tmp/bandit_report.json
+
+# Xem summary trên terminal (chỉ medium+ severity)
+bandit -r /Users/nergy/NT219-Cryptography/services \
+  --exclude "*/tests/*" \
+  -ll -ii
+
+# Xem report đẹp
+python3 -c "
+import json
+r = json.load(open('/tmp/bandit_report.json'))
+metrics = r['metrics']['_totals']
+print(f\"HIGH severity:   {metrics['SEVERITY.HIGH']}\")
+print(f\"MEDIUM severity: {metrics['SEVERITY.MEDIUM']}\")
+print(f\"LOW severity:    {metrics['SEVERITY.LOW']}\")
+print()
+for issue in r['results']:
+    if issue['issue_severity'] in ('HIGH', 'MEDIUM'):
+        print(f\"{issue['issue_severity']:6} | {issue['test_id']} | {issue['filename'].split('services/')[-1]}:{issue['line_number']}\")
+        print(f\"       | {issue['issue_text'][:80]}\")
+"
+```
+
+**Kết quả mong đợi:**
+| Severity | Target | Ghi chú |
+|---|---|---|
+| HIGH | 0 unfixed | Hardcoded passwords, weak crypto |
+| MEDIUM | < 5 | Review từng cái |
+
+---
+
+### Tool 2 — pip-audit (Dependency CVE scan)
+
+Quét CVE database của NIST NVD cho tất cả Python packages.
+
+```bash
+pip install pip-audit
+
+# Scan từng service
+for service in catalog-service cart-service order-service payment-service \
+               inventory-service shipping-service noti-service; do
+  echo ""
+  echo "══════════ $service ══════════"
+  pip-audit \
+    -r /Users/nergy/NT219-Cryptography/services/$service/requirements.txt \
+    --format columns \
+    2>/dev/null || echo "  (no vulnerabilities found)"
+done
+
+# Xuất JSON tổng hợp
+pip-audit \
+  -r /Users/nergy/NT219-Cryptography/services/payment-service/requirements.txt \
+  --format json > /tmp/pip_audit_payment.json
+
+python3 -c "
+import json
+data = json.load(open('/tmp/pip_audit_payment.json'))
+vulns = [d for d in data.get('dependencies',[]) if d.get('vulns')]
+print(f'Vulnerable packages: {len(vulns)}')
+for d in vulns:
+    for v in d['vulns']:
+        print(f\"  {d['name']}=={d['version']} | {v['id']} | {v['description'][:60]}...\")
+" 2>/dev/null
+```
+
+**Kết quả mong đợi:** 0 CVE với severity CRITICAL/HIGH trong production dependencies.
+
+---
+
+### Tool 3 — Trivy (Container + filesystem scan)
+
+```bash
+# macOS
+brew install trivy
+
+# Scan filesystem (không cần build image)
+trivy fs /Users/nergy/NT219-Cryptography/services/payment-service \
+  --severity HIGH,CRITICAL \
+  --format table
+
+# Scan toàn bộ project
+trivy fs /Users/nergy/NT219-Cryptography \
+  --severity HIGH,CRITICAL \
+  --exit-code 1 \
+  --format json -o /tmp/trivy_report.json
+
+# Tìm secrets trong code (Trivy secret scan)
+trivy fs /Users/nergy/NT219-Cryptography \
+  --scanners secret \
+  --format table 2>/dev/null
+```
+
+**Trivy secret scan** tự động tìm patterns như Stripe keys (`sk_live_`), AWS keys, private keys trong source code.
+
+---
+
+### Tool 4 — OWASP ZAP (DAST — cần hệ thống đang chạy)
+
+```bash
+# API scan dùng OpenAPI spec (FastAPI tự generate /openapi.json)
+docker run --rm \
+  -v /tmp:/zap/wrk:rw \
+  --network host \
+  ghcr.io/zaproxy/zaproxy:stable \
+  zap-api-scan.py \
+    -t http://192.168.122.11/openapi.json \
+    -f openapi \
+    -r /zap/wrk/zap_api_report.html \
+    -J /zap/wrk/zap_api_report.json \
+    -z "-config scanner.strength=HIGH"
+
+# Baseline scan (passive only, không tấn công)
+docker run --rm \
+  -v /tmp:/zap/wrk:rw \
+  ghcr.io/zaproxy/zaproxy:stable \
+  zap-baseline.py \
+    -t http://192.168.122.11 \
+    -r /zap/wrk/zap_baseline_report.html
+
+echo "Report saved: /tmp/zap_api_report.html"
+```
+
+ZAP tự động check các OWASP Top 10 issues, map ra CWE IDs chuẩn.
+
+---
+
+### Tool 5 — testssl.sh (TLS/SSL benchmark — khi bật HTTPS)
+
+```bash
+# Chạy khi hệ thống có TLS
+curl -sL https://testssl.sh/testssl.sh -o /tmp/testssl.sh
+chmod +x /tmp/testssl.sh
+
+# Full scan với PCI DSS grading
+bash /tmp/testssl.sh \
+  --pcigrading \
+  --json /tmp/testssl_result.json \
+  https://192.168.122.11
+
+# Chỉ kiểm tra cipher suites và protocols
+bash /tmp/testssl.sh \
+  --protocols \
+  --ciphers \
+  --vulnerable \
+  https://192.168.122.11
+```
+
+**Điều testssl.sh kiểm tra:**
+- TLS 1.0/1.1 phải bị tắt (FAIL hiện tại vì dùng HTTP)
+- Cipher suites yếu (RC4, DES, 3DES, EXPORT)
+- Forward Secrecy (ECDHE)
+- HSTS, certificate validity
+
+---
+
+### Tool 6 — gitleaks (Secret scan trong git history)
+
+```bash
+# macOS
+brew install gitleaks
+
+# Scan toàn bộ git history
+gitleaks detect \
+  --source /Users/nergy/NT219-Cryptography \
+  --report-format json \
+  --report-path /tmp/gitleaks_report.json \
+  -v
+
+# Xem kết quả
+python3 -c "
+import json
+try:
+    leaks = json.load(open('/tmp/gitleaks_report.json'))
+    print(f'Secrets found in git history: {len(leaks)}')
+    for l in leaks[:10]:
+        print(f\"  {l.get('RuleID','?'):20} | {l.get('File','?')} | commit {l.get('Commit','?')[:8]}\")
+except:
+    print('No leaks found or file empty')
+"
+```
+
+---
+
+### Tóm tắt — Tools vs Chuẩn tham chiếu
+
+| Tool | Chuẩn | Cần hệ thống chạy | Output |
+|---|---|---|---|
+| **Bandit** | CWE, OWASP | Không | JSON/terminal |
+| **pip-audit** | NIST NVD (CVE) | Không | Table/JSON |
+| **Trivy** | CVE + secret patterns | Không | Table/JSON |
+| **gitleaks** | Custom + OWASP | Không | JSON |
+| **OWASP ZAP** | OWASP Top 10, CWE | **Có** | HTML/JSON |
+| **testssl.sh** | PCI DSS, NIST | **Có (HTTPS)** | JSON |
+| **ASVS checklist** | OWASP ASVS v4 | Manual | Excel scorecard |
+
+---
+
 ## 0. Cấu hình môi trường
 
 ```bash
