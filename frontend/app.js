@@ -31,6 +31,7 @@ const App = () => {
         catalog: 'loading'
       });
     });
+    window.UitAPI.lastCatalogError = null;
     window.UitAPI.catalog.listProducts().then(function (res) {
       const apiProducts = res && res.data;
       if (apiProducts && apiProducts.length > 0) {
@@ -38,26 +39,20 @@ const App = () => {
           return window.UitAPI.mapApiProduct(p);
         });
         window.PRODUCTS = mapped;
-        setProductsVersion(function (v) {
-          return v + 1;
-        });
-        setApiStatus(function (prev) {
-          return Object.assign({}, prev, {
-            catalog: 'ok'
-          });
-        });
       } else {
         window.PRODUCTS = [];
-        setProductsVersion(function (v) {
-          return v + 1;
-        });
-        setApiStatus(function (prev) {
-          return Object.assign({}, prev, {
-            catalog: 'ok'
-          });
-        });
       }
-    }).catch(function () {
+      setProductsVersion(function (v) {
+        return v + 1;
+      });
+      setApiStatus(function (prev) {
+        return Object.assign({}, prev, {
+          catalog: 'ok'
+        });
+      });
+    }).catch(function (err) {
+      console.warn('[UIT Store] Catalog fetch failed:', err && err.message, err);
+      window.UitAPI.lastCatalogError = err && err.message || 'Không kết nối được Catalog Service';
       window.PRODUCTS = [];
       setProductsVersion(function (v) {
         return v + 1;
@@ -81,6 +76,10 @@ const App = () => {
     window.UitAPI.cart.list().then(function (res) {
       const carts = res && res.data;
       if (!carts || carts.length === 0) return;
+      window.UitAPI.mergeCartSnapshotsIntoProducts(carts);
+      setProductsVersion(function (v) {
+        return v + 1;
+      });
       const meta = {};
       const items = [];
       carts.forEach(function (c) {
@@ -89,11 +88,7 @@ const App = () => {
           version: c.version
         };
         c.items.forEach(function (item) {
-          items.push({
-            productId: item.product_id,
-            qty: item.quantity,
-            itemId: item.id
-          });
+          items.push(window.UitAPI.mapCartItemRow(item));
         });
       });
       if (items.length > 0) {
@@ -234,16 +229,23 @@ const App = () => {
       return;
     }
     // 1. Cập nhật UI ngay lập tức
+    const lineMeta = {
+      merchantId: product.merchant_id,
+      name: product.name,
+      unitPrice: product.base_price
+    };
     const existing = cart.find(c => c.productId === product.id);
     if (existing) {
       setCart(cart.map(c => c.productId === product.id ? {
         ...c,
-        qty: c.qty + qty
+        qty: c.qty + qty,
+        ...lineMeta
       } : c));
     } else {
       setCart([...cart, {
         productId: product.id,
-        qty
+        qty,
+        ...lineMeta
       }]);
     }
     toast(`Đã thêm "${product.name.substring(0, 40)}..." vào giỏ`);
@@ -267,7 +269,7 @@ const App = () => {
       throw new Error('Vui lòng đăng nhập trước khi thanh toán.');
     }
     const items = cart.map(function (c) {
-      const product = (window.PRODUCTS || []).find(function (p) {
+      const product = window.UitAPI.productFromCartLine ? window.UitAPI.productFromCartLine(c) : (window.PRODUCTS || []).find(function (p) {
         return p.id === c.productId;
       });
       if (!product) return null;
@@ -428,7 +430,6 @@ const App = () => {
     }
     setUser(u);
     if (u) window.UitAPI.setUserId(u.id || u.email || u.name);
-    // Tải lại dữ liệu giỏ hàng từ server (giờ đã có token hợp lệ)
     loadData();
     nav('home');
     toast('Đăng nhập thành công · Phiên JWT đã được tạo');

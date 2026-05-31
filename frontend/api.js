@@ -119,8 +119,64 @@ const BACKEND_URL = resolveBackendUrl();
       return json.detail[0].msg;
     }
     if (json && typeof json.message === 'string') return json.message;
-    if (status === 503) return 'Catalog Service chưa sẵn sàng hoặc gateway không kết nối được backend. Vui lòng khởi động lại backend rồi thử lại.';
+    if (status === 429) return 'Quá nhiều request (HTTP 429). Nginx/gateway đang giới hạn — thử lại sau 1 phút hoặc dùng IP nội bộ thay tunnel.';
+    if (status === 502 || status === 503) return 'Backend chưa sẵn sàng hoặc gateway không kết nối được service. Kiểm tra catalog-service / envoy trên NODE-2.';
+    if (status === 403 && json && json.error === 'blocked_by_waf') return 'Request bị WAF chặn: ' + (json.reason || 'unknown');
     return 'HTTP ' + status;
+  }
+
+  function mapCartItemRow(item) {
+    return {
+      productId: item.product_id,
+      qty: item.quantity,
+      itemId: item.id,
+      merchantId: item.merchant_id,
+      name: item.product_name_snapshot,
+      unitPrice: item.unit_price_snapshot,
+      imageUrl: item.image_url_snapshot,
+    };
+  }
+
+  function productFromCartLine(c) {
+    const fromCatalog = (window.PRODUCTS || []).find(function (p) { return p.id === c.productId; });
+    if (fromCatalog) return fromCatalog;
+    if (!c.name || c.unitPrice == null) return null;
+    return {
+      id: c.productId,
+      merchant_id: c.merchantId || '',
+      merchant_name: 'Nhà bán hàng UIT Store',
+      sku: c.sku || '',
+      name: c.name,
+      brand: '',
+      category: 'other',
+      base_price: Number(c.unitPrice),
+      currency_code: 'VND',
+      rating: 0,
+      rating_count: 0,
+      sold: 0,
+      stock: 0,
+      weight_g: 0,
+      warranty_months: 0,
+      official: false,
+      color_options: [],
+      description: '',
+      specs: {},
+      images: c.imageUrl ? [{ url: c.imageUrl }] : [],
+    };
+  }
+
+  function mergeCartSnapshotsIntoProducts(carts) {
+    if (!carts || !carts.length) return;
+    const byId = {};
+    (window.PRODUCTS || []).forEach(function (p) { byId[p.id] = p; });
+    carts.forEach(function (cartRow) {
+      (cartRow.items || []).forEach(function (item) {
+        if (byId[item.product_id]) return;
+        const mapped = productFromCartLine(mapCartItemRow(item));
+        if (mapped) byId[item.product_id] = mapped;
+      });
+    });
+    window.PRODUCTS = Object.values(byId);
   }
 
   // ── Catalog Service ──────────────────────────────────────────────────
@@ -225,9 +281,13 @@ const BACKEND_URL = resolveBackendUrl();
   window.UitAPI = {
     backendUrl:     BACKEND_URL,
     endpoints:      BASE,
+    lastCatalogError: null,
     setUserId:      function (id) { _userId = id; },
     getUserId:      function () { return _userId; },
     mapApiProduct:  mapApiProduct,
+    mapCartItemRow: mapCartItemRow,
+    productFromCartLine: productFromCartLine,
+    mergeCartSnapshotsIntoProducts: mergeCartSnapshotsIntoProducts,
     catalog:        catalog,
     cart:           cart,
     order:          order,

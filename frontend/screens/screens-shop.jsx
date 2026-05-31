@@ -184,7 +184,13 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
             />
             {catalogOk && <span style={{ color: 'var(--success)' }}><b>Catalog Service</b> kết nối thành công · {window.UitAPI.backendUrl} · {allProducts.length} sản phẩm</span>}
             {catalogLoading && <span style={{ color: 'var(--primary)' }}><b>Catalog Service</b> đang tải sản phẩm</span>}
-            {catalogErr && <span style={{ color: '#a56700' }}><b>Catalog Service</b> chưa trả dữ liệu sản phẩm</span>}
+            {catalogErr && (
+              <span style={{ color: '#a56700' }}>
+                <b>Catalog Service</b> chưa trả dữ liệu — {window.UitAPI && window.UitAPI.lastCatalogError
+                  ? window.UitAPI.lastCatalogError
+                  : 'kiểm tra catalog-service trên NODE-2 và curl ' + (window.UitAPI && window.UitAPI.endpoints ? window.UitAPI.endpoints.CATALOG : '/api/v1/catalog') + '/public/products'}
+              </span>
+            )}
           </div>
         )}
 

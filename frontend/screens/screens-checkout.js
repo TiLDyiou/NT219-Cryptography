@@ -7,9 +7,10 @@ const CartScreen = ({
   onNav,
   user
 }) => {
+  const resolveProduct = c => window.UitAPI && window.UitAPI.productFromCartLine ? window.UitAPI.productFromCartLine(c) : window.PRODUCTS.find(p => p.id === c.productId);
   const items = cart.map(c => ({
     ...c,
-    product: window.PRODUCTS.find(p => p.id === c.productId)
+    product: resolveProduct(c)
   })).filter(i => i.product);
   const [selected, setSelected] = React.useState(() => items.map(i => i.productId));
 
@@ -587,9 +588,10 @@ const CheckoutScreen = ({
   }
   const DAY_NAMES = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   const fmtDate = d => DAY_NAMES[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
+  const resolveProduct = c => window.UitAPI && window.UitAPI.productFromCartLine ? window.UitAPI.productFromCartLine(c) : window.PRODUCTS.find(p => p.id === c.productId);
   const items = cart.map(c => ({
     ...c,
-    product: window.PRODUCTS.find(p => p.id === c.productId)
+    product: resolveProduct(c)
   })).filter(i => i.product);
   const subtotal = items.reduce((s, i) => s + i.product.base_price * i.qty, 0);
   const deliveryFee = delivery === 'instant' ? 35000 : subtotal > 500000 ? 0 : 25000;

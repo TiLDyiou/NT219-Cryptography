@@ -339,7 +339,7 @@ const HomeScreen = ({
     style: {
       color: '#a56700'
     }
-  }, /*#__PURE__*/React.createElement("b", null, "Catalog Service"), " ch\u01B0a tr\u1EA3 d\u1EEF li\u1EC7u s\u1EA3n ph\u1EA9m")), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("b", null, "Catalog Service"), " ch\u01B0a tr\u1EA3 d\u1EEF li\u1EC7u \u2014 ", window.UitAPI && window.UitAPI.lastCatalogError ? window.UitAPI.lastCatalogError : 'kiểm tra catalog-service trên NODE-2 và curl ' + (window.UitAPI && window.UitAPI.endpoints ? window.UitAPI.endpoints.CATALOG : '/api/v1/catalog') + '/public/products')), /*#__PURE__*/React.createElement("div", {
     className: "section-head"
   }, /*#__PURE__*/React.createElement("h2", null, searchQuery ? `Kết quả cho "${searchQuery}" (${allProducts.length})` : activeCategory ? `${(window.CATEGORIES || []).find(c => c.id === activeCategory)?.name || activeCategory} (${allProducts.length})` : 'Sản phẩm từ catalog'), /*#__PURE__*/React.createElement("div", {
     style: {
