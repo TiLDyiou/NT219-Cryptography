@@ -282,49 +282,9 @@
     }
   }
 
-  // ── ROPC — đăng nhập trực tiếp qua Keycloak ─────────────────────────
-  // username: email, otp: mã TOTP 6 số (tuỳ chọn)
-  // Trả về: { ok: true, user, mode } | { ok: false, error, mfaRequired }
-  async function loginWithPassword(username, password, otp) {
-    var params = {
-      grant_type: 'password',
-      client_id:  'frontend-spa',
-      username:   username,
-      password:   password,
-      scope:      'openid email profile',
-    };
-    if (otp) params.totp = otp;
-
-    // 1. Thử Keycloak trước
-    try {
-      var res = await fetch(TOKEN_EP, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body:    new URLSearchParams(params).toString(),
-      });
-      var data = await res.json();
-
-      if (res.ok) {
-        saveTokens(data);
-        return { ok: true, user: getUser(), mode: 'keycloak' };
-      }
-
-      var desc = data.error_description || data.error || 'Đăng nhập thất bại';
-      var mfaRequired = desc.toLowerCase().includes('otp') ||
-                        desc.toLowerCase().includes('totp') ||
-                        desc.toLowerCase().includes('authenticator');
-      return { ok: false, error: desc, mfaRequired: mfaRequired };
-
-    } catch (networkErr) {
-      // Backend (Keycloak) không phản hồi
-      return { ok: false, error: 'Lỗi kết nối tới Backend (Keycloak offline hoặc CORS chặn): ' + networkErr.message };
-    }
-  }
-
   window.UitAuth = {
     authBase:           AUTH_BASE,
     issuer:             ISSUER,
-    loginWithPassword:  loginWithPassword,
     loginRedirect:      login,
     register:           register,
     logout:             logout,

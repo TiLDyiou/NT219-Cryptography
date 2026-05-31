@@ -1,413 +1,31 @@
 // UIT Store — Login (with MFA) and Merchant Dashboard
 
-// ─── Login Screen with MFA ──────────────────────────────────────────
+// ─── Login Screen: Keycloak PKCE redirect ──────────────────────────
 const LoginScreen = ({ onLogin, onNav }) => {
-  const [step, setStep] = React.useState('credentials'); // credentials, mfa-pick, mfa-totp, mfa-webauthn, mfa-sms
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [totp, setTotp] = React.useState(['', '', '', '', '', '']);
-  const [smsOtp, setSmsOtp] = React.useState(['', '', '', '', '', '']);
-  const [rememberDevice, setRememberDevice] = React.useState(false);
-  const [webAuthnState, setWebAuthnState] = React.useState('idle');
-  const [loading, setLoading] = React.useState(false);
-  const [loginError, setLoginError] = React.useState('');
-  const [showPw, setShowPw] = React.useState(false);
-
-  const next = (target) => () => setStep(target);
-
-  const handleCredentialsSubmit = async () => {
-    if (!window.UitAuth) {
-      setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
-      return;
-    }
-    setLoading(true);
-    setLoginError('');
-    const result = await window.UitAuth.loginWithPassword(email, password);
-    setLoading(false);
-    if (result.ok) {
-      onLogin(result.user);
-    } else if (result.mfaRequired) {
-      setStep('mfa-totp');
-    } else {
-      setLoginError(result.error || 'Sai email hoặc mật khẩu');
-    }
-  };
-
-  const handleTotpSubmit = async () => {
-    if (!window.UitAuth) {
-      setLoginError('Dịch vụ xác thực chưa sẵn sàng.');
-      return;
-    }
-    const otpCode = totp.join('');
-    setLoading(true);
-    setLoginError('');
-    const result = await window.UitAuth.loginWithPassword(email, password, otpCode);
-    setLoading(false);
-    if (result.ok) {
-      onLogin(result.user);
-    } else {
-      setLoginError(result.error || 'Mã OTP không đúng');
-      setTotp(['', '', '', '', '', '']);
-    }
-  };
-
-  const setDigit = (i, v) => {
-    if (!/^\d?$/.test(v)) return;
-    const next = [...totp]; next[i] = v;
-    setTotp(next);
-    if (v && i < 5) {
-      const el = document.getElementById(`totp-${i+1}`);
-      if (el) el.focus();
-    }
-    if (next.every(d => d) && i === 5) {
-      setTimeout(handleTotpSubmit, 200);
-    }
-  };
-
-  const tryWebAuthn = () => {
-    setStep('mfa-webauthn');
-  };
+  React.useEffect(() => {
+    if (window.UitAuth) window.UitAuth.loginRedirect();
+  }, []);
 
   return (
     <div className="login-container">
       <div className="login-grid">
-        {/* Left visual */}
         <div className="login-visual">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 30 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 10, background: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--primary)', fontWeight: 800, fontSize: 16,
-              }}>UIT</div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>UIT Store</div>
-            </div>
-            <h2 style={{ fontSize: 26, lineHeight: 1.25, margin: '0 0 12px', letterSpacing: '-0.01em' }}>
-              Đăng nhập an toàn<br/>với OAuth2 + PKCE
-            </h2>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 800, fontSize: 16, marginBottom: 24 }}>UIT</div>
+            <h2 style={{ fontSize: 26, lineHeight: 1.25, margin: '0 0 12px' }}>Đang chuyển sang Keycloak</h2>
             <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.6, maxWidth: 340 }}>
-              UIT Store áp dụng các tiêu chuẩn xác thực hiện đại nhất:
-              <b> Authorization Code + PKCE</b>, refresh-token rotation,
-              và bắt buộc MFA cho tài khoản nhạy cảm.
+              Form đăng nhập custom được xử lý trong Keycloak theme để mật khẩu không đi qua SPA.
             </div>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { icon: 'shield-check', t: 'OAuth2 / OpenID Connect', s: 'Token JWT ngắn hạn · refresh rotation' },
-              { icon: 'fingerprint', t: 'WebAuthn / FIDO2', s: 'Đăng nhập không mật khẩu — passkey' },
-              { icon: 'key', t: 'TOTP / Authenticator App', s: 'RFC 6238 · OTP 30 giây' },
-              { icon: 'lock', t: 'Argon2id password hashing', s: 'Resistant chống brute-force GPU' },
-            ].map(f => (
-              <div key={f.t} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.15)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Icon name={f.icon} size={16} color="white" />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{f.t}</div>
-                  <div style={{ opacity: 0.85, fontSize: 11 }}>{f.s}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Decorative */}
-          <div style={{ position: 'absolute', right: -60, top: -60, width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-          <div style={{ position: 'absolute', right: 30, bottom: -40, width: 100, height: 100, borderRadius: '50%', border: '2px dashed rgba(255,255,255,0.2)' }} />
         </div>
-
-        {/* Right form */}
-        <div style={{ padding: 36, display: 'flex', flexDirection: 'column' }}>
-          {step === 'credentials' && (
-            <div>
-              <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 6 }}>Chào mừng trở lại</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24 }}>
-                Đăng nhập tài khoản UIT Store của bạn
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Email hoặc Số điện thoại</label>
-                <input className="input" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email đã đăng ký" autoFocus />
-              </div>
-              <div style={{ marginBottom: 6 }}>
-                <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Mật khẩu</label>
-                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--ink-200)', borderRadius: 'var(--r-sm)', background: 'white', transition: 'border 0.15s ease' }}>
-                  <input style={{ flex: 1, padding: '10px 12px', border: 'none', outline: 'none', background: 'transparent' }} type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-                  <span onClick={() => setShowPw(v => !v)} style={{ padding: '0 10px', cursor: 'pointer', lineHeight: 0, flexShrink: 0 }}>
-                    <Icon name="eye" size={16} color="var(--ink-400)" />
-                  </span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 20 }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input type="checkbox" checked={rememberDevice} onChange={e => setRememberDevice(e.target.checked)} /> Ghi nhớ thiết bị này
-                </label>
-                <a style={{ color: 'var(--primary)', cursor: 'pointer' }}
-                   onClick={() => setLoginError('Tính năng quên mật khẩu chưa hỗ trợ trong bản demo. Liên hệ admin để reset.')}>
-                  Quên mật khẩu?
-                </a>
-              </div>
-
-              {loginError && (
-                <div style={{ padding: '10px 12px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 6, fontSize: 12, color: '#B91C1C', marginBottom: 12 }}>
-                  {loginError}
-                </div>
-              )}
-              <button onClick={handleCredentialsSubmit} disabled={loading || !password} className="btn btn-primary" style={{ width: '100%', padding: 12, opacity: loading ? 0.7 : 1 }}>
-                {loading ? 'Đang xác thực...' : 'Đăng nhập'}
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '20px 0', color: 'var(--ink-400)', fontSize: 12 }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--ink-200)' }} />
-                Hoặc
-                <div style={{ flex: 1, height: 1, background: 'var(--ink-200)' }} />
-              </div>
-
-              <button onClick={tryWebAuthn} style={{
-                width: '100%', padding: 11, border: '1px solid var(--ink-200)',
-                borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: 8, fontSize: 13, background: 'white',
-              }}>
-                <Icon name="fingerprint" size={16} color="var(--primary)" />
-                Đăng nhập bằng Passkey (WebAuthn)
-              </button>
-
-              <div style={{ marginTop: 14, padding: 12, background: 'var(--ink-100)', borderRadius: 6, fontSize: 11, color: 'var(--ink-600)', lineHeight: 1.55, display: 'flex', gap: 8, alignItems: 'start' }}>
-                <Icon name="lock" size={14} color="var(--success)" />
-                <span>Mật khẩu được hash với <b>Argon2id</b> + per-user salt + server-side pepper. UIT Store không bao giờ lưu mật khẩu dưới dạng plain.</span>
-              </div>
-
-              <div style={{ marginTop: 18, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
-                Chưa có tài khoản?{' '}
-                <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }}
-                   onClick={() => onNav('register')}>
-                  Đăng ký ngay
-                </a>
-              </div>
-            </div>
-          )}
-
-          {step === 'mfa-pick' && (
-            <div>
-              <button onClick={next('credentials')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icon name="arrow-left" size={12} /> Quay lại
-              </button>
-              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6 }}>Xác thực 2 lớp (MFA)</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24 }}>
-                Chọn phương thức xác thực để hoàn tất đăng nhập
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <button onClick={next('mfa-webauthn')} style={{
-                  padding: 14, border: '1.5px solid var(--primary)', borderRadius: 8, background: 'var(--primary-tint)',
-                  textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14,
-                }}>
-                  <Icon name="fingerprint" size={28} color="var(--primary)" />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      Passkey · WebAuthn <span className="badge badge-success" style={{ fontSize: 10 }}>Khuyên dùng</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-600)', marginTop: 2 }}>
-                      Vân tay / Face ID — không cần mã OTP
-                    </div>
-                  </div>
-                  <Icon name="chevron-right" size={16} color="var(--ink-400)" />
-                </button>
-
-                <button onClick={next('mfa-totp')} style={{
-                  padding: 14, border: '1px solid var(--ink-200)', borderRadius: 8,
-                  textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, background: 'white',
-                }}>
-                  <Icon name="key" size={26} color="var(--ink-700)" />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>Authenticator app · TOTP</div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-600)', marginTop: 2 }}>
-                      Mã 6 số từ Google / Microsoft Authenticator
-                    </div>
-                  </div>
-                  <Icon name="chevron-right" size={16} color="var(--ink-400)" />
-                </button>
-
-                <button onClick={next('mfa-sms')} style={{
-                  padding: 14, border: '1px solid var(--ink-200)', borderRadius: 8,
-                  textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, background: 'white',
-                }}>
-                  <Icon name="phone" size={26} color="var(--ink-700)" />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>SMS OTP</div>
-                    <div style={{ fontSize: 12, color: 'var(--ink-600)', marginTop: 2 }}>
-                      Gửi mã đến SĐT đăng ký · <span style={{ color: 'var(--warn)' }}>kém an toàn hơn</span>
-                    </div>
-                  </div>
-                  <Icon name="chevron-right" size={16} color="var(--ink-400)" />
-                </button>
-              </div>
-
-              <div style={{ marginTop: 20, padding: 12, background: 'var(--warn-soft)', borderRadius: 6, fontSize: 11, color: '#856200', lineHeight: 1.55 }}>
-                <b>⚠ Vì sao MFA?</b> Phòng chống credential stuffing & account takeover. Theo Keycloak realm policy, tài khoản có lịch sử mua hàng &gt; 5 triệu phải bật MFA.
-              </div>
-            </div>
-          )}
-
-          {step === 'mfa-totp' && (
-            <div>
-              <button onClick={next('mfa-pick')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icon name="arrow-left" size={12} /> Quay lại
-              </button>
-              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6 }}>Nhập mã từ Authenticator</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24 }}>
-                Mở ứng dụng <b>Google / Microsoft Authenticator</b> và nhập mã 6 số đang hiển thị cho UIT Store.
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 18 }}>
-                {totp.map((d, i) => (
-                  <input key={i} id={`totp-${i}`} value={d} onChange={e => setDigit(i, e.target.value)} maxLength="1" inputMode="numeric"
-                    style={{
-                      width: 48, height: 56, textAlign: 'center', fontSize: 22, fontWeight: 600,
-                      border: `1.5px solid ${d ? 'var(--primary)' : 'var(--ink-200)'}`,
-                      background: d ? 'var(--primary-tint)' : 'white',
-                      borderRadius: 6, outline: 'none',
-                    }} />
-                ))}
-              </div>
-
-              {loginError && (
-                <div style={{ padding: '10px 12px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 6, fontSize: 12, color: '#B91C1C', marginBottom: 10 }}>
-                  {loginError}
-                </div>
-              )}
-              <button className="btn btn-primary" style={{ width: '100%', padding: 12, opacity: loading ? 0.7 : 1 }}
-                onClick={handleTotpSubmit}
-                disabled={totp.some(d => !d) || loading}>
-                {loading ? 'Đang xác thực...' : 'Xác nhận đăng nhập'}
-              </button>
-
-              <div style={{ marginTop: 18, fontSize: 12, color: 'var(--ink-500)', textAlign: 'center' }}>
-                Không truy cập được ứng dụng?{' '}
-                <a style={{ color: 'var(--primary)', cursor: 'pointer' }}
-                   onClick={() => setLoginError('Nhập mã recovery từ file đã lưu khi thiết lập MFA (dạng: XXXX-XXXX-XXXX-XXXX)')}>
-                  Dùng mã backup
-                </a>
-              </div>
-
-              <div style={{ marginTop: 18, padding: 12, background: 'var(--ink-100)', borderRadius: 6, fontSize: 11, color: 'var(--ink-600)', lineHeight: 1.6, fontFamily: 'JetBrains Mono, monospace' }}>
-                TOTP_SECRET = base32(•••••••••) · period=30s · digits=6 · alg=SHA-1
-              </div>
-            </div>
-          )}
-
-          {step === 'mfa-sms' && (
-            <div>
-              <button onClick={next('mfa-pick')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icon name="arrow-left" size={12} /> Quay lại
-              </button>
-              <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 6 }}>Xác thực qua SMS</div>
-              <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24 }}>
-                Mã OTP 6 số đã được gửi đến số điện thoại đăng ký.
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 18 }}>
-                {smsOtp.map((d, i) => (
-                  <input key={i} id={`sms-${i}`} value={d}
-                    onChange={e => {
-                      if (!/^\d?$/.test(e.target.value)) return;
-                      const next2 = [...smsOtp]; next2[i] = e.target.value;
-                      setSmsOtp(next2);
-                      if (e.target.value && i < 5) { const el = document.getElementById(`sms-${i+1}`); if (el) el.focus(); }
-                    }}
-                    maxLength="1" inputMode="numeric"
-                    style={{
-                      width: 48, height: 56, textAlign: 'center', fontSize: 22, fontWeight: 600,
-                      border: `1.5px solid ${d ? 'var(--primary)' : 'var(--ink-200)'}`,
-                      background: d ? 'var(--primary-tint)' : 'white',
-                      borderRadius: 6, outline: 'none',
-                    }} />
-                ))}
-              </div>
-              {loginError && (
-                <div style={{ padding: '10px 12px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 6, fontSize: 12, color: '#B91C1C', marginBottom: 10 }}>
-                  {loginError}
-                </div>
-              )}
-              <button className="btn btn-primary" style={{ width: '100%', padding: 12 }}
-                disabled={smsOtp.some(d => !d) || loading}
-                onClick={() => setLoginError('SMS OTP cần được xác thực bởi Keycloak trước khi đăng nhập.')}>
-                Xác nhận đăng nhập
-              </button>
-              <div style={{ marginTop: 12, fontSize: 12, color: 'var(--ink-500)', textAlign: 'center' }}>
-                <a style={{ color: 'var(--primary)', cursor: 'pointer' }}
-                   onClick={() => setSmsOtp(['','','','','',''])}>
-                  Gửi lại SMS
-                </a>
-              </div>
-              <div style={{ marginTop: 14, padding: 10, background: '#FEF3C7', border: '1px solid #FCD34D', borderRadius: 6, fontSize: 11, color: '#92400E' }}>
-                ⚠ SMS OTP dễ bị SIM-swap và SS7 attack. Khuyến nghị dùng WebAuthn hoặc TOTP.
-              </div>
-            </div>
-          )}
-
-          {step === 'mfa-webauthn' && (
-            <div style={{ textAlign: 'center', paddingTop: 30 }}>
-              <button onClick={next('mfa-pick')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 30, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icon name="arrow-left" size={12} /> Quay lại
-              </button>
-
-              {webAuthnState === 'idle' && (
-                <>
-                  <div style={{
-                    width: 90, height: 90, borderRadius: '50%', background: 'var(--primary-tint)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
-                  }}>
-                    <Icon name="fingerprint" size={48} color="var(--primary)" />
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Xác thực bằng Passkey</div>
-                  <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 24, lineHeight: 1.55 }}>
-                    Hệ thống sẽ yêu cầu thiết bị của bạn (Touch ID / Face ID / Windows Hello) xác thực bằng khoá riêng đã đăng ký với UIT Store.
-                  </div>
-                  <button onClick={tryWebAuthn} className="btn btn-primary" style={{ padding: '12px 28px' }}>
-                    Bắt đầu xác thực
-                  </button>
-                </>
-              )}
-
-              {webAuthnState === 'prompting' && (
-                <>
-                  <div style={{
-                    width: 90, height: 90, borderRadius: '50%', background: 'var(--primary-tint)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
-                    animation: 'secure-pulse 1.5s infinite',
-                  }}>
-                    <Icon name="fingerprint" size={48} color="var(--primary)" />
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Đang chờ xác thực sinh trắc...</div>
-                  <div style={{ fontSize: 13, color: 'var(--ink-600)' }}>Vui lòng chạm cảm biến vân tay / nhìn vào camera</div>
-                </>
-              )}
-
-              {webAuthnState === 'signing' && (
-                <>
-                  <div className="spinner" style={{ width: 40, height: 40, margin: '0 auto 18px', borderWidth: 3 }} />
-                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Đang ký challenge...</div>
-                  <div style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--ink-600)' }}>navigator.credentials.get({'{ challenge }'}) · alg=ES256</div>
-                </>
-              )}
-
-              {webAuthnState === 'success' && (
-                <>
-                  <div style={{
-                    width: 72, height: 72, borderRadius: '50%', background: 'var(--success)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px',
-                  }}>
-                    <Icon name="check" size={40} color="white" stroke={3} />
-                  </div>
-                  <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Đăng nhập thành công!</div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-600)' }}>Đang chuyển hướng...</div>
-                </>
-              )}
-            </div>
-          )}
+        <div style={{ padding: 36, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Đăng nhập an toàn</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6, marginBottom: 18 }}>
+            UIT Store dùng Authorization Code + PKCE. PKCE giúp SPA lấy token mà không giữ mật khẩu.
+          </div>
+          <button onClick={() => window.UitAuth && window.UitAuth.loginRedirect()} className="btn btn-primary" style={{ width: '100%', padding: 12 }}>
+            Tiếp tục đăng nhập
+          </button>
         </div>
       </div>
     </div>
@@ -968,201 +586,32 @@ const MerchantScreen = ({ onNav, user, setUser }) => {
   );
 };
 
-// ─── Register Screen ────────────────────────────────────────────────
+// ─── Register Screen: Keycloak registration redirect ───────────────
 const RegisterScreen = ({ onLogin, onNav }) => {
-  const [name, setName]           = React.useState('');
-  const [email, setEmail]         = React.useState('');
-  const [password, setPassword]   = React.useState('');
-  const [confirm, setConfirm]     = React.useState('');
-  const [loading, setLoading]     = React.useState(false);
-  const [error, setError]         = React.useState('');
-  const [showPw, setShowPw]       = React.useState(false);
-  const [strength, setStrength]   = React.useState(0); // 0-4
-
-  const calcStrength = (pw) => {
-    let s = 0;
-    if (pw.length >= 8)              s++;
-    if (/[A-Z]/.test(pw))            s++;
-    if (/[0-9]/.test(pw))            s++;
-    if (/[^A-Za-z0-9]/.test(pw))     s++;
-    return s;
-  };
-
-  const handlePasswordChange = (v) => {
-    setPassword(v);
-    setStrength(calcStrength(v));
-  };
-
-  const strengthLabel = ['', 'Yếu', 'Trung bình', 'Tốt', 'Mạnh'];
-  const strengthColor = ['', '#EF4444', '#F59E0B', '#3B82F6', '#10B981'];
-
-  const handleSubmit = async () => {
-    setError('');
-    if (!name.trim())     { setError('Vui lòng nhập họ và tên.'); return; }
-    if (!email.trim())    { setError('Vui lòng nhập email.'); return; }
-    if (password.length < 8) { setError('Mật khẩu phải có ít nhất 8 ký tự.'); return; }
-    if (password !== confirm) { setError('Mật khẩu không khớp.'); return; }
-
-    setLoading(true);
-    try {
-      const parts = name.trim().split(' ');
-      const firstName = parts.slice(0, -1).join(' ') || parts[0];
-      const lastName  = parts.length > 1 ? parts[parts.length - 1] : '';
-
-      const backendUrl = window.UitAPI ? window.UitAPI.backendUrl : window.location.origin;
-      const res = await fetch(`${backendUrl}/api/v1/catalog/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-        body: JSON.stringify({ firstName, lastName, email: email.trim(), password }),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setError(data.detail || 'Đăng ký thất bại. Vui lòng thử lại.');
-        setLoading(false);
-        return;
-      }
-
-      // Đăng ký thành công → tự động đăng nhập
-      if (window.UitAuth) {
-        const result = await window.UitAuth.loginWithPassword(email.trim(), password);
-        if (result.ok) { onLogin(result.user); return; }
-      }
-      // Fallback: chuyển sang trang đăng nhập
-      onNav('login');
-    } catch (e) {
-      setError('Lỗi kết nối: ' + e.message);
-    }
-    setLoading(false);
-  };
+  React.useEffect(() => {
+    if (window.UitAuth) window.UitAuth.register();
+  }, []);
 
   return (
     <div className="login-container">
       <div className="login-grid">
-        {/* Left visual */}
         <div className="login-visual">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 30 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 10, background: 'white',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'var(--primary)', fontWeight: 800, fontSize: 16,
-              }}>UIT</div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>UIT Store</div>
-            </div>
-            <h2 style={{ fontSize: 26, lineHeight: 1.25, margin: '0 0 12px', letterSpacing: '-0.01em' }}>
-              Tạo tài khoản<br/>UIT Store
-            </h2>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 800, fontSize: 16, marginBottom: 24 }}>UIT</div>
+            <h2 style={{ fontSize: 26, lineHeight: 1.25, margin: '0 0 12px' }}>Đang chuyển sang Keycloak</h2>
             <div style={{ fontSize: 13, opacity: 0.9, lineHeight: 1.6, maxWidth: 340 }}>
-              Mật khẩu được bảo vệ bằng <b>Argon2id</b> khi lưu trên Keycloak.
+              Form đăng ký custom được chuyển sang Keycloak theme để Keycloak xử lý password policy, MFA và SSO.
             </div>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { icon: 'shield-check', t: 'Mật khẩu không bao giờ lưu plain', s: 'Argon2id · per-user salt · server-side pepper' },
-              { icon: 'lock',         t: 'Phiên đăng nhập JWT 5 phút',        s: 'Refresh token rotation' },
-              { icon: 'check-circle', t: 'Đăng ký qua Keycloak',              s: 'Không lưu tài khoản trong trình duyệt' },
-            ].map(f => (
-              <div key={f.t} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-                <div style={{
-                  width: 32, height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.15)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Icon name={f.icon} size={16} color="white" />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{f.t}</div>
-                  <div style={{ opacity: 0.85, fontSize: 11 }}>{f.s}</div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
-
-        {/* Right form */}
-        <div style={{ padding: 36, display: 'flex', flexDirection: 'column' }}>
-          <button onClick={() => onNav('login')} style={{ color: 'var(--ink-500)', fontSize: 12, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
-            <Icon name="arrow-left" size={12} /> Quay lại đăng nhập
+        <div style={{ padding: 36, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Đăng ký tài khoản</div>
+          <div style={{ fontSize: 13, color: 'var(--ink-600)', lineHeight: 1.6, marginBottom: 18 }}>
+            Mật khẩu và chính sách tài khoản do Keycloak đảm nhận, SPA không nhận hay chuyển tiếp mật khẩu.
+          </div>
+          <button onClick={() => window.UitAuth && window.UitAuth.register()} className="btn btn-primary" style={{ width: '100%', padding: 12 }}>
+            Tiếp tục đăng ký
           </button>
-
-          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 4 }}>Tạo tài khoản mới</div>
-          <div style={{ fontSize: 13, color: 'var(--ink-600)', marginBottom: 22 }}>Điền thông tin để tạo tài khoản UIT Store</div>
-
-          {/* Họ tên */}
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Họ và tên</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)}
-              placeholder="Nguyễn Văn A" autoFocus />
-          </div>
-
-          {/* Email */}
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Email</label>
-            <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="email@example.com" />
-          </div>
-
-          {/* Mật khẩu */}
-          <div style={{ marginBottom: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Mật khẩu</label>
-            <div style={{ position: 'relative' }}>
-              <input className="input" type={showPw ? 'text' : 'password'} value={password}
-                onChange={e => handlePasswordChange(e.target.value)}
-                placeholder="Tối thiểu 8 ký tự" style={{ paddingRight: 36 }} />
-              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}
-                    onClick={() => setShowPw(!showPw)}>
-                <Icon name="eye" size={16} color="var(--ink-400)" />
-              </span>
-            </div>
-          </div>
-
-          {/* Thanh độ mạnh mật khẩu */}
-          {password && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
-                {[1,2,3,4].map(i => (
-                  <div key={i} style={{
-                    flex: 1, height: 3, borderRadius: 2,
-                    background: i <= strength ? strengthColor[strength] : 'var(--ink-200)',
-                    transition: 'background 0.2s',
-                  }} />
-                ))}
-              </div>
-              <div style={{ fontSize: 11, color: strengthColor[strength] }}>
-                Độ mạnh: {strengthLabel[strength] || ''}
-              </div>
-            </div>
-          )}
-
-          {/* Xác nhận mật khẩu */}
-          <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Xác nhận mật khẩu</label>
-            <input className="input" type="password" value={confirm}
-              onChange={e => setConfirm(e.target.value)} placeholder="Nhập lại mật khẩu"
-              style={{ borderColor: confirm && confirm !== password ? '#EF4444' : undefined }} />
-            {confirm && confirm !== password && (
-              <div style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>Mật khẩu không khớp</div>
-            )}
-          </div>
-
-          {/* Lỗi */}
-          {error && (
-            <div style={{ padding: '10px 12px', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 6, fontSize: 12, color: '#B91C1C', marginBottom: 14 }}>
-              {error}
-            </div>
-          )}
-
-          <button onClick={handleSubmit} disabled={loading} className="btn btn-primary"
-            style={{ width: '100%', padding: 12, opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
-          </button>
-
-          <div style={{ marginTop: 14, fontSize: 13, color: 'var(--ink-600)', textAlign: 'center' }}>
-            Đã có tài khoản?{' '}
-            <a style={{ color: 'var(--primary)', fontWeight: 500, cursor: 'pointer' }} onClick={() => onNav('login')}>
-              Đăng nhập
-            </a>
-          </div>
         </div>
       </div>
     </div>

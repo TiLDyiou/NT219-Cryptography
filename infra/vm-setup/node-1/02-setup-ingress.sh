@@ -155,6 +155,7 @@ cat >/tmp/realm-export-vm.json <<REALM
 {
   "realm": "nt219",
   "enabled": true,
+  "loginTheme": "uitstore",
   "displayName": "NT219 Ecommerce",
   "displayNameHtml": "<b>NT219 Ecommerce</b>",
   "sslRequired": "external",
@@ -272,6 +273,11 @@ if [ ! -d "/opt/keycloak" ]; then
 fi
 
 cd /opt/keycloak
+if [ -d "${PROJECT_DIR}/infra/keycloak-themes/uitstore" ]; then
+    mkdir -p /opt/keycloak/themes
+    cp -r "${PROJECT_DIR}/infra/keycloak-themes/uitstore" /opt/keycloak/themes/
+    echo "  Keycloak theme uitstore - OK"
+fi
 bin/kc.sh build 2>/dev/null || true
 
 cat >/etc/systemd/system/keycloak.service <<SVC

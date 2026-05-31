@@ -1,6 +1,7 @@
 from app.application.dto.checkout_dto import CheckoutContext, SagaStepResult
 from app.domain.entities.order_item import OrderEntity
 from app.domain.ports.inventory_gateway import InventoryReserveRequest
+from app.domain.ports.payment_gateway import PaymentChargeRequest
 
 
 class ReserveInventoryStep:

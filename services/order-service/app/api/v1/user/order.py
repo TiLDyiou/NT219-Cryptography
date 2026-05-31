@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Header
 
 from app.api.dependencies import (
+    bind_checkout_to_server_cart,
     build_checkout_context,
     get_checkout_use_case,
     get_correlation_id,
@@ -37,6 +38,7 @@ async def checkout(
     x_forwarded_for: Optional[str] = Header(None, alias="X-Forwarded-For"),
     user_agent: Optional[str] = Header(None, alias="User-Agent"),
 ):
+    payload = await bind_checkout_to_server_cart(payload, user_id)
     ctx = build_checkout_context(
         payload=payload,
         user_id=user_id,

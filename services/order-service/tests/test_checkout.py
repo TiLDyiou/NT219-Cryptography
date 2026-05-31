@@ -12,6 +12,13 @@ from app.application.saga.orchestrator import CheckoutSagaOrchestrator
 from app.application.use_cases.checkout import CheckoutUseCase
 from app.domain.ports.audit_logger import AuditEvent, AuditLogger
 from app.domain.ports.event_publisher import EventPublisher
+from app.domain.ports.inventory_gateway import (
+    InventoryConfirmRequest,
+    InventoryGateway,
+    InventoryReleaseRequest,
+    InventoryReserveRequest,
+    InventoryReserveResult,
+)
 from app.domain.ports.payment_gateway import (
     PaymentChargeRequest,
     PaymentChargeResult,
@@ -52,6 +59,21 @@ class SuccessPaymentGateway(PaymentGateway):
         return PaymentRefundResult(refund_id="ref-123", status="succeeded")
 
 
+class SuccessInventoryGateway(InventoryGateway):
+    async def reserve(self, request: InventoryReserveRequest) -> InventoryReserveResult:
+        return InventoryReserveResult(
+            reserved=True,
+            order_id=request.order_id,
+            reservations=[],
+        )
+
+    async def release(self, request: InventoryReleaseRequest) -> dict:
+        return {"released": True, "order_id": request.order_id}
+
+    async def confirm(self, request: InventoryConfirmRequest) -> dict:
+        return {"confirmed": True, "order_id": request.order_id}
+
+
 @pytest.fixture
 async def checkout_use_case():
     await init_db()
@@ -59,10 +81,11 @@ async def checkout_use_case():
     events = MemoryEventPublisher()
     audit = MemoryAuditLogger()
     payment = SuccessPaymentGateway()
+    inventory = SuccessInventoryGateway()
 
     async with AsyncSessionLocal() as session:
         repo = PgOrderRepository(session)
-        saga = CheckoutSagaOrchestrator(repo, payment, events)
+        saga = CheckoutSagaOrchestrator(repo, payment, inventory, events)
         use_case = CheckoutUseCase(repo, crypto, events, audit, saga)
         yield use_case, events, audit
 

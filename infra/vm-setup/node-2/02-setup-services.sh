@@ -63,6 +63,8 @@ for SVC_NAME in "${!SERVICES[@]}"; do
         # order gọi sang payment (NODE-3) và inventory (cùng NODE-2)
         EXTRA_ENV="PAYMENT_SERVICE_URL=http://${VM3_IP}:8004
 INVENTORY_SERVICE_URL=http://localhost:8005
+CART_SERVICE_URL=http://localhost:8002
+CART_INTERNAL_API_TOKEN=cart_internal_dev_token
 KAFKA_ENABLED=false"
     elif [ "${SVC_NAME}" = "noti-service" ]; then
         # noti-service cần Kafka (nhận events) và Redis (rate-limit + idempotency)

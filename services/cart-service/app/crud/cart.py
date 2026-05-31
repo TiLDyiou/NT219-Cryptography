@@ -95,6 +95,17 @@ class CRUDCart:
                 active_carts.append(cart)
         return active_carts
 
+    async def get_active_cart_for_user(
+        self, db: AsyncSession, *, cart_id: str, user_id: str
+    ) -> Cart:
+        cart = await self._get_cart_by_id(db, cart_id=cart_id)
+        if not cart or cart.user_id != user_id:
+            raise EntityNotFoundException(entity="Cart", entity_id=cart_id)
+        await self._mark_expired_if_needed(db, cart)
+        if cart.status != "active":
+            raise BusinessRuleException("Cart is not active.")
+        return cart
+
     async def _assert_version(self, cart: Cart, expected_version: int) -> None:
         if cart.version != expected_version:
             raise OptimisticLockException(expected_version=cart.version, current_version=expected_version)

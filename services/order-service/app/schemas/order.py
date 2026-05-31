@@ -29,6 +29,7 @@ class CheckoutItem(BaseModel):
 
 class CheckoutRequest(BaseModel):
     cart_id: str = Field(..., min_length=1, max_length=36)
+    cart_version: int = Field(..., ge=1)
     payment_method_type: str = Field(..., min_length=3, max_length=50)
     shipping_fee: Decimal = Field(default=0, ge=0)
     customer_note: Optional[str] = None
@@ -91,4 +92,3 @@ class OrderSummaryResponse(BaseModel):
     items: List[OrderItemResponse]
 
     model_config = ConfigDict(from_attributes=True)
-

@@ -3,6 +3,7 @@ import json
 import base64
 
 from fastapi import Depends, Header
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.dto.checkout_dto import (
@@ -18,10 +19,10 @@ from app.application.use_cases.checkout import (
     ListOrdersUseCase,
 )
 from app.core.config import settings
-from app.core.exceptions import UnauthorizedException
+from app.core.exceptions import BusinessRuleException, UnauthorizedException
 from app.infrastructure.container import get_container
 from app.infrastructure.persistence.database import get_db
-from app.schemas.order import CheckoutRequest
+from app.schemas.order import CheckoutItem, CheckoutRequest
 
 
 def _decode_jwt_sub(token: str) -> str:
@@ -106,6 +107,55 @@ def _to_checkout_input(payload: CheckoutRequest) -> CheckoutInput:
             postal_code=payload.shipping_address.postal_code,
         ),
     )
+
+
+async def bind_checkout_to_server_cart(
+    payload: CheckoutRequest,
+    user_id: str,
+) -> CheckoutRequest:
+    cart_url = (
+        f"{settings.CART_SERVICE_URL.rstrip('/')}/api/v1/system/carts/{payload.cart_id}"
+    )
+    try:
+        async with httpx.AsyncClient(
+            timeout=settings.CHECKOUT_REQUEST_TIMEOUT_SECONDS
+        ) as client:
+            resp = await client.get(
+                cart_url,
+                params={"user_id": user_id},
+                headers={"X-Internal-Token": settings.CART_INTERNAL_API_TOKEN},
+            )
+    except httpx.HTTPError as exc:
+        raise BusinessRuleException(
+            f"Không thể xác minh giỏ hàng với Cart Service: {exc}"
+        )
+
+    if resp.status_code != 200:
+        raise BusinessRuleException(
+            "Giỏ hàng không hợp lệ hoặc không thuộc tài khoản này."
+        )
+
+    cart = (resp.json().get("data") or {})
+    if cart.get("version") != payload.cart_version:
+        raise BusinessRuleException("Giỏ hàng đã thay đổi. Vui lòng tải lại giỏ hàng.")
+    if cart.get("item_count", 0) <= 0:
+        raise BusinessRuleException("Không thể thanh toán giỏ hàng trống.")
+
+    items = [
+        CheckoutItem(
+            product_id=item["product_id"],
+            variant_id=item.get("variant_id"),
+            merchant_id=item["merchant_id"],
+            sku=(item.get("metadata_json") or {}).get("sku") or item["product_id"],
+            product_name=item["product_name_snapshot"],
+            variant_label=item.get("variant_label_snapshot"),
+            image_url=item.get("image_url_snapshot"),
+            quantity=item["quantity"],
+            unit_price=item["unit_price_snapshot"],
+        )
+        for item in cart.get("items", [])
+    ]
+    return payload.model_copy(update={"items": items})
 
 
 def get_checkout_use_case(db: AsyncSession = Depends(get_db)) -> CheckoutUseCase:

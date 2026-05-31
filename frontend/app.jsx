@@ -47,6 +47,13 @@ const App = () => {
         setApiStatus(function (prev) { return Object.assign({}, prev, { catalog: 'error' }); });
       });
 
+    if (!window.UitAuth || !window.UitAuth.isAuthenticated()) {
+      setCart([]);
+      setCartVersions({});
+      setApiStatus(function (prev) { return Object.assign({}, prev, { cart: 'unknown' }); });
+      return;
+    }
+
     window.UitAPI.cart.list()
       .then(function (res) {
         const carts = res && res.data;
@@ -102,6 +109,12 @@ const App = () => {
   }, []);
 
   const nav = (target, id) => {
+    const authRequiredScreens = ['cart', 'checkout', 'account', 'orders'];
+    if (authRequiredScreens.includes(target) && !user) {
+      setScreen('login');
+      toast('Vui lòng đăng nhập để tiếp tục.');
+      return;
+    }
     setScreen(target);
     if (target === 'order' && id) setRealOrderId(id);
     else if (id) setProductId(id);
@@ -120,6 +133,7 @@ const App = () => {
 
   // ── Đồng bộ thêm item với Cart Service (background, non-blocking) ───
   const syncCartAdd = React.useCallback(function (product, qty) {
+    if (!user) return;
     const merchantId = product.merchant_id;
     const currentMeta = cartVersions[merchantId];
     const version = currentMeta ? currentMeta.version : 1;
@@ -163,9 +177,14 @@ const App = () => {
       }
       setApiStatus(function (prev) { return Object.assign({}, prev, { cart: 'error' }); });
     });
-  }, [cartVersions]);
+  }, [cartVersions, user]);
 
   const handleAddToCart = (product, qty) => {
+    if (!user) {
+      nav('login');
+      toast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
+      return;
+    }
     // 1. Cập nhật UI ngay lập tức
     const existing = cart.find(c => c.productId === product.id);
     if (existing) {
@@ -180,12 +199,20 @@ const App = () => {
   };
 
   const handleBuyNow = (product, qty) => {
+    if (!user) {
+      nav('login');
+      toast('Vui lòng đăng nhập để mua hàng.');
+      return;
+    }
     handleAddToCart(product, qty);
     nav('cart');
   };
 
   // ── Build checkout payload ───────────────────────────────────────────
-  const buildCheckoutPayload = React.useCallback(function (paymentMethod, deliveryFee, checkoutAddress) {
+  const buildCheckoutPayload = React.useCallback(async function (paymentMethod, deliveryFee, checkoutAddress) {
+    if (!user) {
+      throw new Error('Vui lòng đăng nhập trước khi thanh toán.');
+    }
     const items = cart.map(function (c) {
       const product = (window.PRODUCTS || []).find(function (p) { return p.id === c.productId; });
       if (!product) return null;
@@ -204,9 +231,25 @@ const App = () => {
     const shipping_fee = deliveryFee !== undefined ? deliveryFee : (subtotal > 500000 ? 0 : 25000);
 
     const firstMerchantId = items.length > 0 ? items[0].merchant_id : 'unknown';
-    const cartMeta = cartVersions[firstMerchantId];
+    var cartMeta = cartVersions[firstMerchantId];
+    try {
+      var res = await window.UitAPI.cart.list();
+      var carts = res && res.data;
+      if (carts && carts.length > 0) {
+        var freshMeta = {};
+        carts.forEach(function (c) {
+          freshMeta[c.merchant_id] = { cartId: c.id, version: c.version };
+        });
+        setCartVersions(function (prev) {
+          return Object.assign({}, prev, freshMeta);
+        });
+        cartMeta = freshMeta[firstMerchantId];
+      }
+    } catch (e) {
+      // Cart Service không phản hồi
+    }
     if (!cartMeta) {
-      throw new Error('Không tìm thấy cart_id từ Cart Service.');
+      throw new Error('Giỏ hàng chưa được đồng bộ với server. Vui lòng kiểm tra đăng nhập và thử thêm lại sản phẩm vào giỏ.');
     }
     const cartId = cartMeta.cartId;
 
@@ -220,6 +263,7 @@ const App = () => {
 
     return {
       cart_id:              cartId,
+      cart_version:         cartMeta.version,
       payment_method_type:  pmType,
       shipping_fee:         shipping_fee,
       customer_note:        null,
@@ -255,9 +299,9 @@ const App = () => {
       });
   }, [cart, cartVersions]);
 
-  const handlePay = (paymentMethod, deliveryFee, checkoutAddress) => {
+  const handlePay = async (paymentMethod, deliveryFee, checkoutAddress) => {
     try {
-      const payload = buildCheckoutPayload(paymentMethod, deliveryFee, checkoutAddress);
+      const payload = await buildCheckoutPayload(paymentMethod, deliveryFee, checkoutAddress);
       const subtotal = (payload.items || []).reduce(function (s, i) { return s + i.unit_price * i.quantity; }, 0);
       setOrderTotal(subtotal + Number(payload.shipping_fee));
       doCheckout(payload);
@@ -327,6 +371,7 @@ const App = () => {
     }
     setUser(u);
     if (u) window.UitAPI.setUserId(u.id || u.email || u.name);
+    loadData();
     nav('home');
     toast('Đăng nhập thành công · Phiên JWT đã được tạo');
   };

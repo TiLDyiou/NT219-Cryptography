@@ -125,6 +125,10 @@ class Settings(BaseSettings):
     INVENTORY_SERVICE_URL: str = os.getenv(
         "INVENTORY_SERVICE_URL", "http://localhost:8005"
     )
+    CART_SERVICE_URL: str = os.getenv("CART_SERVICE_URL", "http://localhost:8002")
+    CART_INTERNAL_API_TOKEN: str = os.getenv(
+        "CART_INTERNAL_API_TOKEN", "cart_internal_dev_token"
+    )
     INVENTORY_MTLS_ENABLED: bool = (
         os.getenv("INVENTORY_MTLS_ENABLED", "false").lower() == "true"
     )

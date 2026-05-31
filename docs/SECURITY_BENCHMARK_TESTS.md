@@ -28,30 +28,30 @@
 
 **Application Security Verification Standard** — checklist có 3 cấp độ, được công nhận rộng rãi nhất cho web app/API. Hệ thống e-commerce này áp dụng **Level 2**, một số phần payment áp dụng **Level 3**.
 
-| Level | Mô tả | Áp dụng cho |
-|---|---|---|
-| **L1** | Automated scan, basic hygiene | Tất cả app |
+| Level  | Mô tả                                       | Áp dụng cho              |
+| ------ | ------------------------------------------- | ------------------------ |
+| **L1** | Automated scan, basic hygiene               | Tất cả app               |
 | **L2** | Manual test + automated, standard assurance | **E-commerce — mức này** |
-| **L3** | High-security, formal verification | Banking, HSM, PCI scope |
+| **L3** | High-security, formal verification          | Banking, HSM, PCI scope  |
 
 > Tải checklist Excel: https://github.com/OWASP/ASVS/releases
 
 Mapping ASVS vào hệ thống này:
 
-| ASVS Chapter | Nội dung | Mức áp dụng | Trạng thái |
-|---|---|---|---|
-| V2 — Authentication | Keycloak, MFA, brute-force | L2 | Partial |
-| V3 — Session Management | JWT lifetime, refresh rotation | L2 | **FAIL** — không check exp |
-| V4 — Access Control | RBAC, IDOR | L2 | **FAIL** — IDOR payment |
-| V5 — Validation | Input validation, SQLi | L1 | PASS (Pydantic + ORM) |
-| V6 — Cryptography | AES-GCM, key length, Vault | L2/L3 | Partial |
-| V7 — Error Handling | Logging, PII masking | L2 | **FAIL** — PII in logs |
-| V8 — Data Protection | TDE, FLE, PAN | L2/L3 | Partial |
-| V9 — Communication | TLS, HSTS, mTLS | L2 | **FAIL** — HTTP only |
-| V10 — Malicious Code | Dependency scan, secrets | L2 | **FAIL** — hardcoded keys |
-| V11 — Business Logic | Payment idempotency, fraud | L2 | PASS |
-| V13 — API | CORS, rate limit, versioning | L2 | **FAIL** — wildcard CORS |
-| V14 — Configuration | Defaults, secrets mgmt | L1 | **FAIL** — weak passwords |
+| ASVS Chapter            | Nội dung                       | Mức áp dụng | Trạng thái                 |
+| ----------------------- | ------------------------------ | ----------- | -------------------------- |
+| V2 — Authentication     | Keycloak, MFA, brute-force     | L2          | Partial                    |
+| V3 — Session Management | JWT lifetime, refresh rotation | L2          | **FAIL** — không check exp |
+| V4 — Access Control     | RBAC, IDOR                     | L2          | **FAIL** — IDOR payment    |
+| V5 — Validation         | Input validation, SQLi         | L1          | PASS (Pydantic + ORM)      |
+| V6 — Cryptography       | AES-GCM, key length, Vault     | L2/L3       | Partial                    |
+| V7 — Error Handling     | Logging, PII masking           | L2          | **FAIL** — PII in logs     |
+| V8 — Data Protection    | TDE, FLE, PAN                  | L2/L3       | Partial                    |
+| V9 — Communication      | TLS, HSTS, mTLS                | L2          | **FAIL** — HTTP only       |
+| V10 — Malicious Code    | Dependency scan, secrets       | L2          | **FAIL** — hardcoded keys  |
+| V11 — Business Logic    | Payment idempotency, fraud     | L2          | PASS                       |
+| V13 — API               | CORS, rate limit, versioning   | L2          | **FAIL** — wildcard CORS   |
+| V14 — Configuration     | Defaults, secrets mgmt         | L1          | **FAIL** — weak passwords  |
 
 ---
 
@@ -59,18 +59,18 @@ Mapping ASVS vào hệ thống này:
 
 Áp dụng trực tiếp cho kiến trúc microservices REST API:
 
-| ID | Threat | Trạng thái hệ thống |
-|---|---|---|
-| **API1** | Broken Object Level Auth (IDOR) | **FAIL** — `/refund`, `/payments/{id}` không check owner |
-| **API2** | Broken Authentication | **FAIL** — JWT không verify signature |
-| **API3** | Broken Object Property Level Auth | Cần kiểm tra (test 2.4) |
-| **API4** | Unrestricted Resource Consumption | **FAIL** — không có rate limit trên `/api/*` |
-| **API5** | Broken Function Level Auth | Partial — HMAC disabled by default |
-| **API6** | Unrestricted Access to Sensitive Flows | PASS — idempotency key triển khai |
-| **API7** | Server Side Request Forgery | Cần kiểm tra |
-| **API8** | Security Misconfiguration | **FAIL** — CORS `*`, Vault disabled, HTTP |
-| **API9** | Improper Inventory Management | Cần kiểm tra — `/docs` exposed |
-| **API10** | Unsafe Consumption of APIs | PASS — webhook signature verified |
+| ID        | Threat                                 | Trạng thái hệ thống                                      |
+| --------- | -------------------------------------- | -------------------------------------------------------- |
+| **API1**  | Broken Object Level Auth (IDOR)        | **FAIL** — `/refund`, `/payments/{id}` không check owner |
+| **API2**  | Broken Authentication                  | **FAIL** — JWT không verify signature                    |
+| **API3**  | Broken Object Property Level Auth      | Cần kiểm tra (test 2.4)                                  |
+| **API4**  | Unrestricted Resource Consumption      | **FAIL** — không có rate limit trên `/api/*`             |
+| **API5**  | Broken Function Level Auth             | Partial — HMAC disabled by default                       |
+| **API6**  | Unrestricted Access to Sensitive Flows | PASS — idempotency key triển khai                        |
+| **API7**  | Server Side Request Forgery            | Cần kiểm tra                                             |
+| **API8**  | Security Misconfiguration              | **FAIL** — CORS `*`, Vault disabled, HTTP                |
+| **API9**  | Improper Inventory Management          | Cần kiểm tra — `/docs` exposed                           |
+| **API10** | Unsafe Consumption of APIs             | PASS — webhook signature verified                        |
 
 ---
 
@@ -78,16 +78,16 @@ Mapping ASVS vào hệ thống này:
 
 Hệ thống dùng Stripe sandbox → SAQ A-EP applicable:
 
-| Requirement | Nội dung | Trạng thái |
-|---|---|---|
-| Req 2.2 | Không dùng default credentials | **FAIL** — `admin123`, `uitstore_dev`, `123456` |
-| Req 3.3 | Không lưu SAD/PAN sau auth | **PASS** — Stripe tokenization |
-| Req 4.2.1 | TLS 1.2+ cho cardholder data | **FAIL** — HTTP only |
-| Req 6.3.3 | Patch vulnerabilities | Cần pip-audit/Trivy |
-| Req 7.2 | Least-privilege access | Partial |
-| Req 8.3.6 | MFA cho admin access | Keycloak TOTP — cần verify bật chưa |
-| Req 10.2 | Audit log events | **PASS** — Kafka audit + HMAC signed |
-| Req 12.3.2 | Targeted risk analysis | STRIDE threat model có sẵn |
+| Requirement | Nội dung                       | Trạng thái                                      |
+| ----------- | ------------------------------ | ----------------------------------------------- |
+| Req 2.2     | Không dùng default credentials | **FAIL** — `admin123`, `uitstore_dev`, `123456` |
+| Req 3.3     | Không lưu SAD/PAN sau auth     | **PASS** — Stripe tokenization                  |
+| Req 4.2.1   | TLS 1.2+ cho cardholder data   | **FAIL** — HTTP only                            |
+| Req 6.3.3   | Patch vulnerabilities          | Cần pip-audit/Trivy                             |
+| Req 7.2     | Least-privilege access         | Partial                                         |
+| Req 8.3.6   | MFA cho admin access           | Keycloak TOTP — cần verify bật chưa             |
+| Req 10.2    | Audit log events               | **PASS** — Kafka audit + HMAC signed            |
+| Req 12.3.2  | Targeted risk analysis         | STRIDE threat model có sẵn                      |
 
 ---
 
@@ -253,6 +253,7 @@ bash /tmp/testssl.sh \
 ```
 
 **Điều testssl.sh kiểm tra:**
+
 - TLS 1.0/1.1 phải bị tắt (FAIL hiện tại vì dùng HTTP)
 - Cipher suites yếu (RC4, DES, 3DES, EXPORT)
 - Forward Secrecy (ECDHE)
@@ -290,15 +291,15 @@ except:
 
 ### Tóm tắt — Tools vs Chuẩn tham chiếu
 
-| Tool | Chuẩn | Cần hệ thống chạy | Output |
-|---|---|---|---|
-| **Bandit** | CWE, OWASP | Không | JSON/terminal |
-| **pip-audit** | NIST NVD (CVE) | Không | Table/JSON |
-| **Trivy** | CVE + secret patterns | Không | Table/JSON |
-| **gitleaks** | Custom + OWASP | Không | JSON |
-| **OWASP ZAP** | OWASP Top 10, CWE | **Có** | HTML/JSON |
-| **testssl.sh** | PCI DSS, NIST | **Có (HTTPS)** | JSON |
-| **ASVS checklist** | OWASP ASVS v4 | Manual | Excel scorecard |
+| Tool               | Chuẩn                 | Cần hệ thống chạy | Output          |
+| ------------------ | --------------------- | ----------------- | --------------- |
+| **Bandit**         | CWE, OWASP            | Không             | JSON/terminal   |
+| **pip-audit**      | NIST NVD (CVE)        | Không             | Table/JSON      |
+| **Trivy**          | CVE + secret patterns | Không             | Table/JSON      |
+| **gitleaks**       | Custom + OWASP        | Không             | JSON            |
+| **OWASP ZAP**      | OWASP Top 10, CWE     | **Có**            | HTML/JSON       |
+| **testssl.sh**     | PCI DSS, NIST         | **Có (HTTPS)**    | JSON            |
+| **ASVS checklist** | OWASP ASVS v4         | Manual            | Excel scorecard |
 
 ---
 
@@ -360,8 +361,8 @@ curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
   "$BASE_URL/api/v1/catalog/merchant/products"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
+| Kết quả mong đợi   | Kết quả hiện tại                     | Trạng thái         |
+| ------------------ | ------------------------------------ | ------------------ |
 | `401 Unauthorized` | `200 OK` (do không verify signature) | **FAIL — lỗ hổng** |
 
 **Ghi chú:** Catalog-service hiện chỉ base64-decode JWT mà không verify chữ ký RS256 từ Keycloak ([catalog-service/app/api/dependencies.py:22-41](../services/catalog-service/app/api/dependencies.py)).
@@ -417,8 +418,8 @@ curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
   "$BASE_URL/api/v1/catalog/merchant/products"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
+| Kết quả mong đợi   | Kết quả hiện tại             | Trạng thái          |
+| ------------------ | ---------------------------- | ------------------- |
 | `401 Unauthorized` | `200 OK` với data của victim | **FAIL — critical** |
 
 ---
@@ -446,9 +447,9 @@ curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
   "$BASE_URL/api/v1/catalog/merchant/products"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
-| `401 Unauthorized` | `200 OK` | **FAIL** |
+| Kết quả mong đợi   | Kết quả hiện tại | Trạng thái |
+| ------------------ | ---------------- | ---------- |
+| `401 Unauthorized` | `200 OK`         | **FAIL**   |
 
 ---
 
@@ -475,8 +476,8 @@ curl -s -X POST "$KC_URL/realms/nt219/protocol/openid-connect/token" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('Result:', d.get('error', 'SUCCESS - VULNERABLE'))"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
+| Kết quả mong đợi       | Kết quả hiện tại            | Trạng thái   |
+| ---------------------- | --------------------------- | ------------ |
 | `error: invalid_grant` | Phụ thuộc cấu hình Keycloak | Cần kiểm tra |
 
 ---
@@ -506,19 +507,19 @@ curl -s -o /dev/null -w "Status: %{http_code}\n" \
   "$BASE_URL/api/v1/catalog/merchant/products"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
+| Kết quả mong đợi             | Kết quả hiện tại                                            | Trạng thái       |
+| ---------------------------- | ----------------------------------------------------------- | ---------------- |
 | Step 1: `200`, Step 3: `401` | Step 1: `200`, Step 3: `200` (access token không bị revoke) | **Cần kiểm tra** |
 
 ---
 
 ### Metrics — Experiment 1
 
-| Metric | Target | Ghi chú |
-|---|---|---|
-| % forged JWT bị reject | **100%** | Tất cả 1.1, 1.2, 1.3 phải fail |
-| Thời gian phát hiện invalid token | < 50ms | Đo bằng `curl -w "%{time_total}"` |
-| Refresh token replay bị reject | **100%** | Keycloak revocation |
+| Metric                            | Target   | Ghi chú                           |
+| --------------------------------- | -------- | --------------------------------- |
+| % forged JWT bị reject            | **100%** | Tất cả 1.1, 1.2, 1.3 phải fail    |
+| Thời gian phát hiện invalid token | < 50ms   | Đo bằng `curl -w "%{time_total}"` |
+| Refresh token replay bị reject    | **100%** | Keycloak revocation               |
 
 ---
 
@@ -555,9 +556,9 @@ curl -s -o /tmp/webhook_result.json -w "HTTP Status: %{http_code}\n" \
 cat /tmp/webhook_result.json | python3 -m json.tool 2>/dev/null || cat /tmp/webhook_result.json
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
-| `400 Bad Request` | `400 Bad Request` | **PASS** |
+| Kết quả mong đợi  | Kết quả hiện tại  | Trạng thái |
+| ----------------- | ----------------- | ---------- |
+| `400 Bad Request` | `400 Bad Request` | **PASS**   |
 
 ---
 
@@ -578,9 +579,9 @@ curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
   -d "$FAKE_PAYLOAD"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
-| `400 Bad Request` | `400 Bad Request` | **PASS** |
+| Kết quả mong đợi  | Kết quả hiện tại  | Trạng thái |
+| ----------------- | ----------------- | ---------- |
+| `400 Bad Request` | `400 Bad Request` | **PASS**   |
 
 ---
 
@@ -648,9 +649,9 @@ asyncio.run(main())
 python3 experiments/test_idempotency.py
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
-| 3 lần trả về cùng 1 `payment_id` | 3 lần trả về cùng 1 `payment_id` | **PASS** |
+| Kết quả mong đợi                 | Kết quả hiện tại                 | Trạng thái |
+| -------------------------------- | -------------------------------- | ---------- |
+| 3 lần trả về cùng 1 `payment_id` | 3 lần trả về cùng 1 `payment_id` | **PASS**   |
 
 ---
 
@@ -692,8 +693,8 @@ curl -s -w "\nHTTP Status: %{http_code}\n" \
 
 **Kiểm tra kết quả:** Nếu order được tạo với `total_amount = 1` thì FAIL. Nếu hệ thống lấy giá từ catalog hoặc reject thì PASS.
 
-| Kết quả mong đợi | Cách kiểm tra |
-|---|---|
+| Kết quả mong đợi                                    | Cách kiểm tra                                   |
+| --------------------------------------------------- | ----------------------------------------------- |
 | `total_amount` trong response = giá thật từ catalog | So sánh `total_amount` vs giá thật của sản phẩm |
 
 ---
@@ -728,10 +729,10 @@ curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
   "$PAYMENT_URL/api/v1/payments/$PAYMENT_ID"
 ```
 
-| Endpoint | Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|---|
-| `POST /refund` (user B) | `403 Forbidden` | `200 OK` (refund thành công) | **FAIL — critical IDOR** |
-| `GET /payments/{id}` (no auth) | `401 Unauthorized` | `200 OK` | **FAIL — no auth** |
+| Endpoint                       | Kết quả mong đợi   | Kết quả hiện tại             | Trạng thái               |
+| ------------------------------ | ------------------ | ---------------------------- | ------------------------ |
+| `POST /refund` (user B)        | `403 Forbidden`    | `200 OK` (refund thành công) | **FAIL — critical IDOR** |
+| `GET /payments/{id}` (no auth) | `401 Unauthorized` | `200 OK`                     | **FAIL — no auth**       |
 
 ---
 
@@ -760,22 +761,22 @@ FROM payment_methods LIMIT 5;
 EOF
 ```
 
-| Kết quả mong đợi | Trạng thái |
-|---|---|
-| `psp_payment_method_id` bắt đầu bằng `pm_` | **PASS** |
-| Không có cột nào chứa 16-digit card number | **PASS** |
-| `billing_name_encrypted` là binary (không readable) | **PASS** |
+| Kết quả mong đợi                                    | Trạng thái |
+| --------------------------------------------------- | ---------- |
+| `psp_payment_method_id` bắt đầu bằng `pm_`          | **PASS**   |
+| Không có cột nào chứa 16-digit card number          | **PASS**   |
+| `billing_name_encrypted` là binary (không readable) | **PASS**   |
 
 ---
 
 ### Metrics — Experiment 2
 
-| Metric | Target | Công thức |
-|---|---|---|
-| Webhook forge rejection rate | **100%** | Test 2.1 + 2.2 |
-| Idempotency collision prevention | **100%** | Test 2.3: 1 unique payment_id / 3 requests |
-| IDOR vulnerability confirmed | Documented | Test 2.5 — cần fix trước production |
-| Checkout latency với tokenization | < 2000ms p95 | Đo bằng wrk (xem Performance section) |
+| Metric                            | Target       | Công thức                                  |
+| --------------------------------- | ------------ | ------------------------------------------ |
+| Webhook forge rejection rate      | **100%**     | Test 2.1 + 2.2                             |
+| Idempotency collision prevention  | **100%**     | Test 2.3: 1 unique payment_id / 3 requests |
+| IDOR vulnerability confirmed      | Documented   | Test 2.5 — cần fix trước production        |
+| Checkout latency với tokenization | < 2000ms p95 | Đo bằng wrk (xem Performance section)      |
 
 ---
 
@@ -819,10 +820,10 @@ else
 fi
 ```
 
-| Kết quả mong đợi | Metric |
-|---|---|
-| Lockout / rate-limit sau ≤ 10 failed attempts | `LOCKOUT_AT` ≤ 10 |
-| Response time tăng dần (progressive delay) | Đo `time_total` mỗi 10 requests |
+| Kết quả mong đợi                              | Metric                          |
+| --------------------------------------------- | ------------------------------- |
+| Lockout / rate-limit sau ≤ 10 failed attempts | `LOCKOUT_AT` ≤ 10               |
+| Response time tăng dần (progressive delay)    | Đo `time_total` mỗi 10 requests |
 
 ---
 
@@ -850,10 +851,10 @@ curl -s -X POST "$KC_URL/realms/nt219/protocol/openid-connect/token" \
   | python3 -c "import sys,json; d=json.load(sys.stdin); print('Account status:', d.get('error', 'OK - LOGIN SUCCEEDED'))"
 ```
 
-| Kết quả mong đợi | Trạng thái |
-|---|---|
-| Account bị lock sau N failures (N ≤ 5 theo best practice) | Phụ thuộc Keycloak brute-force policy |
-| Đăng nhập đúng cũng fail khi bị lock | Keycloak default: **có** nếu brute-force protection bật |
+| Kết quả mong đợi                                          | Trạng thái                                              |
+| --------------------------------------------------------- | ------------------------------------------------------- |
+| Account bị lock sau N failures (N ≤ 5 theo best practice) | Phụ thuộc Keycloak brute-force policy                   |
+| Đăng nhập đúng cũng fail khi bị lock                      | Keycloak default: **có** nếu brute-force protection bật |
 
 ---
 
@@ -885,8 +886,8 @@ echo "=== Checking for rate limit responses ==="
 grep -E "Non-2xx|errors" /tmp/rate_limit_result.txt || echo "No error stats found in wrk output"
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
+| Kết quả mong đợi                   | Kết quả hiện tại                          | Trạng thái                                   |
+| ---------------------------------- | ----------------------------------------- | -------------------------------------------- |
 | 429 responses xuất hiện sau ngưỡng | Chỉ có rate limit trên `/static/` (30r/s) | **FAIL — không có rate limit trên `/api/*`** |
 
 ---
@@ -915,10 +916,10 @@ echo "Wrong password response:"
 echo "$RESP_WRONGPASS" | python3 -c "import sys,json; lines=sys.stdin.read().split('\n'); body=lines[0]; print(json.loads(body).get('error_description',''));" 2>/dev/null
 ```
 
-| Kết quả mong đợi | Trạng thái |
-|---|---|
+| Kết quả mong đợi                                             | Trạng thái                 |
+| ------------------------------------------------------------ | -------------------------- |
 | Cả 2 trả về message giống nhau: `"Invalid user credentials"` | Keycloak default: **PASS** |
-| Response time tương đương (không leakage qua timing) | Cần đo và so sánh |
+| Response time tương đương (không leakage qua timing)         | Cần đo và so sánh          |
 
 ---
 
@@ -935,9 +936,9 @@ curl -s -v \
   | grep -E "Access-Control|HTTP/|< " | head -20
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
-| `Access-Control-Allow-Origin` không chứa `evil-attacker.com` | `Access-Control-Allow-Origin: *` | **FAIL** |
+| Kết quả mong đợi                                             | Kết quả hiện tại                 | Trạng thái |
+| ------------------------------------------------------------ | -------------------------------- | ---------- |
+| `Access-Control-Allow-Origin` không chứa `evil-attacker.com` | `Access-Control-Allow-Origin: *` | **FAIL**   |
 
 ---
 
@@ -962,8 +963,8 @@ for payload in "${SQL_PAYLOADS[@]}"; do
 done
 ```
 
-| Kết quả mong đợi | Kết quả hiện tại | Trạng thái |
-|---|---|---|
+| Kết quả mong đợi                         | Kết quả hiện tại     | Trạng thái       |
+| ---------------------------------------- | -------------------- | ---------------- |
 | `403 Forbidden` cho tất cả SQLi payloads | WAF Lua rules active | **Cần kiểm tra** |
 
 ---
@@ -984,21 +985,21 @@ for agent in "${BAD_AGENTS[@]}"; do
 done
 ```
 
-| Kết quả mong đợi | Trạng thái |
-|---|---|
+| Kết quả mong đợi                           | Trạng thái       |
+| ------------------------------------------ | ---------------- |
 | `403 Forbidden` cho tất cả bad user-agents | **Cần kiểm tra** |
 
 ---
 
 ### Metrics — Experiment 3
 
-| Metric | Target | Công thức |
-|---|---|---|
-| Brute-force lockout threshold | ≤ 10 attempts | Test 3.1, 3.2 |
-| API rate limit threshold | Có 429 responses | Test 3.3: requests/sec trước khi 429 |
-| WAF SQLi block rate | **100%** payloads bị block | Test 3.6 |
-| User enumeration leakage | Không phân biệt được | Test 3.4 |
-| CORS enforcement | Reject evil origins | Test 3.5 |
+| Metric                        | Target                     | Công thức                            |
+| ----------------------------- | -------------------------- | ------------------------------------ |
+| Brute-force lockout threshold | ≤ 10 attempts              | Test 3.1, 3.2                        |
+| API rate limit threshold      | Có 429 responses           | Test 3.3: requests/sec trước khi 429 |
+| WAF SQLi block rate           | **100%** payloads bị block | Test 3.6                             |
+| User enumeration leakage      | Không phân biệt được       | Test 3.4                             |
+| CORS enforcement              | Reject evil origins        | Test 3.5                             |
 
 ---
 
@@ -1055,10 +1056,10 @@ sleep 5
 curl -s "$PAYMENT_URL/health" | python3 -m json.tool
 ```
 
-| Metric | Target | Ghi chú |
-|---|---|---|
-| MTTR (Mean Time To Recover) | < 5 phút | Từ khi unseal đến service healthy |
-| Service degradation mode | Graceful (không crash) | Log error thay vì panic |
+| Metric                      | Target                 | Ghi chú                           |
+| --------------------------- | ---------------------- | --------------------------------- |
+| MTTR (Mean Time To Recover) | < 5 phút               | Từ khi unseal đến service healthy |
+| Service degradation mode    | Graceful (không crash) | Log error thay vì panic           |
 
 ---
 
@@ -1103,11 +1104,11 @@ else
 fi
 ```
 
-| Metric | Target |
-|---|---|
-| Decrypt sau rotate | Thành công, data nguyên vẹn |
+| Metric               | Target                                                            |
+| -------------------- | ----------------------------------------------------------------- |
+| Decrypt sau rotate   | Thành công, data nguyên vẹn                                       |
 | Key rotation latency | Đo bằng `time vault write -f transit/keys/payment-fle-key/rotate` |
-| Rewrap latency | < 100ms cho 1 record |
+| Rewrap latency       | < 100ms cho 1 record                                              |
 
 ---
 
@@ -1164,11 +1165,11 @@ asyncio.run(benchmark_vault_encrypt())
 python3 experiments/test_kms_latency.py
 ```
 
-| Metric | Target | Ghi chú |
-|---|---|---|
-| Vault encrypt median | < 10ms (local network) | Phụ thuộc VM setup |
-| Vault encrypt p99 | < 50ms | |
-| Added latency per checkout | < 100ms (2-3 FLE fields) | Acceptable |
+| Metric                     | Target                   | Ghi chú            |
+| -------------------------- | ------------------------ | ------------------ |
+| Vault encrypt median       | < 10ms (local network)   | Phụ thuộc VM setup |
+| Vault encrypt p99          | < 50ms                   |                    |
+| Added latency per checkout | < 100ms (2-3 FLE fields) | Acceptable         |
 
 ---
 
@@ -1213,12 +1214,12 @@ echo "  → Sau khi restart, chạy lại test trên → phải nhận HTTP 401"
 
 ### Metrics — Experiment 4
 
-| Metric | Target |
-|---|---|
-| MTTR after Vault seal | < 5 phút |
+| Metric                     | Target                      |
+| -------------------------- | --------------------------- |
+| MTTR after Vault seal      | < 5 phút                    |
 | Key rotation + rewrap time | < 10 phút (toàn bộ records) |
-| Vault p99 latency | < 50ms |
-| Checkout overhead với KMS | < 100ms thêm vào |
+| Vault p99 latency          | < 50ms                      |
+| Checkout overhead với KMS  | < 100ms thêm vào            |
 
 ---
 
@@ -1309,20 +1310,20 @@ git log --all -p 2>/dev/null \
   | grep -E "sk_live_|pk_live_|rk_live_" | head -10
 ```
 
-| Kết quả mong đợi | Trạng thái |
-|---|---|
-| Không tìm thấy `sk_live_` keys | Cần kiểm tra |
+| Kết quả mong đợi                        | Trạng thái                                                          |
+| --------------------------------------- | ------------------------------------------------------------------- |
+| Không tìm thấy `sk_live_` keys          | Cần kiểm tra                                                        |
 | `.env` files không có trong git history | .gitignore hiện tại bảo vệ files mới, nhưng cần kiểm tra history cũ |
 
 ---
 
 ### Metrics — Experiment 5
 
-| Metric | Target |
-|---|---|
+| Metric                                | Target                  |
+| ------------------------------------- | ----------------------- |
 | CVE severity HIGH+ trong dependencies | 0 unfixed HIGH/CRITICAL |
-| Real credentials trong git history | 0 |
-| Docker images với valid signature | 100% production images |
+| Real credentials trong git history    | 0                       |
+| Docker images với valid signature     | 100% production images  |
 
 ---
 
@@ -1366,12 +1367,12 @@ wrk -t2 -c10 -d30s \
 
 **Kết quả cần ghi lại:**
 
-| Metric | Baseline (không có security) | Với HMAC+FLE | Với HMAC+FLE+Vault |
-|---|---|---|---|
-| Median latency | ___ ms | ___ ms | ___ ms |
-| p95 latency | ___ ms | ___ ms | ___ ms |
-| p99 latency | ___ ms | ___ ms | ___ ms |
-| Throughput (req/s) | ___ | ___ | ___ |
+| Metric             | Baseline (không có security) | Với HMAC+FLE | Với HMAC+FLE+Vault |
+| ------------------ | ---------------------------- | ------------ | ------------------ |
+| Median latency     | \_\_\_ ms                    | \_\_\_ ms    | \_\_\_ ms          |
+| p95 latency        | \_\_\_ ms                    | \_\_\_ ms    | \_\_\_ ms          |
+| p99 latency        | \_\_\_ ms                    | \_\_\_ ms    | \_\_\_ ms          |
+| Throughput (req/s) | \_\_\_                       | \_\_\_       | \_\_\_             |
 
 ---
 
@@ -1494,12 +1495,12 @@ done
 **Bảng ghi kết quả:**
 
 | Concurrency | Req/sec | Median latency | p99 latency | Errors |
-|---|---|---|---|---|
-| 1 | | | | |
-| 5 | | | | |
-| 10 | | | | |
-| 20 | | | | |
-| 50 | | | | |
+| ----------- | ------- | -------------- | ----------- | ------ |
+| 1           |         |                |             |        |
+| 5           |         |                |             |        |
+| 10          |         |                |             |        |
+| 20          |         |                |             |        |
+| 50          |         |                |             |        |
 
 ---
 
@@ -1507,42 +1508,42 @@ done
 
 ### Security Score Card
 
-| Experiment | Test | Expected | Actual | Pass/Fail |
-|---|---|---|---|---|
-| **1. Token** | 1.1 alg:none attack | 401 | _(điền sau)_ | |
-| | 1.2 JWT claim forgery | 401 | _(điền sau)_ | |
-| | 1.3 Expired JWT rejected | 401 | _(điền sau)_ | |
-| | 1.4 Refresh token rotation | `invalid_grant` | _(điền sau)_ | |
-| | 1.5 Token valid after logout | 401 | _(điền sau)_ | |
-| **2. Payment** | 2.1 Webhook no signature | 400 | _(điền sau)_ | |
-| | 2.2 Webhook forged HMAC | 400 | _(điền sau)_ | |
-| | 2.3 Idempotency (3 requests) | 1 unique payment_id | _(điền sau)_ | |
-| | 2.4 Amount tampering | price từ catalog | _(điền sau)_ | |
-| | 2.5 IDOR refund | 403 | _(điền sau)_ | |
-| | 2.6 No PAN in DB | no raw PAN | _(điền sau)_ | |
-| **3. API** | 3.1 Credential stuffing lockout | lockout ≤ 10 | _(điền sau)_ | |
-| | 3.3 Rate limit checkout | 429 responses | _(điền sau)_ | |
-| | 3.4 User enumeration | same error msg | _(điền sau)_ | |
-| | 3.5 CORS wildcard | reject evil origin | _(điền sau)_ | |
-| | 3.6 WAF SQLi | 403 | _(điền sau)_ | |
-| | 3.7 WAF scanner | 403 | _(điền sau)_ | |
-| **4. Keys** | 4.1 Vault recovery MTTR | < 5 min | _(điền sau)_ | |
-| | 4.2 Key rotation integrity | data preserved | _(điền sau)_ | |
-| | 4.3 KMS latency p99 | < 50ms | _(điền sau)_ | |
-| **5. Supply** | 5.2 CVE scan | 0 HIGH/CRITICAL | _(điền sau)_ | |
-| | 5.3 Secrets in git | 0 real secrets | _(điền sau)_ | |
+| Experiment     | Test                            | Expected            | Actual       | Pass/Fail |
+| -------------- | ------------------------------- | ------------------- | ------------ | --------- |
+| **1. Token**   | 1.1 alg:none attack             | 401                 | _(điền sau)_ |           |
+|                | 1.2 JWT claim forgery           | 401                 | _(điền sau)_ |           |
+|                | 1.3 Expired JWT rejected        | 401                 | _(điền sau)_ |           |
+|                | 1.4 Refresh token rotation      | `invalid_grant`     | _(điền sau)_ |           |
+|                | 1.5 Token valid after logout    | 401                 | _(điền sau)_ |           |
+| **2. Payment** | 2.1 Webhook no signature        | 400                 | _(điền sau)_ |           |
+|                | 2.2 Webhook forged HMAC         | 400                 | _(điền sau)_ |           |
+|                | 2.3 Idempotency (3 requests)    | 1 unique payment_id | _(điền sau)_ |           |
+|                | 2.4 Amount tampering            | price từ catalog    | _(điền sau)_ |           |
+|                | 2.5 IDOR refund                 | 403                 | _(điền sau)_ |           |
+|                | 2.6 No PAN in DB                | no raw PAN          | _(điền sau)_ |           |
+| **3. API**     | 3.1 Credential stuffing lockout | lockout ≤ 10        | _(điền sau)_ |           |
+|                | 3.3 Rate limit checkout         | 429 responses       | _(điền sau)_ |           |
+|                | 3.4 User enumeration            | same error msg      | _(điền sau)_ |           |
+|                | 3.5 CORS wildcard               | reject evil origin  | _(điền sau)_ |           |
+|                | 3.6 WAF SQLi                    | 403                 | _(điền sau)_ |           |
+|                | 3.7 WAF scanner                 | 403                 | _(điền sau)_ |           |
+| **4. Keys**    | 4.1 Vault recovery MTTR         | < 5 min             | _(điền sau)_ |           |
+|                | 4.2 Key rotation integrity      | data preserved      | _(điền sau)_ |           |
+|                | 4.3 KMS latency p99             | < 50ms              | _(điền sau)_ |           |
+| **5. Supply**  | 5.2 CVE scan                    | 0 HIGH/CRITICAL     | _(điền sau)_ |           |
+|                | 5.3 Secrets in git              | 0 real secrets      | _(điền sau)_ |           |
 
 ---
 
 ### Performance Targets
 
-| Metric | Target | Baseline | Với Security Controls |
-|---|---|---|---|
-| Checkout median latency | < 500ms | ___ ms | ___ ms |
-| Checkout p99 latency | < 2000ms | ___ ms | ___ ms |
-| KMS encrypt median | < 10ms | N/A | ___ ms |
-| Token issuance median | < 200ms | ___ ms | ___ ms |
-| Max concurrent checkouts | ≥ 20 req/s | ___ | ___ |
+| Metric                   | Target     | Baseline  | Với Security Controls |
+| ------------------------ | ---------- | --------- | --------------------- |
+| Checkout median latency  | < 500ms    | \_\_\_ ms | \_\_\_ ms             |
+| Checkout p99 latency     | < 2000ms   | \_\_\_ ms | \_\_\_ ms             |
+| KMS encrypt median       | < 10ms     | N/A       | \_\_\_ ms             |
+| Token issuance median    | < 200ms    | \_\_\_ ms | \_\_\_ ms             |
+| Max concurrent checkouts | ≥ 20 req/s | \_\_\_    | \_\_\_                |
 
 ---
 
@@ -1550,14 +1551,14 @@ done
 
 > Các lỗ hổng sau sẽ khiến test FAIL theo kế hoạch — cần sửa để demo đúng mục tiêu:
 
-| Ưu tiên | Lỗ hổng | File cần sửa | Test liên quan |
-|---|---|---|---|
-| P0 | JWT không verify signature | [catalog-service/app/api/dependencies.py:22-41](../services/catalog-service/app/api/dependencies.py) | 1.1, 1.2, 1.3 |
-| P0 | IDOR trên `/refund` và `/payments/{id}` | [payment-service/app/api/v1/internal/payments.py:34-60](../services/payment-service/app/api/v1/internal/payments.py) | 2.5 |
-| P1 | CORS wildcard `*` | tất cả `main.py` | 3.5 |
-| P1 | HMAC disabled by default | tất cả `.env` | 4.4 |
-| P1 | Không có rate limit trên `/api/*` | Envoy config | 3.3 |
+| Ưu tiên | Lỗ hổng                                 | File cần sửa                                                                                                         | Test liên quan |
+| ------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------- |
+| P0      | JWT không verify signature              | [catalog-service/app/api/dependencies.py:22-41](../services/catalog-service/app/api/dependencies.py)                 | 1.1, 1.2, 1.3  |
+| P0      | IDOR trên `/refund` và `/payments/{id}` | [payment-service/app/api/v1/internal/payments.py:34-60](../services/payment-service/app/api/v1/internal/payments.py) | 2.5            |
+| P1      | CORS wildcard `*`                       | tất cả `main.py`                                                                                                     | 3.5            |
+| P1      | HMAC disabled by default                | tất cả `.env`                                                                                                        | 4.4            |
+| P1      | Không có rate limit trên `/api/*`       | Envoy config                                                                                                         | 3.3            |
 
 ---
 
-*Generated by security audit — NT219 Cryptography, 2026-05-31*
+_Generated by security audit — NT219 Cryptography, 2026-05-31_
