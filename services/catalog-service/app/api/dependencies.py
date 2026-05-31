@@ -7,6 +7,9 @@ from fastapi import HTTPException, status, Header
 from jose import jwt, JWTError
 
 from app.core.config import settings
+from app.core.database import get_db  # re-export cho các module khác dùng
+
+__all__ = ["get_current_merchant_id", "get_db"]
 
 logger = logging.getLogger(__name__)
 
