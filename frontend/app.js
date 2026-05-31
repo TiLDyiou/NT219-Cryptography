@@ -235,7 +235,7 @@ const App = () => {
   };
 
   // ── Build checkout payload ───────────────────────────────────────────
-  const buildCheckoutPayload = React.useCallback(function (paymentMethod, deliveryFee, checkoutAddress) {
+  const buildCheckoutPayload = React.useCallback(async function (paymentMethod, deliveryFee, checkoutAddress) {
     const items = cart.map(function (c) {
       const product = (window.PRODUCTS || []).find(function (p) {
         return p.id === c.productId;
@@ -256,9 +256,27 @@ const App = () => {
     }, 0);
     const shipping_fee = deliveryFee !== undefined ? deliveryFee : subtotal > 500000 ? 0 : 25000;
     const firstMerchantId = items.length > 0 ? items[0].merchant_id : 'unknown';
-    const cartMeta = cartVersions[firstMerchantId];
+    var cartMeta = cartVersions[firstMerchantId];
     if (!cartMeta) {
-      throw new Error('Không tìm thấy cart_id từ Cart Service.');
+      try {
+        var res = await window.UitAPI.cart.list();
+        var carts = res && res.data;
+        if (carts && carts.length > 0) {
+          var freshMeta = {};
+          carts.forEach(function (c) {
+            freshMeta[c.merchant_id] = { cartId: c.id, version: c.version };
+          });
+          setCartVersions(function (prev) {
+            return Object.assign({}, prev, freshMeta);
+          });
+          cartMeta = freshMeta[firstMerchantId];
+        }
+      } catch (e) {
+        // Cart Service không phản hồi
+      }
+    }
+    if (!cartMeta) {
+      throw new Error('Giỏ hàng chưa được đồng bộ với server. Vui lòng kiểm tra đăng nhập và thử thêm lại sản phẩm vào giỏ.');
     }
     const cartId = cartMeta.cartId;
     const pmType = paymentMethod === 'credit' ? 'credit_card' : paymentMethod === 'cod' ? 'cod' : 'e_wallet';
@@ -308,9 +326,9 @@ const App = () => {
       alert('Order Service chưa tạo được đơn hàng: ' + err.message);
     });
   }, [cart, cartVersions]);
-  const handlePay = (paymentMethod, deliveryFee, checkoutAddress) => {
+  const handlePay = async (paymentMethod, deliveryFee, checkoutAddress) => {
     try {
-      const payload = buildCheckoutPayload(paymentMethod, deliveryFee, checkoutAddress);
+      const payload = await buildCheckoutPayload(paymentMethod, deliveryFee, checkoutAddress);
       const subtotal = (payload.items || []).reduce(function (s, i) {
         return s + i.unit_price * i.quantity;
       }, 0);
