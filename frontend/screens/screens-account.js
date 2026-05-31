@@ -245,7 +245,7 @@ const LoginScreen = ({
     name: "eye",
     size: 16,
     color: "var(--ink-400)"
-  }))), /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       justifyContent: 'space-between',
