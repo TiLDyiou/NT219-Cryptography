@@ -13,6 +13,10 @@ class HmacVerificationMiddleware(BaseHTTPMiddleware):
         if request.url.path in {"/health", "/ready", "/metrics", "/docs", "/openapi.json", "/redoc"}:
             return await call_next(request)
 
+        # Merchant/public routes dùng JWT — HMAC chỉ enforce cho /internal/ và /system/ (S2S)
+        if "/internal/" not in request.url.path and "/system/" not in request.url.path:
+            return await call_next(request)
+
         signature = request.headers.get("X-Signature")
         timestamp = request.headers.get("X-Timestamp")
         nonce = request.headers.get("X-Nonce")

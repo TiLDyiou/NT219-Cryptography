@@ -1,5 +1,5 @@
 from typing import Any, Optional
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_db, get_idempotency_key, get_correlation_id, get_current_user_id
@@ -35,14 +35,16 @@ async def charge(
 async def refund(
     request: RefundRequest,
     db: AsyncSession = Depends(get_db),
+    requesting_user_id: str = Depends(get_current_user_id),
     correlation_id: Optional[str] = Depends(get_correlation_id),
 ):
     container = get_container()
     usecase = container.refund_use_case(db)
-    
+
     payload = request.model_dump()
+    payload["requesting_user_id"] = requesting_user_id
     result = await usecase.execute(payload)
-    
+
     return APIResponse(success=True, data=result, correlation_id=correlation_id)
 
 
@@ -50,11 +52,16 @@ async def refund(
 async def get_payment(
     payment_id: str,
     db: AsyncSession = Depends(get_db),
+    requesting_user_id: str = Depends(get_current_user_id),
     correlation_id: Optional[str] = Depends(get_correlation_id),
 ):
     container = get_container()
     usecase = container.get_payment_use_case(db)
-    
+
     result = await usecase.execute(payment_id)
-    
+
+    # Verify caller owns this payment
+    if result.get("user_id") and result["user_id"] != requesting_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
     return APIResponse(success=True, data=result, correlation_id=correlation_id)

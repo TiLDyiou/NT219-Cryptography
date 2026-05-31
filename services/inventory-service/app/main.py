@@ -77,10 +77,15 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://100.96.240.45",
+        "https://ingress.tail980c12.ts.net",
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-Request-Id"],
 )
 app.add_middleware(NonceGuardMiddleware)
 app.add_middleware(HmacVerificationMiddleware)

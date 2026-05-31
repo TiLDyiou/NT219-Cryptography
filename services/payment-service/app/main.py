@@ -70,10 +70,15 @@ app = FastAPI(
 # CORS configuration (compatible with SAQ-A Elements)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Elements client tokenize, keep safe or configure appropriately
+    allow_origins=[
+        "http://100.96.240.45",
+        "https://ingress.tail980c12.ts.net",
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-Request-Id"],
 )
 
 # Cryptographic and anti-replay middlewares

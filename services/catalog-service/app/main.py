@@ -29,12 +29,15 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    # Khi nào deploy thật thì điền domain của frontend vào allow_origins
-    allow_origins=["*"],
-    # Cơ chế cho phép đăng nhập thông qua cookies
+    allow_origins=[
+        "http://100.96.240.45",
+        "https://ingress.tail980c12.ts.net",
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-Request-Id"],
 )
 
 # Exception handlers
