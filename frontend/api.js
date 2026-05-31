@@ -57,11 +57,20 @@ const BACKEND_URL = resolveBackendUrl();
 
   let _userId = null;
 
+  function generateNonce() {
+    if (window.crypto && window.crypto.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
   function authHeaders(extra) {
     const token = window.UitAuth && window.UitAuth.getAccessToken && window.UitAuth.getAccessToken();
     const base = { 
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true'
+      'ngrok-skip-browser-warning': 'true',
+      'X-Timestamp': Math.floor(Date.now() / 1000).toString(),
+      'X-Nonce': generateNonce()
     };
     if (token) {
       base['Authorization'] = 'Bearer ' + token;
