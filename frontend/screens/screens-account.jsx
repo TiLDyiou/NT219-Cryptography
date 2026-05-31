@@ -11,6 +11,7 @@ const LoginScreen = ({ onLogin, onNav }) => {
   const [webAuthnState, setWebAuthnState] = React.useState('idle');
   const [loading, setLoading] = React.useState(false);
   const [loginError, setLoginError] = React.useState('');
+  const [showPw, setShowPw] = React.useState(false);
 
   const next = (target) => () => setStep(target);
 
@@ -135,8 +136,10 @@ const LoginScreen = ({ onLogin, onNav }) => {
               <div style={{ marginBottom: 6 }}>
                 <label style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6, display: 'block' }}>Mật khẩu</label>
                 <div style={{ position: 'relative' }}>
-                  <input className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-                  <Icon name="eye" size={16} color="var(--ink-400)" />
+                  <input className="input" type={showPw ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={{ paddingRight: 36 }} />
+                  <span onClick={() => setShowPw(v => !v)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', lineHeight: 0 }}>
+                    <Icon name={showPw ? 'eye-off' : 'eye'} size={16} color="var(--ink-400)" />
+                  </span>
                 </div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 20 }}>

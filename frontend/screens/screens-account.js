@@ -14,6 +14,7 @@ const LoginScreen = ({
   const [webAuthnState, setWebAuthnState] = React.useState('idle');
   const [loading, setLoading] = React.useState(false);
   const [loginError, setLoginError] = React.useState('');
+  const [showPw, setShowPw] = React.useState(false);
   const next = target => () => setStep(target);
   const handleCredentialsSubmit = async () => {
     if (!window.UitAuth) {
@@ -235,12 +236,16 @@ const LoginScreen = ({
     }
   }, /*#__PURE__*/React.createElement("input", {
     className: "input",
-    type: "password",
+    type: showPw ? 'text' : 'password',
     value: password,
     onChange: e => setPassword(e.target.value),
-    placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
-  }), /*#__PURE__*/React.createElement(Icon, {
-    name: "eye",
+    placeholder: "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022",
+    style: { paddingRight: 36 }
+  }), /*#__PURE__*/React.createElement("span", {
+    onClick: () => setShowPw(v => !v),
+    style: { position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', lineHeight: 0 }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: showPw ? 'eye-off' : 'eye',
     size: 16,
     color: "var(--ink-400)"
   }))), /*#__PURE__*/React.createElement("div", {
