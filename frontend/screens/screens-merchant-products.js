@@ -18,7 +18,8 @@ const MerchantProductsSection = ({
     sku: '',
     stock: '',
     category: 'phone',
-    description: ''
+    description: '',
+    imageUrl: ''
   });
   const [saving, setSaving] = React.useState(false);
   const hdr = () => {
@@ -65,21 +66,35 @@ const MerchantProductsSection = ({
     load();
   }, [merchantId]);
   const filtered = products.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.sku || '').toLowerCase().includes(search.toLowerCase()));
+  const pickImage = (e, onUrl) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => onUrl(ev.target.result);
+    reader.readAsDataURL(file);
+  };
   const startEdit = p => {
+    const imgUrl = p.images && p.images.length > 0 ? p.images[0].url || '' : '';
     setEditId(p.id);
     setEditVals({
-      price: p.base_price
+      price: p.base_price,
+      imageUrl: imgUrl
     });
   };
   const saveEdit = product => {
     setSaving(true);
+    const body = {
+      base_price: Number(editVals.price),
+      version: product.version
+    };
+    if (editVals.imageUrl !== undefined) body.images = editVals.imageUrl ? [{
+      url: editVals.imageUrl,
+      alt: product.name
+    }] : [];
     fetch(`${BASE}/api/v1/catalog/merchant/products/${product.id}`, {
       method: 'PUT',
       headers: hdr(),
-      body: JSON.stringify({
-        base_price: Number(editVals.price),
-        version: product.version
-      })
+      body: JSON.stringify(body)
     }).then(r => {
       if (!r.ok) throw new Error('Không cập nhật được sản phẩm.');
       load();
@@ -129,6 +144,10 @@ const MerchantProductsSection = ({
         name: form.name.trim(),
         status: 'active',
         base_price: Number(form.price),
+        images: form.imageUrl ? [{
+          url: form.imageUrl,
+          alt: form.name.trim()
+        }] : [],
         metadata_json: {
           category: form.category,
           stock: Number(form.stock || 0),
@@ -159,7 +178,8 @@ const MerchantProductsSection = ({
         sku: '',
         stock: '',
         category: 'phone',
-        description: ''
+        description: '',
+        imageUrl: ''
       });
       showNotice('Đã thêm sản phẩm mới');
       setSaving(false);
@@ -283,13 +303,29 @@ const MerchantProductsSection = ({
         alignItems: 'center',
         background: !(p.is_active && p.status === 'active') ? '#FAFAFA' : 'white'
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, p.images && p.images[0] && p.images[0].url ? /*#__PURE__*/React.createElement("img", {
+      src: p.images[0].url,
+      alt: p.name,
+      style: {
+        width: 38,
+        height: 38,
+        borderRadius: 4,
+        objectFit: 'cover'
+      },
+      onError: e => {
+        e.target.style.display = 'none';
+        e.target.nextSibling.style.display = 'flex';
+      }
+    }) : null, /*#__PURE__*/React.createElement("div", {
       className: "ph-img",
       style: {
         width: 38,
         height: 38,
         borderRadius: 4,
-        fontSize: 8
+        fontSize: 8,
+        display: p.images && p.images[0] && p.images[0].url ? 'none' : 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
       }
     }, p.brand), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -321,7 +357,13 @@ const MerchantProductsSection = ({
         fontSize: 11,
         color: 'var(--ink-600)'
       }
-    }, catName(p.category)), isEditing ? /*#__PURE__*/React.createElement("input", {
+    }, catName(p.category)), isEditing ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement("input", {
       type: "number",
       value: editVals.price,
       onChange: e => setEditVals({
@@ -336,7 +378,45 @@ const MerchantProductsSection = ({
         borderRadius: 4,
         outline: 'none'
       }
-    }) : /*#__PURE__*/React.createElement("span", {
+    }), /*#__PURE__*/React.createElement("input", {
+      type: "text",
+      value: editVals.imageUrl || '',
+      placeholder: "URL \u1EA3nh",
+      onChange: e => setEditVals({
+        ...editVals,
+        imageUrl: e.target.value
+      }),
+      style: {
+        width: '100%',
+        padding: '4px 6px',
+        fontSize: 11,
+        border: '1px solid var(--ink-200)',
+        borderRadius: 4,
+        outline: 'none'
+      }
+    }), /*#__PURE__*/React.createElement("label", {
+      style: {
+        fontSize: 10,
+        color: 'var(--primary)',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "camera",
+      size: 11
+    }), " T\u1EA3i \u1EA3nh l\xEAn", /*#__PURE__*/React.createElement("input", {
+      type: "file",
+      accept: "image/*",
+      style: {
+        display: 'none'
+      },
+      onChange: e => pickImage(e, url => setEditVals({
+        ...editVals,
+        imageUrl: url
+      }))
+    }))) : /*#__PURE__*/React.createElement("span", {
       style: {
         fontWeight: 600,
         color: 'var(--price)',
@@ -524,7 +604,88 @@ const MerchantProductsSection = ({
       fontFamily: 'inherit',
       fontSize: 13
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      border: '1px solid var(--ink-200)',
+      borderRadius: 6,
+      padding: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-600)',
+      marginBottom: 6
+    }
+  }, "\u1EA2nh s\u1EA3n ph\u1EA9m"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 10,
+      alignItems: 'center'
+    }
+  }, form.imageUrl ? /*#__PURE__*/React.createElement("img", {
+    src: form.imageUrl,
+    alt: "preview",
+    style: {
+      width: 56,
+      height: 56,
+      objectFit: 'cover',
+      borderRadius: 6,
+      border: '1px solid var(--ink-200)'
+    }
+  }) : /*#__PURE__*/React.createElement("div", {
+    className: "ph-img",
+    style: {
+      width: 56,
+      height: 56,
+      borderRadius: 6,
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '6px 10px',
+      border: '1px solid var(--primary)',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontSize: 12,
+      color: 'var(--primary)',
+      width: 'fit-content'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "camera",
+    size: 13
+  }), " T\u1EA3i \u1EA3nh l\xEAn", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: 'none'
+    },
+    onChange: e => pickImage(e, url => setForm({
+      ...form,
+      imageUrl: url
+    }))
+  })), /*#__PURE__*/React.createElement("input", {
+    className: "input",
+    placeholder: "Ho\u1EB7c d\xE1n URL \u1EA3nh...",
+    value: form.imageUrl,
+    onChange: e => setForm({
+      ...form,
+      imageUrl: e.target.value
+    }),
+    style: {
+      padding: '5px 8px',
+      fontSize: 11
+    }
+  }))))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 10

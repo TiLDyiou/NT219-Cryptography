@@ -9,7 +9,7 @@ const MerchantProductsSection = ({ merchantId, user }) => {
   const [editId, setEditId]     = React.useState(null);   // inline edit
   const [editVals, setEditVals] = React.useState({});
   const [notice, setNotice]     = React.useState(null);
-  const [form, setForm]         = React.useState({ name:'', price:'', sku:'', stock:'', category:'phone', description:'' });
+  const [form, setForm]         = React.useState({ name:'', price:'', sku:'', stock:'', category:'phone', description:'', imageUrl:'' });
   const [saving, setSaving]     = React.useState(false);
 
   const hdr = () => {
@@ -50,16 +50,27 @@ const MerchantProductsSection = ({ merchantId, user }) => {
     (p.sku || '').toLowerCase().includes(search.toLowerCase())
   );
 
+  const pickImage = (e, onUrl) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => onUrl(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
   const startEdit = (p) => {
+    const imgUrl = p.images && p.images.length > 0 ? (p.images[0].url || '') : '';
     setEditId(p.id);
-    setEditVals({ price: p.base_price });
+    setEditVals({ price: p.base_price, imageUrl: imgUrl });
   };
 
   const saveEdit = (product) => {
     setSaving(true);
+    const body = { base_price: Number(editVals.price), version: product.version };
+    if (editVals.imageUrl !== undefined) body.images = editVals.imageUrl ? [{ url: editVals.imageUrl, alt: product.name }] : [];
     fetch(`${BASE}/api/v1/catalog/merchant/products/${product.id}`, {
       method: 'PUT', headers: hdr(),
-      body: JSON.stringify({ base_price: Number(editVals.price), version: product.version }),
+      body: JSON.stringify(body),
     })
     .then(r => {
       if (!r.ok) throw new Error('Không cập nhật được sản phẩm.');
@@ -105,6 +116,7 @@ const MerchantProductsSection = ({ merchantId, user }) => {
         name: form.name.trim(),
         status: 'active',
         base_price: Number(form.price),
+        images: form.imageUrl ? [{ url: form.imageUrl, alt: form.name.trim() }] : [],
         metadata_json: {
           category: form.category,
           stock: Number(form.stock || 0),
@@ -130,7 +142,7 @@ const MerchantProductsSection = ({ merchantId, user }) => {
         }).catch(() => {});
       }
       load(); setShowAdd(false);
-      setForm({ name:'', price:'', sku:'', stock:'', category:'phone', description:'' });
+      setForm({ name:'', price:'', sku:'', stock:'', category:'phone', description:'', imageUrl:'' });
       showNotice('Đã thêm sản phẩm mới');
       setSaving(false);
     })
@@ -192,7 +204,10 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                 borderBottom: '1px solid var(--ink-100)', alignItems: 'center',
                 background: !(p.is_active && p.status === 'active') ? '#FAFAFA' : 'white',
               }}>
-                <div className="ph-img" style={{ width: 38, height: 38, borderRadius: 4, fontSize: 8 }}>{p.brand}</div>
+                {p.images && p.images[0] && p.images[0].url
+                  ? <img src={p.images[0].url} alt={p.name} style={{ width: 38, height: 38, borderRadius: 4, objectFit: 'cover' }} onError={e => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                  : null}
+                <div className="ph-img" style={{ width: 38, height: 38, borderRadius: 4, fontSize: 8, display: p.images && p.images[0] && p.images[0].url ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center' }}>{p.brand}</div>
 
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 500, opacity: p.is_active && p.status === 'active' ? 1 : 0.5, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -206,9 +221,19 @@ const MerchantProductsSection = ({ merchantId, user }) => {
                 <span style={{ fontSize: 11, color: 'var(--ink-600)' }}>{catName(p.category)}</span>
 
                 {isEditing ? (
-                  <input type="number" value={editVals.price}
-                    onChange={e => setEditVals({ ...editVals, price: e.target.value })}
-                    style={{ width: '100%', padding: '4px 6px', fontSize: 12, border: '1.5px solid var(--primary)', borderRadius: 4, outline: 'none' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <input type="number" value={editVals.price}
+                      onChange={e => setEditVals({ ...editVals, price: e.target.value })}
+                      style={{ width: '100%', padding: '4px 6px', fontSize: 12, border: '1.5px solid var(--primary)', borderRadius: 4, outline: 'none' }} />
+                    <input type="text" value={editVals.imageUrl || ''} placeholder="URL ảnh"
+                      onChange={e => setEditVals({ ...editVals, imageUrl: e.target.value })}
+                      style={{ width: '100%', padding: '4px 6px', fontSize: 11, border: '1px solid var(--ink-200)', borderRadius: 4, outline: 'none' }} />
+                    <label style={{ fontSize: 10, color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Icon name="camera" size={11} /> Tải ảnh lên
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={e => pickImage(e, url => setEditVals({ ...editVals, imageUrl: url }))} />
+                    </label>
+                  </div>
                 ) : (
                   <span style={{ fontWeight: 600, color: 'var(--price)', cursor: 'pointer' }} onClick={() => startEdit(p)} title="Click để sửa giá">
                     {window.formatVND(p.base_price)}
@@ -270,6 +295,24 @@ const MerchantProductsSection = ({ merchantId, user }) => {
               <textarea className="input" placeholder="Mô tả (tuỳ chọn)" rows={2} value={form.description}
                 onChange={e => setForm({...form, description: e.target.value})}
                 style={{ resize: 'vertical', fontFamily: 'inherit', fontSize: 13 }} />
+              <div style={{ border: '1px solid var(--ink-200)', borderRadius: 6, padding: 10 }}>
+                <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 6 }}>Ảnh sản phẩm</div>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {form.imageUrl
+                    ? <img src={form.imageUrl} alt="preview" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--ink-200)' }} />
+                    : <div className="ph-img" style={{ width: 56, height: 56, borderRadius: 6, flexShrink: 0 }} />}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', border: '1px solid var(--primary)', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: 'var(--primary)', width: 'fit-content' }}>
+                      <Icon name="camera" size={13} /> Tải ảnh lên
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={e => pickImage(e, url => setForm({...form, imageUrl: url}))} />
+                    </label>
+                    <input className="input" placeholder="Hoặc dán URL ảnh..." value={form.imageUrl}
+                      onChange={e => setForm({...form, imageUrl: e.target.value})}
+                      style={{ padding: '5px 8px', fontSize: 11 }} />
+                  </div>
+                </div>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1, border: '1px solid var(--ink-200)' }} onClick={() => setShowAdd(false)}>Huỷ</button>
