@@ -24,6 +24,14 @@ function storeBackendUrl(url) {
   }
 }
 
+function isLocalDevHost() {
+  return window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+}
+
+function isLabIngressHost(hostname) {
+  return /^192\.168\.122\.\d+$/.test(hostname || '');
+}
+
 function resolveBackendUrl() {
   const params = new URLSearchParams(window.location.search);
   const fromQuery = params.get('api') || params.get('backend') || params.get('baseUrl');
@@ -33,17 +41,26 @@ function resolveBackendUrl() {
     return url;
   }
 
+  if (window.UIT_BACKEND_URL) {
+    return normalizeBackendUrl(window.UIT_BACKEND_URL);
+  }
+
   const storedUrl = normalizeBackendUrl(readStoredBackendUrl());
   if (LEGACY_BACKEND_URLS.includes(storedUrl)) {
     storeBackendUrl(DEFAULT_BACKEND_URL);
     return DEFAULT_BACKEND_URL;
   }
 
-  return normalizeBackendUrl(
-    window.UIT_BACKEND_URL ||
-    storedUrl ||
-    DEFAULT_BACKEND_URL
-  );
+  // VM ingress (NODE-1): API luôn cùng origin — tránh dùng URL tunnel cũ trong localStorage
+  if (!isLocalDevHost() && isLabIngressHost(window.location.hostname)) {
+    const originBackend = normalizeBackendUrl(window.location.origin);
+    if (storedUrl && storedUrl !== originBackend) {
+      storeBackendUrl(originBackend);
+    }
+    return originBackend;
+  }
+
+  return normalizeBackendUrl(storedUrl || DEFAULT_BACKEND_URL);
 }
 
 const BACKEND_URL = resolveBackendUrl();
@@ -120,7 +137,11 @@ const BACKEND_URL = resolveBackendUrl();
     }
     if (json && typeof json.message === 'string') return json.message;
     if (status === 429) return 'Quá nhiều request (HTTP 429). Nginx/gateway đang giới hạn — thử lại sau 1 phút hoặc dùng IP nội bộ thay tunnel.';
-    if (status === 502 || status === 503) return 'Backend chưa sẵn sàng hoặc gateway không kết nối được service. Kiểm tra catalog-service / envoy trên NODE-2.';
+    if (status === 502 || status === 503) {
+      return 'HTTP ' + status + ' từ ' + BACKEND_URL
+        + ' — Envoy/Nginx (NODE-1) không kết nối được catalog-service (NODE-2:8001).'
+        + ' Trên NODE-1 chạy: curl -s -o /dev/null -w "%{http_code}" "http://localhost/api/v1/catalog/public/products?size=1&status=active"';
+    }
     if (status === 403 && json && json.error === 'blocked_by_waf') return 'Request bị WAF chặn: ' + (json.reason || 'unknown');
     return 'HTTP ' + status;
   }
