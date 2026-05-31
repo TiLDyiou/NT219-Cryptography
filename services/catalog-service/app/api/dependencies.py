@@ -1,15 +1,55 @@
-from fastapi import Depends, HTTPException, status, Header
+import time
+import logging
 from typing import Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.database import get_db
+
+import httpx
+from fastapi import HTTPException, status, Header
+from jose import jwt, JWTError
+
+from app.core.config import settings
+from app.core.database import get_db  # re-export cho các module khác dùng
+
+__all__ = ["get_current_merchant_id", "get_db"]
+
+logger = logging.getLogger(__name__)
+
+# Cache public key — refresh mỗi 1 giờ
+_pubkey_cache: dict = {"pem": None, "expires_at": 0.0}
+
+
+async def _get_public_key() -> str:
+    """Lấy RSA public key từ Keycloak realm endpoint, cache 1 giờ."""
+    now = time.time()
+    if _pubkey_cache["pem"] and now < _pubkey_cache["expires_at"]:
+        return _pubkey_cache["pem"]
+
+    realm_url = f"{settings.KEYCLOAK_URL}/realms/{settings.KEYCLOAK_REALM}"
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.get(realm_url)
+            resp.raise_for_status()
+            raw_key = resp.json()["public_key"]
+            # Bọc thành định dạng PEM chuẩn để python-jose đọc được
+            pem = f"-----BEGIN PUBLIC KEY-----\n{raw_key}\n-----END PUBLIC KEY-----"
+            _pubkey_cache["pem"] = pem
+            _pubkey_cache["expires_at"] = now + 3600
+            return pem
+    except Exception as exc:
+        logger.error("Failed to fetch Keycloak public key: %s", exc)
+        if _pubkey_cache["pem"]:
+            return _pubkey_cache["pem"]
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
+        )
+
 
 async def get_current_merchant_id(
-    authorization: Optional[str] = Header(None, description="Bearer JWT from Keycloak")
+    authorization: Optional[str] = Header(None, description="Bearer JWT từ Keycloak"),
 ) -> str:
     """
-    Trích xuất merchant_id (= sub claim) từ JWT.
-    Signature đã được Envoy verify trước khi tới đây,
-    nên chỉ cần decode payload để lấy claims.
+    Verify JWT signature với RSA public key từ Keycloak,
+    trả về merchant_id (= sub claim).
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -17,29 +57,39 @@ async def get_current_merchant_id(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = authorization.split(" ")[1]
 
-    # Decode JWT payload (phần thứ 2, base64url-encoded)
-    import base64, json
+    token = authorization.split(" ", 1)[1].strip()
+
     try:
-        payload_b64 = token.split(".")[1]
-        # Thêm padding cho base64
-        payload_b64 += "=" * (4 - len(payload_b64) % 4)
-        claims = json.loads(base64.urlsafe_b64decode(payload_b64))
-        merchant_id = claims.get("sub", "")
-    except Exception:
+        public_key = await _get_public_key()
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["RS256"],
+            options={"verify_aud": False},
+        )
+    except JWTError as exc:
+        logger.warning("JWT validation failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token format",
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Unexpected error during JWT validation: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token validation failed",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
+    merchant_id: str = payload.get("sub", "")
     if not merchant_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Token missing 'sub' claim",
         )
-    return merchant_id
 
-async def get_db_session() -> AsyncSession:
-    # Generator dependency cannot be easily yielded in another regular func, FastAPI supports Depends(get_db)
-    pass
+    return merchant_id

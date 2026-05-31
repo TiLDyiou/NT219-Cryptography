@@ -71,7 +71,18 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://100.96.240.45",
+        "https://ingress.tail980c12.ts.net",
+        "http://localhost:3000",
+        "http://localhost:8080",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Id", "X-Request-Id"],
+)
 app.add_middleware(NonceGuardMiddleware)
 app.add_middleware(HmacVerificationMiddleware)
 app.add_exception_handler(NotificationException, custom_exception_handler)
