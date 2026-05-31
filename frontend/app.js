@@ -314,7 +314,7 @@ const App = () => {
       throw new Error('Giỏ hàng chưa được đồng bộ với server. Vui lòng kiểm tra đăng nhập và thử thêm lại sản phẩm vào giỏ.');
     }
     const cartId = cartMeta.cartId;
-    const pmType = paymentMethod === 'credit_card' ? 'credit_card' : paymentMethod === 'cod' ? 'cod' : 'e_wallet';
+    const pmType = paymentMethod === 'credit_card' ? 'credit_card' : 'cod';
     const address = checkoutAddress || {};
     if (!address.full_name || !address.phone || !address.address_line1 || !address.city) {
       throw new Error('Vui lòng nhập đầy đủ tên, số điện thoại, địa chỉ và tỉnh/thành phố.');

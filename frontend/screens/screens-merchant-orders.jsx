@@ -7,7 +7,7 @@ const _ORDER_STATUS = {
   delivered: { label: 'Đã giao',      color: '#059669', bg: '#ECFDF5' },
   cancelled: { label: 'Đã huỷ',       color: '#DC2626', bg: '#FEF2F2' },
 };
-const _PAYMENT_LABEL = { cod: 'COD', credit: 'Thẻ TD', vnpay: 'VNPay', momo: 'MoMo' };
+const _PAYMENT_LABEL = { cod: 'COD', credit_card: 'Thẻ TD' };
 
 const MerchantOrdersSection = ({ merchantId, user }) => {
   const BASE = window.UitAPI && window.UitAPI.backendUrl;

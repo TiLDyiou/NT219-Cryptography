@@ -67,9 +67,13 @@ class HandleWebhookUseCase:
             canonical_status = data_object.get("payment_status") or data_object.get("status")
             target_status = self._map_checkout_status(event_type, canonical_status)
         else:
-            intent_id = data_object.get("payment_intent") or data_object.get("id")
-            if not intent_id:
-                logger.warning("Stripe event has no payment intent ID associated. Skipping.")
+            if data_object.get("object") == "payment_intent":
+                intent_id = data_object.get("id")
+            else:
+                intent_id = data_object.get("payment_intent")
+
+            if not intent_id or not intent_id.startswith("pi_"):
+                logger.warning("Stripe event has no valid payment intent ID associated. Skipping.")
                 return {"success": True, "reason": "no_intent_id"}
 
             # Webhook payload might be stale. Re-fetching ensures we have the latest truth.

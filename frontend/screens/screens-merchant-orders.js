@@ -29,9 +29,7 @@ const _ORDER_STATUS = {
 };
 const _PAYMENT_LABEL = {
   cod: 'COD',
-  credit: 'Thẻ TD',
-  vnpay: 'VNPay',
-  momo: 'MoMo'
+  credit_card: 'Thẻ TD'
 };
 const MerchantOrdersSection = ({
   merchantId,
