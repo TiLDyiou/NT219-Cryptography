@@ -31,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://100.96.240.45",
-        "https://ingress.tail980c12.ts.net",
+        "http://192.168.122.11",
         "http://localhost:3000",
         "http://localhost:8080",
     ],
