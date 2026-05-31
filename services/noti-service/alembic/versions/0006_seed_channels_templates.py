@@ -25,10 +25,10 @@ def upgrade() -> None:
         sa.text(
             """
             INSERT INTO notification_channels (id, code, name, provider, config, rate_limit)
-            VALUES (:id, 'email', 'Email', 'gmail_smtp', '{}', '{"max_per_minute":10}')
+            VALUES (:id, 'email', 'Email', 'gmail_smtp', '{}', :rate_limit)
             ON CONFLICT (code) DO NOTHING
             """
-        ).bindparams(id=channel_id)
+        ).bindparams(id=channel_id, rate_limit='{"max_per_minute":10}')
     )
     for index, (code, category, subject) in enumerate(TEMPLATES, start=1):
         template_id = f"00000000-0000-0000-0000-0000000008{index:02d}"

@@ -1,17 +1,22 @@
+import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header
+from cryptography.exceptions import InvalidTag
 
 from app.api.dependencies import (
     bind_checkout_to_server_cart,
     build_checkout_context,
+    clear_cart_on_server,
     get_checkout_use_case,
     get_correlation_id,
+    get_crypto_service,
     get_current_user_id,
     get_get_order_use_case,
     get_idempotency_key,
     get_list_orders_use_case,
 )
+from app.domain.ports.crypto_service import CryptoService
 from app.application.use_cases.checkout import (
     CheckoutUseCase,
     GetOrderUseCase,
@@ -21,12 +26,40 @@ from app.schemas.order import (
     CheckoutOrderSummary,
     CheckoutRequest,
     CheckoutResponse,
+    OrderAddressResponse,
     OrderItemResponse,
     OrderSummaryResponse,
 )
 from app.schemas.response import APIResponse
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+async def _build_shipping_payload(
+    order, crypto: CryptoService
+) -> OrderAddressResponse | None:
+    for addr in order.addresses:
+        if addr.address_type != "shipping":
+            continue
+        try:
+            return OrderAddressResponse(
+                full_name=await crypto.decrypt_field(addr.encrypted.full_name),
+                phone=await crypto.decrypt_field(addr.encrypted.phone),
+                email=await crypto.decrypt_field(addr.encrypted.email),
+                address_line1=await crypto.decrypt_field(addr.encrypted.address_line1),
+                city=addr.city,
+                state_province=addr.state_province,
+                postal_code=addr.postal_code,
+            )
+        except (InvalidTag, UnicodeDecodeError, ValueError) as exc:
+            logger.warning(
+                "Could not decrypt shipping address for order %s: %s",
+                order.id,
+                exc,
+            )
+            return None
+    return None
 
 
 @router.post("/checkout", response_model=APIResponse[CheckoutResponse])
@@ -49,6 +82,10 @@ async def checkout(
         user_agent=user_agent,
     )
     result = await use_case.execute(ctx)
+
+    # Mark cart as converted after successful order
+    await clear_cart_on_server(payload.cart_id, user_id)
+
     response = CheckoutResponse(
         order_group_id=result.order_group_id,
         parent_order_number=result.parent_order_number,
@@ -118,10 +155,13 @@ async def list_my_orders(
 async def get_my_order(
     order_id: str,
     use_case: GetOrderUseCase = Depends(get_get_order_use_case),
+    crypto: CryptoService = Depends(get_crypto_service),
     user_id: str = Depends(get_current_user_id),
     correlation_id: Optional[str] = Depends(get_correlation_id),
 ):
     order = await use_case.execute(user_id, order_id)
+    shipping_payload = await _build_shipping_payload(order, crypto)
+
     result = OrderSummaryResponse(
         id=order.id,
         order_group_id=order.order_group_id,
@@ -137,6 +177,7 @@ async def get_my_order(
         payment_method_type=order.payment_method_type,
         fraud_status=order.fraud_status,
         created_at=order.created_at,
+        shipping_address=shipping_payload,
         items=[
             OrderItemResponse(
                 id=item.id,

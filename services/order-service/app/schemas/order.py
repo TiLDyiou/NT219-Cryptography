@@ -15,6 +15,16 @@ class AddressPayload(BaseModel):
     postal_code: Optional[str] = Field(None, max_length=20)
 
 
+class OrderAddressResponse(BaseModel):
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address_line1: Optional[str] = None
+    city: Optional[str] = None
+    state_province: Optional[str] = None
+    postal_code: Optional[str] = None
+
+
 class CheckoutItem(BaseModel):
     product_id: str = Field(..., min_length=1, max_length=36)
     variant_id: Optional[str] = Field(None, max_length=36)
@@ -90,5 +100,6 @@ class OrderSummaryResponse(BaseModel):
     fraud_status: str
     created_at: datetime
     items: List[OrderItemResponse]
+    shipping_address: Optional[OrderAddressResponse] = None
 
     model_config = ConfigDict(from_attributes=True)

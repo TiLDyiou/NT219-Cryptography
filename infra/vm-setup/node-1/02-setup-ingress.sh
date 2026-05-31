@@ -167,9 +167,9 @@ cat >/tmp/realm-export-vm.json <<REALM
   "bruteForceProtected": true,
   "failureFactor": 5,
   "waitIncrementSeconds": 60,
-  "accessTokenLifespan": 300,
+  "accessTokenLifespan": 3600,
   "accessTokenLifespanForImplicitFlow": 900,
-  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionIdleTimeout": 3600,
   "ssoSessionMaxLifespan": 36000,
   "refreshTokenMaxReuse": 0,
   "revokeRefreshToken": true,
@@ -189,8 +189,8 @@ cat >/tmp/realm-export-vm.json <<REALM
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "access.token.lifespan": "300",
-        "client.session.idle.timeout": "1800"
+        "access.token.lifespan": "3600",
+        "client.session.idle.timeout": "3600"
       }
     },
     {

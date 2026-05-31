@@ -105,8 +105,11 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
           </div>
 
           {Object.entries(byMerchant).map(([mid, mitems]) => {
+            const firstItem = mitems && mitems.length > 0 ? mitems[0] : null;
             const merchant = {
-              name: mid || 'Catalog Merchant',
+              name: firstItem && firstItem.product && firstItem.product.merchant_name 
+                      ? firstItem.product.merchant_name 
+                      : (mid || 'Nhà bán hàng UIT Store'),
             };
             return (
               <div key={mid} className="card" style={{ overflow: 'hidden' }}>
@@ -143,8 +146,10 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
                         checked={selected.includes(item.productId)}
                         onChange={() => toggleSelect(item.productId)} />
                       <div style={{ display: 'flex', gap: 12 }}>
-                        <div className="ph-img" style={{ width: 70, height: 70, flexShrink: 0, borderRadius: 4 }}>
-                          {item.product.brand}
+                        <div className="ph-img" style={{ width: 70, height: 70, flexShrink: 0, borderRadius: 4, overflow: 'hidden' }}>
+                          {item.product.images && item.product.images.length > 0 && item.product.images[0].url ? (
+                            <img src={window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(item.product.images[0].url) : item.product.images[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : item.product.brand}
                         </div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{
@@ -186,8 +191,10 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
                         checked={selected.includes(item.productId)}
                         onChange={() => toggleSelect(item.productId)}
                         style={{ marginTop: 4 }} />
-                      <div className="ph-img" style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 4, fontSize: 10 }}>
-                        {item.product.brand}
+                      <div className="ph-img" style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 4, fontSize: 10, overflow: 'hidden' }}>
+                        {item.product.images && item.product.images.length > 0 && item.product.images[0].url ? (
+                            <img src={window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(item.product.images[0].url) : item.product.images[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : item.product.brand}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
@@ -232,7 +239,7 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
               <div style={{ color: 'var(--ink-600)', marginTop: 4 }}>
                 Nhập địa chỉ nhận hàng ở bước thanh toán.
               </div>
-              <button onClick={() => onNav('checkout')} style={{ marginTop: 8, color: 'var(--primary)', fontSize: 12, fontWeight: 500 }}>Nhập địa chỉ</button>
+              <button onClick={() => onNav('checkout', selected)} style={{ marginTop: 8, color: 'var(--primary)', fontSize: 12, fontWeight: 500 }}>Nhập địa chỉ</button>
             </div>
             <div style={{
               marginTop: 12, padding: 8, background: 'var(--success-soft)',
@@ -265,7 +272,7 @@ const CartScreen = ({ cart, setCart, onNav, user }) => {
               </div>
             </div>
             {user ? (
-              <button onClick={() => onNav('checkout')} className="btn btn-price"
+              <button onClick={() => onNav('checkout', selected)} className="btn btn-price"
                 disabled={selected.length === 0}
                 style={{ width: '100%', marginTop: 14, padding: '12px', fontSize: 14, opacity: selected.length === 0 ? 0.5 : 1 }}>
                 Mua hàng ({selected.length})
@@ -487,8 +494,10 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 220, overflow: 'auto' }}>
               {items.map(i => (
                 <div key={i.productId} style={{ display: 'flex', gap: 10 }}>
-                  <div className="ph-img" style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 4, fontSize: 9 }}>
-                    {i.product.brand}
+                  <div className="ph-img" style={{ width: 50, height: 50, flexShrink: 0, borderRadius: 4, fontSize: 9, overflow: 'hidden' }}>
+                    {i.product.images && i.product.images.length > 0 && i.product.images[0].url ? (
+                        <img src={window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(i.product.images[0].url) : i.product.images[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : i.product.brand}
                   </div>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
                     <div style={{
@@ -537,26 +546,64 @@ const CheckoutScreen = ({ cart, onNav, onPay, user }) => {
 };
 
 // ─── Order Success / Tracking ────────────────────────────────────────
-const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onNav }) => {
-  if (!realOrderId || !orderPayload) {
+const OrderScreenContent = ({ orderTotal, orderId: realOrderId, orderPayload, user, onNav }) => {
+  const [fetchedPayload, setFetchedPayload] = React.useState(orderPayload);
+  const [loading, setLoading] = React.useState(!orderPayload);
+
+  React.useEffect(function () {
+    if (realOrderId && !orderPayload) {
+      window.UitAPI.order.get(realOrderId)
+        .then(function(res) {
+          setFetchedPayload(res.data);
+          setLoading(false);
+        })
+        .catch(function(err) {
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
+  }, [realOrderId, orderPayload]);
+
+  if (!realOrderId) {
     return (
       <div style={{ padding: '60px 24px', textAlign: 'center' }}>
         <Icon name="package" size={44} color="var(--ink-300)" />
-        <h2 style={{ margin: '12px 0 8px' }}>Chưa có đơn hàng từ Order Service</h2>
-        <p style={{ color: 'var(--ink-600)', marginBottom: 24 }}>Trang này chỉ hiển thị sau khi backend tạo đơn hàng thành công.</p>
+        <h2 style={{ margin: '12px 0 8px' }}>Chưa có đơn hàng</h2>
+        <p style={{ color: 'var(--ink-600)', marginBottom: 24 }}>Bạn chưa chọn đơn hàng nào.</p>
         <button onClick={() => onNav('home')} className="btn btn-primary">Về trang chủ</button>
       </div>
     );
   }
 
-  const orderId = realOrderId;
-  const items   = (orderPayload && orderPayload.items) || [];
-  const addr    = (orderPayload && orderPayload.shipping_address) || {};
-  const pm      = (orderPayload && orderPayload.payment_method_type) || 'cod';
-  const total   = orderTotal || (orderPayload && (
-    orderPayload.items.reduce(function(s,i){ return s + i.unit_price * i.quantity; }, 0) + (orderPayload.shipping_fee || 0)
-  )) || 0;
-  const ts      = new Date();
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 60, color: 'var(--ink-400)' }}>
+        <div className="spinner" style={{ width: 32, height: 32, margin: '0 auto 12px' }} />
+        Đang tải thông tin đơn hàng...
+      </div>
+    );
+  }
+
+  if (!fetchedPayload) {
+    return (
+      <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+        <h2 style={{ margin: '12px 0 8px' }}>Không tìm thấy đơn hàng</h2>
+        <button onClick={() => onNav('orders')} className="btn btn-primary">Về danh sách đơn hàng</button>
+      </div>
+    );
+  }
+
+  const items   = fetchedPayload.items || [];
+  const addr    = fetchedPayload.shipping_address || {};
+  const pm      = fetchedPayload.payment_method_type || 'cod';
+  const total   = orderTotal || fetchedPayload.total_amount || (
+    items.reduce(function(s,i){ return s + i.unit_price * i.quantity; }, 0) + (fetchedPayload.shipping_fee || 0)
+  ) || 0;
+  let ts = new Date(fetchedPayload.created_at || new Date());
+  if (isNaN(ts.getTime())) ts = new Date();
+  const orderNumber = fetchedPayload.order_number || realOrderId;
+  const isSuccessScreen = !!orderPayload; // If navigated from checkout
 
   // Tính ngày giao dự kiến: +3 ngày làm việc
   function addBusinessDays(date, days) {
@@ -577,29 +624,42 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onN
 
   return (
     <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ marginBottom: 16 }}>
+        <button onClick={() => onNav('orders')} style={{ color: 'var(--ink-500)', display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>
+          <Icon name="arrow-left" size={14} /> Quay lại
+        </button>
+      </div>
+      
       {/* Header success */}
       <div className="card" style={{
         padding: '32px 28px', textAlign: 'center', marginBottom: 16,
-        background: 'linear-gradient(180deg, #E8F7EE 0%, white 60%)',
+        background: isSuccessScreen ? 'linear-gradient(180deg, #E8F7EE 0%, white 60%)' : 'white',
       }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: '50%', background: 'var(--success)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-          boxShadow: '0 8px 24px rgba(22, 163, 74, 0.3)',
-        }}>
-          <Icon name="check" size={40} color="white" stroke={3} />
-        </div>
-        <h1 style={{ margin: '0 0 6px', fontSize: 22 }}>Đặt hàng thành công!</h1>
-        <p style={{ color: 'var(--ink-600)', margin: '0 0 18px' }}>
-          Cảm ơn <b>{addr.full_name || 'bạn'}</b> đã mua sắm tại UIT Store.
-        </p>
+        {isSuccessScreen && (
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%', background: 'var(--success)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+            boxShadow: '0 8px 24px rgba(22, 163, 74, 0.3)',
+          }}>
+            <Icon name="check" size={40} color="white" stroke={3} />
+          </div>
+        )}
+        <h1 style={{ margin: '0 0 6px', fontSize: 22 }}>
+          {isSuccessScreen ? 'Đặt hàng thành công!' : 'Chi tiết đơn hàng'}
+        </h1>
+        {isSuccessScreen && (
+          <p style={{ color: 'var(--ink-600)', margin: '0 0 18px' }}>
+            Cảm ơn <b>{addr.full_name || 'bạn'}</b> đã mua sắm tại UIT Store.
+          </p>
+        )}
         <div style={{
           display: 'inline-flex', gap: 24, padding: '14px 24px', flexWrap: 'wrap', justifyContent: 'center',
           background: 'white', borderRadius: 8, border: '1px solid var(--ink-200)', fontSize: 13,
+          marginTop: isSuccessScreen ? 0 : 16,
         }}>
           <div style={{ textAlign: 'left' }}>
             <div style={{ color: 'var(--ink-500)', fontSize: 11 }}>Mã đơn hàng</div>
-            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: 'var(--primary)' }}>{orderId}</div>
+            <div style={{ fontWeight: 700, fontFamily: 'monospace', color: 'var(--primary)' }}>Đơn #{orderNumber}</div>
           </div>
           <div style={{ width: 1, background: 'var(--ink-200)' }} />
           <div style={{ textAlign: 'left' }}>
@@ -676,7 +736,7 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onN
           <div style={{ position: 'absolute', top: 16, left: 16, right: 16, height: 2, background: 'var(--ink-200)', zIndex: 0 }} />
           <div style={{ position: 'absolute', top: 16, left: 16, width: '12.5%', height: 2, background: 'var(--success)', zIndex: 0 }} />
           {[
-            { label: 'Đã đặt hàng',   sub: ts.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'}), done: true,  active: false },
+            { label: 'Đã đặt hàng',   sub: ts.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'}).replace('Invalid Date', ''), done: true,  active: false },
             { label: 'Đã xác nhận',   sub: 'Trong 30 phút',    done: false, active: true  },
             { label: 'Đang đóng gói', sub: 'Trong 2-3h',        done: false, active: false },
             { label: 'Giao ĐVVC',     sub: 'Trước 18h hôm nay', done: false, active: false },
@@ -703,23 +763,7 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onN
         </div>
       </div>
 
-      <div className="card" style={{ padding: 20 }}>
-        <h3 style={{ margin: '0 0 6px', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon name="shield-check" size={16} color="var(--primary)" /> Thông tin từ Order Service
-        </h3>
-        <div style={{ fontSize: 12, color: 'var(--ink-600)', marginBottom: 14 }}>
-          Đơn hàng chỉ hiển thị sau khi backend tạo thành công.
-        </div>
-        <div style={{
-          padding: 14, background: '#0F172A', borderRadius: 6,
-          fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: '#E2E8F0', lineHeight: 1.7,
-        }}>
-          <div><span style={{ color: '#94A3B8' }}>endpoint</span> {window.UitAPI.backendUrl + '/api/v1/orders/user/orders/checkout'}</div>
-          <div><span style={{ color: '#94A3B8' }}>order_id</span> {orderId}</div>
-          <div><span style={{ color: '#94A3B8' }}>payment_method</span> {pm}</div>
-          <div><span style={{ color: '#94A3B8' }}>items</span> {items.length}</div>
-        </div>
-      </div>
+
 
       <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
         <button onClick={() => onNav('home')} className="btn btn-outline" style={{ padding: '10px 24px' }}>
@@ -732,6 +776,30 @@ const OrderScreen = ({ orderTotal, orderId: realOrderId, orderPayload, user, onN
     </div>
   );
 };
+
+class OrderScreenErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error: error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, color: 'red', background: '#fee' }}>
+          <h2>React Runtime Error in OrderScreen</h2>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error && this.state.error.toString()}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap' }}>{this.state.error && this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return <OrderScreenContent {...this.props} />;
+  }
+}
+
+const OrderScreen = (props) => <OrderScreenErrorBoundary {...props} />;
 
 // ─── Orders Screen ────────────────────────────────────────────────────
 const OrdersScreen = ({ onNav, user }) => {
@@ -806,9 +874,9 @@ const OrdersScreen = ({ onNav, user }) => {
                   <Icon name="package" size={22} color="var(--primary)" />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, fontFamily: 'monospace' }}>{o.id}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, fontFamily: 'monospace' }}>Đơn hàng #{o.order_number}</div>
                   <div style={{ fontSize: 12, color: 'var(--ink-500)', marginTop: 2 }}>
-                    {date} · {o.items_count || '?'} sản phẩm
+                    {date} · {o.item_count || '?'} sản phẩm
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>

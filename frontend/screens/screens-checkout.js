@@ -138,8 +138,9 @@ const CartScreen = ({
       textAlign: 'right'
     }
   }, "Th\xE0nh ti\u1EC1n"), /*#__PURE__*/React.createElement("span", null)), Object.entries(byMerchant).map(([mid, mitems]) => {
+    const firstItem = mitems && mitems.length > 0 ? mitems[0] : null;
     const merchant = {
-      name: mid || 'Catalog Merchant'
+      name: firstItem && firstItem.product && firstItem.product.merchant_name ? firstItem.product.merchant_name : mid || 'Nhà bán hàng UIT Store'
     };
     return /*#__PURE__*/React.createElement("div", {
       key: mid,
@@ -207,9 +208,17 @@ const CartScreen = ({
         width: 70,
         height: 70,
         flexShrink: 0,
-        borderRadius: 4
+        borderRadius: 4,
+        overflow: 'hidden'
       }
-    }, item.product.brand), /*#__PURE__*/React.createElement("div", {
+    }, item.product.images && item.product.images.length > 0 && item.product.images[0].url ? /*#__PURE__*/React.createElement("img", {
+      src: window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(item.product.images[0].url) : item.product.images[0].url,
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+      }
+    }) : item.product.brand), /*#__PURE__*/React.createElement("div", {
       style: {
         minWidth: 0
       }
@@ -309,9 +318,17 @@ const CartScreen = ({
         height: 64,
         flexShrink: 0,
         borderRadius: 4,
-        fontSize: 10
+        fontSize: 10,
+        overflow: 'hidden'
       }
-    }, item.product.brand), /*#__PURE__*/React.createElement("div", {
+    }, item.product.images && item.product.images.length > 0 && item.product.images[0].url ? /*#__PURE__*/React.createElement("img", {
+      src: window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(item.product.images[0].url) : item.product.images[0].url,
+      style: {
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover'
+      }
+    }) : item.product.brand), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
         minWidth: 0
@@ -422,7 +439,7 @@ const CartScreen = ({
       marginTop: 4
     }
   }, "Nh\u1EADp \u0111\u1ECBa ch\u1EC9 nh\u1EADn h\xE0ng \u1EDF b\u01B0\u1EDBc thanh to\xE1n."), /*#__PURE__*/React.createElement("button", {
-    onClick: () => onNav('checkout'),
+    onClick: () => onNav('checkout', selected),
     style: {
       marginTop: 8,
       color: 'var(--primary)',
@@ -508,7 +525,7 @@ const CartScreen = ({
       color: 'var(--ink-500)'
     }
   }, "\u0110\xE3 bao g\u1ED3m VAT (n\u1EBFu c\xF3)")))), user ? /*#__PURE__*/React.createElement("button", {
-    onClick: () => onNav('checkout'),
+    onClick: () => onNav('checkout', selected),
     className: "btn btn-price",
     disabled: selected.length === 0,
     style: {
@@ -1028,9 +1045,17 @@ const CheckoutScreen = ({
       height: 50,
       flexShrink: 0,
       borderRadius: 4,
-      fontSize: 9
+      fontSize: 9,
+      overflow: 'hidden'
     }
-  }, i.product.brand), /*#__PURE__*/React.createElement("div", {
+  }, i.product.images && i.product.images.length > 0 && i.product.images[0].url ? /*#__PURE__*/React.createElement("img", {
+    src: window.UitAPI && window.UitAPI.resolveMediaUrl ? window.UitAPI.resolveMediaUrl(i.product.images[0].url) : i.product.images[0].url,
+    style: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover'
+    }
+  }) : i.product.brand), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       minWidth: 0,
@@ -1138,14 +1163,28 @@ const CheckoutScreen = ({
 };
 
 // ─── Order Success / Tracking ────────────────────────────────────────
-const OrderScreen = ({
+const OrderScreenContent = ({
   orderTotal,
   orderId: realOrderId,
   orderPayload,
   user,
   onNav
 }) => {
-  if (!realOrderId || !orderPayload) {
+  const [fetchedPayload, setFetchedPayload] = React.useState(orderPayload);
+  const [loading, setLoading] = React.useState(!orderPayload);
+  React.useEffect(function () {
+    if (realOrderId && !orderPayload) {
+      window.UitAPI.order.get(realOrderId).then(function (res) {
+        setFetchedPayload(res.data);
+        setLoading(false);
+      }).catch(function (err) {
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, [realOrderId, orderPayload]);
+  if (!realOrderId) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '60px 24px',
@@ -1159,24 +1198,57 @@ const OrderScreen = ({
       style: {
         margin: '12px 0 8px'
       }
-    }, "Ch\u01B0a c\xF3 \u0111\u01A1n h\xE0ng t\u1EEB Order Service"), /*#__PURE__*/React.createElement("p", {
+    }, "Ch\u01B0a c\xF3 \u0111\u01A1n h\xE0ng"), /*#__PURE__*/React.createElement("p", {
       style: {
         color: 'var(--ink-600)',
         marginBottom: 24
       }
-    }, "Trang n\xE0y ch\u1EC9 hi\u1EC3n th\u1ECB sau khi backend t\u1EA1o \u0111\u01A1n h\xE0ng th\xE0nh c\xF4ng."), /*#__PURE__*/React.createElement("button", {
+    }, "B\u1EA1n ch\u01B0a ch\u1ECDn \u0111\u01A1n h\xE0ng n\xE0o."), /*#__PURE__*/React.createElement("button", {
       onClick: () => onNav('home'),
       className: "btn btn-primary"
     }, "V\u1EC1 trang ch\u1EE7"));
   }
-  const orderId = realOrderId;
-  const items = orderPayload && orderPayload.items || [];
-  const addr = orderPayload && orderPayload.shipping_address || {};
-  const pm = orderPayload && orderPayload.payment_method_type || 'cod';
-  const total = orderTotal || orderPayload && orderPayload.items.reduce(function (s, i) {
+  if (loading) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: 'center',
+        padding: 60,
+        color: 'var(--ink-400)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "spinner",
+      style: {
+        width: 32,
+        height: 32,
+        margin: '0 auto 12px'
+      }
+    }), "\u0110ang t\u1EA3i th\xF4ng tin \u0111\u01A1n h\xE0ng...");
+  }
+  if (!fetchedPayload) {
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '60px 24px',
+        textAlign: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("h2", {
+      style: {
+        margin: '12px 0 8px'
+      }
+    }, "Kh\xF4ng t\xECm th\u1EA5y \u0111\u01A1n h\xE0ng"), /*#__PURE__*/React.createElement("button", {
+      onClick: () => onNav('orders'),
+      className: "btn btn-primary"
+    }, "V\u1EC1 danh s\xE1ch \u0111\u01A1n h\xE0ng"));
+  }
+  const items = fetchedPayload.items || [];
+  const addr = fetchedPayload.shipping_address || {};
+  const pm = fetchedPayload.payment_method_type || 'cod';
+  const total = orderTotal || fetchedPayload.total_amount || items.reduce(function (s, i) {
     return s + i.unit_price * i.quantity;
-  }, 0) + (orderPayload.shipping_fee || 0) || 0;
-  const ts = new Date();
+  }, 0) + (fetchedPayload.shipping_fee || 0) || 0;
+  let ts = new Date(fetchedPayload.created_at || new Date());
+  if (isNaN(ts.getTime())) ts = new Date();
+  const orderNumber = fetchedPayload.order_number || realOrderId;
+  const isSuccessScreen = !!orderPayload; // If navigated from checkout
 
   // Tính ngày giao dự kiến: +3 ngày làm việc
   function addBusinessDays(date, days) {
@@ -1205,14 +1277,33 @@ const OrderScreen = ({
       margin: '0 auto'
     }
   }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: () => onNav('orders'),
+    style: {
+      color: 'var(--ink-500)',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      fontSize: 13,
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "arrow-left",
+    size: 14
+  }), " Quay l\u1EA1i")), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       padding: '32px 28px',
       textAlign: 'center',
       marginBottom: 16,
-      background: 'linear-gradient(180deg, #E8F7EE 0%, white 60%)'
+      background: isSuccessScreen ? 'linear-gradient(180deg, #E8F7EE 0%, white 60%)' : 'white'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, isSuccessScreen && /*#__PURE__*/React.createElement("div", {
     style: {
       width: 72,
       height: 72,
@@ -1234,7 +1325,7 @@ const OrderScreen = ({
       margin: '0 0 6px',
       fontSize: 22
     }
-  }, "\u0110\u1EB7t h\xE0ng th\xE0nh c\xF4ng!"), /*#__PURE__*/React.createElement("p", {
+  }, isSuccessScreen ? 'Đặt hàng thành công!' : 'Chi tiết đơn hàng'), isSuccessScreen && /*#__PURE__*/React.createElement("p", {
     style: {
       color: 'var(--ink-600)',
       margin: '0 0 18px'
@@ -1249,7 +1340,8 @@ const OrderScreen = ({
       background: 'white',
       borderRadius: 8,
       border: '1px solid var(--ink-200)',
-      fontSize: 13
+      fontSize: 13,
+      marginTop: isSuccessScreen ? 0 : 16
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1266,7 +1358,7 @@ const OrderScreen = ({
       fontFamily: 'monospace',
       color: 'var(--primary)'
     }
-  }, orderId)), /*#__PURE__*/React.createElement("div", {
+  }, "\u0110\u01A1n #", orderNumber)), /*#__PURE__*/React.createElement("div", {
     style: {
       width: 1,
       background: 'var(--ink-200)'
@@ -1475,7 +1567,7 @@ const OrderScreen = ({
     sub: ts.toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit'
-    }),
+    }).replace('Invalid Date', ''),
     done: true,
     active: false
   }, {
@@ -1545,56 +1637,6 @@ const OrderScreen = ({
       }
     }, s.sub));
   }))), /*#__PURE__*/React.createElement("div", {
-    className: "card",
-    style: {
-      padding: 20
-    }
-  }, /*#__PURE__*/React.createElement("h3", {
-    style: {
-      margin: '0 0 6px',
-      fontSize: 15,
-      fontWeight: 600,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "shield-check",
-    size: 16,
-    color: "var(--primary)"
-  }), " Th\xF4ng tin t\u1EEB Order Service"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: 'var(--ink-600)',
-      marginBottom: 14
-    }
-  }, "\u0110\u01A1n h\xE0ng ch\u1EC9 hi\u1EC3n th\u1ECB sau khi backend t\u1EA1o th\xE0nh c\xF4ng."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: 14,
-      background: '#0F172A',
-      borderRadius: 6,
-      fontFamily: 'JetBrains Mono, monospace',
-      fontSize: 11,
-      color: '#E2E8F0',
-      lineHeight: 1.7
-    }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: '#94A3B8'
-    }
-  }, "endpoint"), " ", window.UitAPI.backendUrl + '/api/v1/orders/user/orders/checkout'), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: '#94A3B8'
-    }
-  }, "order_id"), " ", orderId), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: '#94A3B8'
-    }
-  }, "payment_method"), " ", pm), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: '#94A3B8'
-    }
-  }, "items"), " ", items.length))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 12,
@@ -1615,6 +1657,42 @@ const OrderScreen = ({
     }
   }, "Xem l\u1ECBch s\u1EED \u0111\u01A1n h\xE0ng")));
 };
+class OrderScreenErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      error: error
+    };
+  }
+  render() {
+    if (this.state.hasError) {
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          padding: 40,
+          color: 'red',
+          background: '#fee'
+        }
+      }, /*#__PURE__*/React.createElement("h2", null, "React Runtime Error in OrderScreen"), /*#__PURE__*/React.createElement("pre", {
+        style: {
+          whiteSpace: 'pre-wrap'
+        }
+      }, this.state.error && this.state.error.toString()), /*#__PURE__*/React.createElement("pre", {
+        style: {
+          whiteSpace: 'pre-wrap'
+        }
+      }, this.state.error && this.state.error.stack));
+    }
+    return /*#__PURE__*/React.createElement(OrderScreenContent, this.props);
+  }
+}
+const OrderScreen = props => /*#__PURE__*/React.createElement(OrderScreenErrorBoundary, props);
 
 // ─── Orders Screen ────────────────────────────────────────────────────
 const OrdersScreen = ({
@@ -1792,13 +1870,13 @@ const OrdersScreen = ({
         fontSize: 14,
         fontFamily: 'monospace'
       }
-    }, o.id), /*#__PURE__*/React.createElement("div", {
+    }, "\u0110\u01A1n h\xE0ng #", o.order_number), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12,
         color: 'var(--ink-500)',
         marginTop: 2
       }
-    }, date, " \xB7 ", o.items_count || '?', " s\u1EA3n ph\u1EA9m")), /*#__PURE__*/React.createElement("div", {
+    }, date, " \xB7 ", o.item_count || '?', " s\u1EA3n ph\u1EA9m")), /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: 'right',
         flexShrink: 0

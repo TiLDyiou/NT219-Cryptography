@@ -158,6 +158,20 @@ async def bind_checkout_to_server_cart(
     return payload.model_copy(update={"items": items})
 
 
+async def clear_cart_on_server(cart_id: str, user_id: str) -> None:
+    cart_url = f"{settings.CART_SERVICE_URL.rstrip('/')}/api/v1/system/carts/{cart_id}/convert"
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                cart_url,
+                params={"user_id": user_id},
+                headers={"X-Internal-Token": settings.CART_INTERNAL_API_TOKEN},
+            )
+    except Exception as exc:
+        import logging
+        logging.warning(f"Failed to clear cart {cart_id} after checkout: {exc}")
+
+
 def get_checkout_use_case(db: AsyncSession = Depends(get_db)) -> CheckoutUseCase:
     return get_container().checkout_use_case(db)
 
@@ -172,6 +186,12 @@ def get_get_order_use_case(db: AsyncSession = Depends(get_db)) -> GetOrderUseCas
 
 def get_cancel_order_use_case(db: AsyncSession = Depends(get_db)) -> CancelOrderUseCase:
     return get_container().cancel_order_use_case(db)
+
+
+from app.domain.ports.crypto_service import CryptoService
+
+def get_crypto_service() -> CryptoService:
+    return get_container().crypto_service()
 
 
 def build_checkout_context(

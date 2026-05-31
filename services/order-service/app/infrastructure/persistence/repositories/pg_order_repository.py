@@ -137,7 +137,10 @@ class PgOrderRepository(OrderRepository):
     async def find_children_by_parent(self, parent_order_id: str) -> list[OrderEntity]:
         stmt: Select[tuple[OrderModel]] = (
             select(OrderModel)
-            .options(selectinload(OrderModel.items))
+            .options(
+                selectinload(OrderModel.items),
+                selectinload(OrderModel.addresses)
+            )
             .where(OrderModel.parent_order_id == parent_order_id)
             .order_by(OrderModel.created_at.asc())
         )
@@ -250,7 +253,10 @@ class PgOrderRepository(OrderRepository):
     async def list_user_orders(self, user_id: str) -> list[OrderEntity]:
         stmt: Select[tuple[OrderModel]] = (
             select(OrderModel)
-            .options(selectinload(OrderModel.items))
+            .options(
+                selectinload(OrderModel.items),
+                selectinload(OrderModel.addresses)
+            )
             .where(
                 OrderModel.user_id == user_id,
                 OrderModel.parent_order_id.is_not(None),
@@ -276,7 +282,10 @@ class PgOrderRepository(OrderRepository):
     async def get_user_order(self, user_id: str, order_id: str) -> OrderEntity:
         stmt: Select[tuple[OrderModel]] = (
             select(OrderModel)
-            .options(selectinload(OrderModel.items))
+            .options(
+                selectinload(OrderModel.items),
+                selectinload(OrderModel.addresses)
+            )
             .where(OrderModel.id == order_id, OrderModel.user_id == user_id)
             .limit(1)
         )

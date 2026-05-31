@@ -12,6 +12,7 @@ const App = () => {
   const [productsVersion, setProductsVersion] = React.useState(0); // trigger re-render khi products thay đổi
   const [cartVersions, setCartVersions] = React.useState({}); // { [merchantId]: { cartId, version } }
   const [realOrderId, setRealOrderId] = React.useState(null);
+  const [checkoutIds, setCheckoutIds] = React.useState(null);
   const [lastOrderPayload, setLastOrderPayload] = React.useState(null);
   const [apiStatus, setApiStatus] = React.useState({
     catalog: 'unknown',
@@ -149,7 +150,7 @@ const App = () => {
       return;
     }
     setScreen(target);
-    if (target === 'order' && id) setRealOrderId(id);else if (id) setProductId(id);else if (target === 'product' && !productId) {
+    if (target === 'order' && id) setRealOrderId(id);else if (target === 'checkout' && id && Array.isArray(id)) setCheckoutIds(id);else if (id) setProductId(id);else if (target === 'product' && !productId) {
       const first = window.PRODUCTS && window.PRODUCTS[0];
       if (first) setProductId(first.id);
     }
@@ -268,7 +269,8 @@ const App = () => {
     if (!user) {
       throw new Error('Vui lòng đăng nhập trước khi thanh toán.');
     }
-    const items = cart.map(function (c) {
+    const filteredCart = checkoutIds ? cart.filter(c => checkoutIds.includes(c.productId)) : cart;
+    const items = filteredCart.map(function (c) {
       const product = window.UitAPI.productFromCartLine ? window.UitAPI.productFromCartLine(c) : (window.PRODUCTS || []).find(function (p) {
         return p.id === c.productId;
       });
@@ -506,7 +508,7 @@ const App = () => {
     onNav: nav,
     user: user
   }), screen === 'checkout' && /*#__PURE__*/React.createElement(CheckoutScreen, {
-    cart: cart,
+    cart: checkoutIds ? cart.filter(c => checkoutIds.includes(c.productId)) : cart,
     onNav: nav,
     onPay: handlePay,
     user: user
