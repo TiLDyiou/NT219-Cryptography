@@ -19,6 +19,7 @@ class PaymentTransaction:
     error_code: str | None = None
     error_message: str | None = None
     client_secret: str | None = None
+    idempotency_key: str | None = None
     version: int = 1
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

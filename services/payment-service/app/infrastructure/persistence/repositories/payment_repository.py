@@ -51,6 +51,7 @@ class PgPaymentRepository(PaymentRepository):
                 psp_transaction_id=tx.psp_intent_id,
                 psp_status=tx.psp_status,
                 client_secret=tx.client_secret,
+                idempotency_key=tx.idempotency_key or tx.id,
                 version=1,
                 created_at=tx.created_at,
                 updated_at=tx.updated_at,
@@ -72,6 +73,16 @@ class PgPaymentRepository(PaymentRepository):
         if not session or not isinstance(session, AsyncSession):
             raise ValueError("AsyncSession required")
         stmt = select(PaymentTransactionModel).where(PaymentTransactionModel.psp_transaction_id == intent_id)
+        result = await session.execute(stmt)
+        db_obj = result.scalars().first()
+        if not db_obj:
+            return None
+        return self._to_entity(db_obj)
+
+    async def get_transaction_by_order_id(self, order_id: str, session: Any = None) -> PaymentTransaction | None:
+        if not session or not isinstance(session, AsyncSession):
+            raise ValueError("AsyncSession required")
+        stmt = select(PaymentTransactionModel).where(PaymentTransactionModel.order_id == order_id).limit(1)
         result = await session.execute(stmt)
         db_obj = result.scalars().first()
         if not db_obj:

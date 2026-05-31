@@ -260,6 +260,19 @@ class PgOrderRepository(OrderRepository):
         result = await self._session.execute(stmt)
         return [_to_entity(row) for row in result.scalars().all()]
 
+    async def get_order_by_id(self, order_id: str) -> OrderEntity:
+        """Fetch any order by ID — for internal use only (e.g. payment event consumer)."""
+        stmt: Select[tuple[OrderModel]] = (
+            select(OrderModel)
+            .where(OrderModel.id == order_id)
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        row = result.scalars().first()
+        if not row:
+            raise EntityNotFoundException(entity="Order", entity_id=order_id)
+        return _to_entity(row, include_relations=False)
+
     async def get_user_order(self, user_id: str, order_id: str) -> OrderEntity:
         stmt: Select[tuple[OrderModel]] = (
             select(OrderModel)

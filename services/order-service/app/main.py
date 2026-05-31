@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,12 +13,35 @@ from app.core.exceptions import OrderException, custom_exception_handler
 from app.infrastructure.container import init_container, shutdown_container
 from app.infrastructure.persistence.database import init_db
 
+logger = logging.getLogger(__name__)
+
+_payment_consumer_task: asyncio.Task | None = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _payment_consumer_task
     await init_db()
-    await init_container()
+    container = await init_container()
+
+    if settings.KAFKA_ENABLED:
+        try:
+            from app.infrastructure.messaging.payment_event_consumer import build_payment_event_consumer
+            consumer = await build_payment_event_consumer(settings.kafka, container.crypto_service)
+            _payment_consumer_task = asyncio.create_task(consumer.start())
+            logger.info("Payment event consumer started (topic=%s)", settings.KAFKA_TOPIC_PAYMENT_EVENTS)
+        except Exception:
+            logger.warning("Payment event consumer failed to start", exc_info=True)
+
     yield
+
+    if _payment_consumer_task is not None:
+        _payment_consumer_task.cancel()
+        try:
+            await _payment_consumer_task
+        except asyncio.CancelledError:
+            pass
+
     await shutdown_container()
 
 

@@ -26,6 +26,7 @@ class KafkaConfig(BaseModel):
     bootstrap_servers: str = "localhost:9092"
     topic_checkout: str = "order.checkout"
     topic_audit: str = "audit-logs"
+    topic_payment_events: str = "payment.events"
     consumer_group: str = "order-service"
     enabled: bool = True
 
@@ -108,6 +109,7 @@ class Settings(BaseSettings):
     )
     KAFKA_TOPIC_CHECKOUT: str = os.getenv("KAFKA_TOPIC_CHECKOUT", "order.checkout")
     KAFKA_TOPIC_AUDIT: str = os.getenv("KAFKA_TOPIC_AUDIT", "audit-logs")
+    KAFKA_TOPIC_PAYMENT_EVENTS: str = os.getenv("KAFKA_TOPIC_PAYMENT_EVENTS", "payment.events")
     KAFKA_CONSUMER_GROUP: str = os.getenv("KAFKA_CONSUMER_GROUP", "order-service")
     KAFKA_ENABLED: bool = os.getenv("KAFKA_ENABLED", "true").lower() == "true"
 
@@ -173,6 +175,7 @@ class Settings(BaseSettings):
             bootstrap_servers=self.KAFKA_BOOTSTRAP_SERVERS,
             topic_checkout=self.KAFKA_TOPIC_CHECKOUT,
             topic_audit=self.KAFKA_TOPIC_AUDIT,
+            topic_payment_events=self.KAFKA_TOPIC_PAYMENT_EVENTS,
             consumer_group=self.KAFKA_CONSUMER_GROUP,
             enabled=self.KAFKA_ENABLED,
         )

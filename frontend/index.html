@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' http://localhost:* http://192.168.122.*:* https://*.ngrok-free.app https://*.trycloudflare.com;"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdnjs.cloudflare.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' http://localhost:* http://192.168.122.*:* https://*.ngrok-free.app https://*.trycloudflare.com https://api.stripe.com; frame-src https://js.stripe.com https://hooks.stripe.com;"
     />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>UIT Store · NT219 Cryptography Front-end</title>
@@ -37,6 +37,8 @@
   </head>
   <body>
     <div id="root"></div>
+
+    <script src="https://js.stripe.com/v3/" crossorigin="anonymous"></script>
 
     <script
       src="https://unpkg.com/react@18.3.1/umd/react.development.js"

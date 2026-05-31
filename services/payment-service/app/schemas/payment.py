@@ -22,3 +22,14 @@ class RefundRequest(BaseModel):
     payment_id: str = Field(..., min_length=1, max_length=36)
     amount: Decimal = Field(..., ge=0)
     reason: Optional[str] = Field(default="Customer request")
+
+
+class CreateIntentRequest(BaseModel):
+    order_id: str = Field(..., min_length=1, max_length=36)
+
+
+class PaymentIntentResponse(BaseModel):
+    payment_id: str
+    client_secret: str
+    publishable_key: str
+    status: str

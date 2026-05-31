@@ -88,6 +88,9 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_mock")
     STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_mock")
 
+    ORDER_SERVICE_URL: str = os.getenv("ORDER_SERVICE_URL", "http://localhost:8003")
+    ORDER_SERVICE_INTERNAL_TOKEN: str = os.getenv("ORDER_SERVICE_INTERNAL_TOKEN", "payment_to_order_dev_token")
+
     BANK_PAYOUT_STUB: bool = os.getenv("BANK_PAYOUT_STUB", "true").lower() == "true"
 
     LOCAL_CRYPTO_SECRET: str = os.getenv(

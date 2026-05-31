@@ -70,6 +70,11 @@ class ProcessPaymentStep:
         if order.payment_method_type == "cod":
             return SagaStepResult(success=True, data={"skipped": True})
 
+        # Decoupled flow: FE collects card via Stripe Elements and confirms directly with Stripe.
+        # Webhook is the source of truth — do NOT charge here, order stays payment_processing.
+        if order.payment_method_type == "credit_card":
+            return SagaStepResult(success=True, data={"awaiting_webhook": True})
+
         try:
             result = await self._payment.charge(
                 PaymentChargeRequest(
@@ -97,6 +102,10 @@ class ProcessPaymentStep:
 class ConfirmOrderStep:
     async def execute(self, order: OrderEntity, ctx: CheckoutContext) -> SagaStepResult:
         from app.domain.value_objects.order_status import OrderStatus
+
+        # credit_card: webhook is source of truth — keep order at payment_processing
+        if order.payment_method_type == "credit_card":
+            return SagaStepResult(success=True, data={"skipped": True, "reason": "awaiting_webhook"})
 
         order.transition_to(OrderStatus.CONFIRMED)
         return SagaStepResult(success=True, data={"status": OrderStatus.CONFIRMED.value})

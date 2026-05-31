@@ -10,10 +10,11 @@ class HmacVerificationMiddleware(BaseHTTPMiddleware):
         if not settings.REQUIRE_INBOUND_HMAC:
             return await call_next(request)
 
-        # Exclude endpoints: health check, docs, and public stripe webhooks
+        # Exclude endpoints: health check, docs, public webhooks, and public intents (JWT-authenticated)
         if (
             request.url.path in {"/health", "/docs", "/openapi.json", "/redoc"}
             or "/webhooks/stripe" in request.url.path
+            or "/payments/intents" in request.url.path
         ):
             return await call_next(request)
 

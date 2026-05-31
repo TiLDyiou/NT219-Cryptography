@@ -17,5 +17,9 @@ class PaymentRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_transaction_by_order_id(self, order_id: str, session: Any = None) -> "PaymentTransaction | None":
+        raise NotImplementedError
+
+    @abstractmethod
     async def save_payment_method(self, pm_data: dict[str, Any], session: Any = None) -> None:
         raise NotImplementedError

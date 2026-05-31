@@ -53,22 +53,29 @@ class StripeClient(StripeGateway):
         currency: str,
         idempotency_key: str,
         metadata: dict[str, Any] | None = None,
+        automatic_payment_methods: bool = False,
     ) -> dict[str, Any]:
-        # Stripe expects amount in cents/smallest currency unit
         amount_cents = int(amount * 100)
-        
-        # Enforce 3DS using request_three_d_secure="any"
-        params = {
-            "amount": amount_cents,
-            "currency": currency.lower(),
-            "metadata": metadata or {},
-            "payment_method_options": {
-                "card": {
-                    "request_three_d_secure": "any"
-                }
+
+        if automatic_payment_methods:
+            # Decoupled flow: FE uses PaymentElement + stripe.confirmPayment
+            params: dict[str, Any] = {
+                "amount": amount_cents,
+                "currency": currency.lower(),
+                "metadata": metadata or {},
+                "automatic_payment_methods": {"enabled": True},
             }
-        }
-        
+        else:
+            # Legacy server-side confirm flow
+            params = {
+                "amount": amount_cents,
+                "currency": currency.lower(),
+                "metadata": metadata or {},
+                "payment_method_options": {
+                    "card": {"request_three_d_secure": "any"}
+                },
+            }
+
         logger.info("Calling Stripe PaymentIntent.create (amount_cents=%s)", amount_cents)
         res = await asyncio.to_thread(
             stripe.PaymentIntent.create,
