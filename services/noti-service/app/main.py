@@ -66,6 +66,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
     title=settings.PROJECT_NAME,
     description="Kafka-driven email notification service with outbox, retry, and PII-safe logging",
     version="1.0.0",

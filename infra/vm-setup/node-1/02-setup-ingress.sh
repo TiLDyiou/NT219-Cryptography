@@ -362,7 +362,8 @@ local sqli_patterns = {
   "insert%s+into","delete%s+from","drop%s+table","drop%s+database",
   "alter%s+table","exec%s*%(","execute%s*%(","xp_cmdshell",
   "0x[0-9a-fA-F]+","'%s*or%s+'","'%s*or%s+1%s*=%s*1","1%s*=%s*1",
-  "';%s*--","sleep%s*%(","benchmark%s*%(","waitfor%s+delay",
+  "';%s*--","'%s*%-%-","%-%-[%s$]","#[%s$]",
+  "sleep%s*%(","benchmark%s*%(","waitfor%s+delay",
   "char%s*%(","concat%s*%(","group_concat%s*%(","load_file%s*%(",
   "into%s+outfile","into%s+dumpfile","information_schema",
   "pg_catalog","pg_sleep",
@@ -498,7 +499,7 @@ cat >/etc/envoy/envoy.yaml <<ENVOYCFG
 admin:
   address:
     socket_address:
-      address: 0.0.0.0
+      address: 127.0.0.1
       port_value: 9901
 
 static_resources:
@@ -535,6 +536,31 @@ static_resources:
                         - match: { prefix: "/api/v1/notifications" }
                           route: { cluster: notification_service, prefix_rewrite: "/api/v1" }
                 http_filters:
+                  - name: envoy.filters.http.local_ratelimit
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                      stat_prefix: api_rate_limit
+                      token_bucket:
+                        max_tokens: 100
+                        tokens_per_fill: 100
+                        fill_interval: 60s
+                      filter_enabled:
+                        runtime_key: local_rate_limit_enabled
+                        default_value:
+                          numerator: 100
+                          denominator: HUNDRED
+                      filter_enforced:
+                        runtime_key: local_rate_limit_enforced
+                        default_value:
+                          numerator: 100
+                          denominator: HUNDRED
+                      response_headers_to_add:
+                        - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+                          header:
+                            key: x-rate-limit-limit
+                            value: "100"
+                      status:
+                        code: 429
                   - name: envoy.filters.http.lua
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
@@ -669,7 +695,7 @@ ufw default allow outgoing
 ufw allow 22/tcp
 ufw allow 80/tcp   # Nginx (public)
 ufw allow 8080/tcp # Keycloak (admin + VM-2/3 JWT validation)
-ufw allow 9901/tcp # Envoy Admin (demo)
+# ufw allow 9901/tcp  # Envoy Admin — localhost only, KHÔNG mở public
 
 ufw reload
 echo "  Firewall - OK"

@@ -74,6 +74,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
     title=settings.PROJECT_NAME,
     description="Marketplace shipping service with carrier gateway and async fulfillment",
     version="1.0.0",

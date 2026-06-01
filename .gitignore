@@ -6,3 +6,14 @@
 services/catalog-service/uploads/
 
 
+
+# Secrets — never commit
+services/**/.env
+services/*/.env
+!services/**/.env.example
+!services/*/.env.example
+*.db
+*.sqlite
+**/__pycache__/
+**/*.pyc
+**/*.pyo

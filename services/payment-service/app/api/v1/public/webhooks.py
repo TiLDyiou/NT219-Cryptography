@@ -34,6 +34,13 @@ async def stripe_webhook(
             content={"success": True, "data": result},
         )
     except Exception as e:
+        from app.core.exceptions import InvalidSignatureError
+        if isinstance(e, InvalidSignatureError):
+            logger.warning("Stripe webhook signature verification failed")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"success": False, "error": str(e)},
+            )
         logger.exception("Failed to process Stripe webhook")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -69,6 +69,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
     title=settings.PROJECT_NAME,
     description="Marketplace inventory service with saga reservations and audit",
     version="1.0.0",
