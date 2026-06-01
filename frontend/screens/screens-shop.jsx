@@ -52,121 +52,41 @@ const HomeScreen = ({ onProduct, onNav, apiStatus, productsVersion, searchQuery,
           ))}
         </div>
 
-        {/* Crypto info card */}
-        <div className="card" style={{
-          marginTop: 12, padding: 14,
-          background: 'linear-gradient(135deg, #E8F1FB, #F0F6FE)',
-          border: '1px solid var(--primary-soft)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <Icon name="shield-check" size={16} color="var(--primary)" />
-            <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--primary)' }}>An toàn UIT Store</span>
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--ink-700)', lineHeight: 1.5 }}>
-            Toàn bộ giao tiếp giữa Frontend ↔ API Gateway sử dụng <b>TLS 1.3</b>.
-            Giao tiếp service-to-service được bảo vệ bằng <b>mTLS</b> và <b>HMAC signing</b>.
-          </div>
-          <div style={{
-            display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10,
-            fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--ink-600)',
-          }}>
-            <div>✓ OAuth2 + PKCE</div>
-            <div>✓ 3-D Secure (3DS2 / SCA)</div>
-            <div>✓ Tokenization (no PAN)</div>
-            <div>✓ HashiCorp Vault KMS</div>
-          </div>
-        </div>
       </div>
 
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Hero banner */}
-        <div className="hero-grid">
+        <div style={{
+          height: 200, borderRadius: 10, overflow: 'hidden',
+          background: 'linear-gradient(115deg, #1063C2 0%, #0A4B97 50%, #082F66 100%)',
+          position: 'relative', color: 'white', padding: 28,
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          marginBottom: 16,
+        }}>
+          <div>
+            <div style={{
+              display: 'inline-block', padding: '4px 10px', borderRadius: 4,
+              background: 'rgba(255, 215, 0, 0.2)', color: '#FFD600',
+              fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 12,
+            }}>
+              UIT STORE
+            </div>
+            <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+              Chào mừng đến<br/>UIT Store
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn" style={{ background: '#FFD600', color: '#082F66', fontWeight: 600 }}
+              onClick={() => { const first = allProducts[0]; if (first) onProduct(first.id); }}
+              disabled={allProducts.length === 0}>
+              Khám phá ngay <Icon name="arrow-right" size={14}/>
+            </button>
+          </div>
           <div style={{
-            height: 280, borderRadius: 10, overflow: 'hidden',
-            background: 'linear-gradient(115deg, #1063C2 0%, #0A4B97 50%, #082F66 100%)',
-            position: 'relative', color: 'white', padding: 28,
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          }}>
-            <div>
-              <div style={{
-                display: 'inline-block', padding: '4px 10px', borderRadius: 4,
-                background: 'rgba(255, 215, 0, 0.2)', color: '#FFD600',
-                fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 12,
-              }}>
-                UIT STORE · AN TOÀN & TIN CẬY
-              </div>
-              <div style={{ fontSize: 38, fontWeight: 800, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
-                Mua sắm an toàn<br/>trên nền tảng UIT Store
-              </div>
-              <div style={{ marginTop: 12, fontSize: 14, opacity: 0.9, maxWidth: 340 }}>
-                Thanh toán mã hoá <b style={{ color: '#FFD600' }}>3-D Secure</b>. Không lưu số thẻ — tokenization PSP.
-                Toàn bộ dữ liệu được bảo vệ bởi <b style={{ color: '#FFD600' }}>TLS 1.3</b>.
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-              <button className="btn" style={{ background: '#FFD600', color: '#082F66', fontWeight: 600 }}
-                onClick={() => { const first = allProducts[0]; if (first) onProduct(first.id); }}
-                disabled={allProducts.length === 0}>
-                Khám phá ngay <Icon name="arrow-right" size={14}/>
-              </button>
-            </div>
-            <div style={{
-              position: 'absolute', right: -40, top: -40, width: 200, height: 200,
-              borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
-            }} />
-            <div style={{
-              position: 'absolute', right: 40, bottom: 30, width: 80, height: 80,
-              borderRadius: '50%', border: '2px dashed rgba(255,215,0,0.4)',
-            }} />
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{
-              flex: 1, borderRadius: 10, padding: 18, color: 'white',
-              background: 'linear-gradient(135deg, #0A4B97, #1063C2)',
-              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            }}>
-              <div>
-                <div style={{ fontSize: 11, opacity: 0.9, fontWeight: 600 }}>MUA SẮM AN TOÀN</div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6, lineHeight: 1.1 }}>Thanh toán 3-D Secure</div>
-              </div>
-              <div style={{ fontSize: 11, opacity: 0.9 }}>Xác thực 2 lớp · Tokenization PSP</div>
-            </div>
-            <div style={{
-              flex: 1, borderRadius: 10, padding: 18, color: 'white',
-              background: 'linear-gradient(135deg, #16A34A, #0F7434)',
-              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            }}>
-              <div>
-                <div style={{ fontSize: 11, opacity: 0.9, fontWeight: 600 }}>BẢO VỆ DỮ LIỆU</div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 6, lineHeight: 1.1 }}>Vault KMS · Field-level</div>
-              </div>
-              <div style={{ fontSize: 11, opacity: 0.9 }}>Mã hoá địa chỉ · PII · Khóa HSM</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Platform security features strip */}
-        <div className="security-strip">
-          {[
-            { icon: 'lock',         title: 'TLS 1.3 End-to-End',      sub: 'Bảo mật toàn đường truyền' },
-            { icon: 'shield-check', title: '3-D Secure 2.0',           sub: 'Xác thực giao dịch 2 lớp' },
-            { icon: 'key',          title: 'Tokenization (no PAN)',     sub: 'Không lưu số thẻ thanh toán' },
-            { icon: 'fingerprint',  title: 'OAuth2 + PKCE · WebAuthn', sub: 'Xác thực người dùng hiện đại' },
-          ].map(f => (
-            <div key={f.title} style={{
-              padding: 12, borderRadius: 8, background: 'var(--primary-tint)',
-              border: '1px solid var(--primary-soft)',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <Icon name={f.icon} size={22} color="var(--primary)" />
-              <div>
-                <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: 12 }}>{f.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--ink-600)', marginTop: 2 }}>{f.sub}</div>
-              </div>
-            </div>
-          ))}
+            position: 'absolute', right: -40, top: -40, width: 200, height: 200,
+            borderRadius: '50%', background: 'rgba(255,255,255,0.05)',
+          }} />
         </div>
 
         {/* API connection status strip */}
@@ -466,18 +386,6 @@ const ProductScreen = ({ productId, onAddToCart, onNav, onBuyNow, wishlist, onTo
             </button>
           </div>
 
-          {/* Security info */}
-          <div style={{
-            marginTop: 18, padding: 12, background: 'var(--success-soft)',
-            border: '1px solid #BDE5CA', borderRadius: 6,
-            display: 'flex', gap: 12, alignItems: 'start',
-          }}>
-            <Icon name="shield-check" size={20} color="var(--success)" />
-            <div style={{ fontSize: 12, color: 'var(--ink-700)', lineHeight: 1.55 }}>
-              <b>Mua sắm an toàn cùng UIT Store.</b> Mọi giao dịch được mã hoá <code style={{ background: 'white', padding: '0 4px', borderRadius: 2, fontSize: 11 }}>TLS 1.3</code>.
-              Thanh toán xử lý qua PSP với token hoá thẻ — UIT Store <b>không lưu</b> số PAN. Hỗ trợ 3-D Secure 2.0 cho mọi thẻ.
-            </div>
-          </div>
         </div>
 
         {/* Merchant + delivery */}

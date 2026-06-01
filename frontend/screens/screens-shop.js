@@ -66,57 +66,14 @@ const HomeScreen = ({
     name: cat.icon,
     size: 16,
     color: activeCategory === cat.id ? 'var(--primary)' : 'var(--ink-400)'
-  }), /*#__PURE__*/React.createElement("span", null, cat.name)))), /*#__PURE__*/React.createElement("div", {
-    className: "card",
-    style: {
-      marginTop: 12,
-      padding: 14,
-      background: 'linear-gradient(135deg, #E8F1FB, #F0F6FE)',
-      border: '1px solid var(--primary-soft)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 6,
-      marginBottom: 8
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "shield-check",
-    size: 16,
-    color: "var(--primary)"
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontWeight: 600,
-      fontSize: 13,
-      color: 'var(--primary)'
-    }
-  }, "An to\xE0n UIT Store")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: 'var(--ink-700)',
-      lineHeight: 1.5
-    }
-  }, "To\xE0n b\u1ED9 giao ti\u1EBFp gi\u1EEFa Frontend \u2194 API Gateway s\u1EED d\u1EE5ng ", /*#__PURE__*/React.createElement("b", null, "TLS 1.3"), ". Giao ti\u1EBFp service-to-service \u0111\u01B0\u1EE3c b\u1EA3o v\u1EC7 b\u1EB1ng ", /*#__PURE__*/React.createElement("b", null, "mTLS"), " v\xE0 ", /*#__PURE__*/React.createElement("b", null, "HMAC signing"), "."), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 4,
-      marginTop: 10,
-      fontSize: 10,
-      fontFamily: 'JetBrains Mono, monospace',
-      color: 'var(--ink-600)'
-    }
-  }, /*#__PURE__*/React.createElement("div", null, "\u2713 OAuth2 + PKCE"), /*#__PURE__*/React.createElement("div", null, "\u2713 3-D Secure (3DS2 / SCA)"), /*#__PURE__*/React.createElement("div", null, "\u2713 Tokenization (no PAN)"), /*#__PURE__*/React.createElement("div", null, "\u2713 HashiCorp Vault KMS")))), /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement("span", null, cat.name))))), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       minWidth: 0
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "hero-grid"
-  }, /*#__PURE__*/React.createElement("div", {
     style: {
-      height: 280,
+      height: 200,
       borderRadius: 10,
       overflow: 'hidden',
       background: 'linear-gradient(115deg, #1063C2 0%, #0A4B97 50%, #082F66 100%)',
@@ -125,7 +82,8 @@ const HomeScreen = ({
       padding: 28,
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'space-between'
+      justifyContent: 'space-between',
+      marginBottom: 16
     }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -139,29 +97,14 @@ const HomeScreen = ({
       letterSpacing: '0.05em',
       marginBottom: 12
     }
-  }, "UIT STORE \xB7 AN TO\xC0N & TIN C\u1EACY"), /*#__PURE__*/React.createElement("div", {
+  }, "UIT STORE"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 38,
       fontWeight: 800,
       lineHeight: 1.1,
       letterSpacing: '-0.02em'
     }
-  }, "Mua s\u1EAFm an to\xE0n", /*#__PURE__*/React.createElement("br", null), "tr\xEAn n\u1EC1n t\u1EA3ng UIT Store"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 12,
-      fontSize: 14,
-      opacity: 0.9,
-      maxWidth: 340
-    }
-  }, "Thanh to\xE1n m\xE3 ho\xE1 ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: '#FFD600'
-    }
-  }, "3-D Secure"), ". Kh\xF4ng l\u01B0u s\u1ED1 th\u1EBB \u2014 tokenization PSP. To\xE0n b\u1ED9 d\u1EEF li\u1EC7u \u0111\u01B0\u1EE3c b\u1EA3o v\u1EC7 b\u1EDFi ", /*#__PURE__*/React.createElement("b", {
-    style: {
-      color: '#FFD600'
-    }
-  }, "TLS 1.3"), ".")), /*#__PURE__*/React.createElement("div", {
+  }, "Ch\xE0o m\u1EEBng \u0111\u1EBFn", /*#__PURE__*/React.createElement("br", null), "UIT Store")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 10,
@@ -192,126 +135,7 @@ const HomeScreen = ({
       borderRadius: '50%',
       background: 'rgba(255,255,255,0.05)'
     }
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      position: 'absolute',
-      right: 40,
-      bottom: 30,
-      width: 80,
-      height: 80,
-      borderRadius: '50%',
-      border: '2px dashed rgba(255,215,0,0.4)'
-    }
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 12
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      borderRadius: 10,
-      padding: 18,
-      color: 'white',
-      background: 'linear-gradient(135deg, #0A4B97, #1063C2)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between'
-    }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      opacity: 0.9,
-      fontWeight: 600
-    }
-  }, "MUA S\u1EAEM AN TO\xC0N"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 22,
-      fontWeight: 700,
-      marginTop: 6,
-      lineHeight: 1.1
-    }
-  }, "Thanh to\xE1n 3-D Secure")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      opacity: 0.9
-    }
-  }, "X\xE1c th\u1EF1c 2 l\u1EDBp \xB7 Tokenization PSP")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      borderRadius: 10,
-      padding: 18,
-      color: 'white',
-      background: 'linear-gradient(135deg, #16A34A, #0F7434)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between'
-    }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      opacity: 0.9,
-      fontWeight: 600
-    }
-  }, "B\u1EA2O V\u1EC6 D\u1EEE LI\u1EC6U"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 22,
-      fontWeight: 700,
-      marginTop: 6,
-      lineHeight: 1.1
-    }
-  }, "Vault KMS \xB7 Field-level")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      opacity: 0.9
-    }
-  }, "M\xE3 ho\xE1 \u0111\u1ECBa ch\u1EC9 \xB7 PII \xB7 Kh\xF3a HSM")))), /*#__PURE__*/React.createElement("div", {
-    className: "security-strip"
-  }, [{
-    icon: 'lock',
-    title: 'TLS 1.3 End-to-End',
-    sub: 'Bảo mật toàn đường truyền'
-  }, {
-    icon: 'shield-check',
-    title: '3-D Secure 2.0',
-    sub: 'Xác thực giao dịch 2 lớp'
-  }, {
-    icon: 'key',
-    title: 'Tokenization (no PAN)',
-    sub: 'Không lưu số thẻ thanh toán'
-  }, {
-    icon: 'fingerprint',
-    title: 'OAuth2 + PKCE · WebAuthn',
-    sub: 'Xác thực người dùng hiện đại'
-  }].map(f => /*#__PURE__*/React.createElement("div", {
-    key: f.title,
-    style: {
-      padding: 12,
-      borderRadius: 8,
-      background: 'var(--primary-tint)',
-      border: '1px solid var(--primary-soft)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: f.icon,
-    size: 22,
-    color: "var(--primary)"
-  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      color: 'var(--primary)',
-      fontSize: 12
-    }
-  }, f.title), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11,
-      color: 'var(--ink-600)',
-      marginTop: 2
-    }
-  }, f.sub))))), (catalogLoading || catalogOk || catalogErr) && /*#__PURE__*/React.createElement("div", {
+  })), (catalogLoading || catalogOk || catalogErr) && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -820,35 +644,7 @@ const ProductScreen = ({
       padding: '12px',
       fontSize: 15
     }
-  }, "Mua ngay")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 18,
-      padding: 12,
-      background: 'var(--success-soft)',
-      border: '1px solid #BDE5CA',
-      borderRadius: 6,
-      display: 'flex',
-      gap: 12,
-      alignItems: 'start'
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "shield-check",
-    size: 20,
-    color: "var(--success)"
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: 'var(--ink-700)',
-      lineHeight: 1.55
-    }
-  }, /*#__PURE__*/React.createElement("b", null, "Mua s\u1EAFm an to\xE0n c\xF9ng UIT Store."), " M\u1ECDi giao d\u1ECBch \u0111\u01B0\u1EE3c m\xE3 ho\xE1 ", /*#__PURE__*/React.createElement("code", {
-    style: {
-      background: 'white',
-      padding: '0 4px',
-      borderRadius: 2,
-      fontSize: 11
-    }
-  }, "TLS 1.3"), ". Thanh to\xE1n x\u1EED l\xFD qua PSP v\u1EDBi token ho\xE1 th\u1EBB \u2014 UIT Store ", /*#__PURE__*/React.createElement("b", null, "kh\xF4ng l\u01B0u"), " s\u1ED1 PAN. H\u1ED7 tr\u1EE3 3-D Secure 2.0 cho m\u1ECDi th\u1EBB."))), /*#__PURE__*/React.createElement("div", {
+  }, "Mua ngay"))), /*#__PURE__*/React.createElement("div", {
     className: "product-merchant-card",
     style: {
       display: 'flex',
