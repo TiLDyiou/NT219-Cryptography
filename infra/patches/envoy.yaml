@@ -1,4 +1,3 @@
-cat >/etc/envoy/envoy.yaml <<ENVOYCFG
 admin:
   address:
     socket_address:
