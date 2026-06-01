@@ -691,16 +691,16 @@ Latency khi rate-limited: median=232ms p95=506ms p99=529ms.
 |----|-----|-----------|-----------|
 | **API1** | Broken Object Level Auth (IDOR) | ✅ **PASS** | HTTP 403 ✅ · HMAC guard ✅ |
 | **API2** | Broken Authentication | ✅ **PASS** | RS256 + verify_aud ✅ · TTL 120s ✅ · Refresh rotation ✅ |
-| **API3** | Broken Object Property Level Auth | ❓ **Chưa test** | Cần test DTO response filtering |
+| **API3** | Broken Object Property Level Auth | ✅ **PASS** | Public catalog: không có fields nhạy cảm (password/cost/margin) ✅ · Cross-user isolation ✅ |
 | **API4** | Unrestricted Resource Consumption | ✅ **PASS** | Rate limit 30/120 throttled ✅ · WAF 5/5 ✅ |
 | **API5** | Broken Function Level Auth | ✅ **PASS** | HMAC guards bật ✅ · Direct service 404 ✅ |
 | **API6** | Unrestricted Access to Sensitive Flows | ✅ **PASS** | Idempotency ✅ · Webhook replay 400 ✅ |
-| **API7** | Server Side Request Forgery | ❓ **Chưa test** | Cần test external URL injection |
+| **API7** | Server Side Request Forgery | ✅ **PASS** | URL trong search param → không fetch (WAF block/treat as text) ✅ · URL trong address field → plain text ✅ |
 | **API8** | Security Misconfiguration | ✅ **PASS** | CORS ✅ · TLS HTTPS 200 ✅ · /docs disabled ✅ · Keycloak admin pw changed ✅ |
 | **API9** | Improper Inventory Management | ✅ **PASS** | `/docs` disabled tất cả services ✅ |
 | **API10** | Unsafe Consumption of APIs | ✅ **PASS** | Stripe webhook HMAC ✅ · Forged → 400 ✅ |
 
-**Scorecard: 8 PASS · 0 Partial · 0 FAIL · 2 Chưa test** (so với ban đầu: 2 PASS · 3 Partial · 2 FAIL · 3 Chưa test)
+**Scorecard: 10 PASS · 0 Partial · 0 FAIL** (so với ban đầu: 2 PASS · 3 Partial · 2 FAIL · 3 Chưa test)
 
 ---
 
