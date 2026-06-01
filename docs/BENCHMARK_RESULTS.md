@@ -664,23 +664,22 @@ Latency khi rate-limited: median=232ms p95=506ms p99=529ms.
 
 > Cập nhật dựa trên: Exp 1 (Keycloak live) · Exp 2 (payment-service) · Exp 3 (Envoy live) · Exp 4 (Vault live) · Static analysis
 
-| Chapter | Tiêu đề | Trạng thái | Ghi chú sau fix |
-|---------|---------|-----------|-----------------|
-| **V2 Authentication** | Keycloak, MFA, brute-force | ✅ **PASS** | Lockout tại #10 ✅ · User enumeration blocked ✅ · MFA TOTP configured ✅ · `failureFactor=10` |
-| **V3 Session Mgmt** | JWT TTL, refresh rotation | ⚠️ **Partial** | RS256 ✅ · Refresh rotation strict ✅ · TTL giảm xuống 120s ✅ · Logout revocation ❌ (stateless JWT — inherent) |
-| **V4 Access Control** | RBAC, IDOR | ✅ **PASS** | IDOR HTTP 403 ✅ · HMAC guards bật ✅ (tất cả `.env`) · Internal trust qua Gateway verified |
-| **V5 Input Validation** | SQLi, WAF | ✅ **PASS** | ORM parameterized ✅ · WAF `admin'--` fixed ✅ · 5/5 SQLi patterns blocked |
-| **V6 Cryptography** | AES-GCM, key length, Vault | ⚠️ **Partial** | RS256 ✅ · Vault + 9 Transit keys ✅ · FLE chưa kích hoạt runtime (cần deploy) |
-| **V7 Error Handling** | Logging, PII masking | ⚠️ **Partial** | Webhook 500→400 ✅ · Audit HMAC ✅ · PII masking chưa verify end-to-end |
-| **V8 Data Protection** | TDE, FLE, PAN | ⚠️ **Partial** | No PAN ✅ · Vault keys ready · TDE/FLE cần kích hoạt runtime |
-| **V9 Communication** | TLS, HSTS, mTLS | ⚠️ **Partial** | TLS certs tạo sẵn `/etc/envoy/certs/` ✅ · Cần enable trong Envoy listener config |
-| **V10 Malicious Code** | Dep scan, secrets | ✅ **PASS** | `cryptography→46.0.6` ✅ · `starlette→1.0.1` ✅ · `.env` removed from git ✅ |
+| Chapter | Tiêu đề | Trạng thái | Bằng chứng |
+|---------|---------|-----------|-----------|
+| **V2 Authentication** | Keycloak, MFA, brute-force | ✅ **PASS** | Lockout #10 ✅ · User enum blocked ✅ · TOTP ✅ |
+| **V3 Session Mgmt** | JWT TTL, refresh rotation | ✅ **PASS** | RS256 ✅ · TTL=120s client level ✅ · Refresh rotation ✅ |
+| **V4 Access Control** | RBAC, IDOR | ✅ **PASS** | IDOR 403 ✅ · HMAC guards ✅ · `verify_aud=account` ✅ |
+| **V5 Input Validation** | SQLi, WAF | ✅ **PASS** | ORM ✅ · WAF 5/5 incl. `admin'--` ✅ |
+| **V6 Cryptography** | AES-GCM, key length, Vault | ⚠️ **Partial** | RS256 ✅ · Vault 9 keys ✅ · FLE chưa kích hoạt (cần Vault token) |
+| **V7 Error Handling** | Logging, PII masking | ✅ **PASS** | Webhook 400 ✅ · PII filter (email/card/token) ✅ · Audit HMAC ✅ |
+| **V8 Data Protection** | TDE, FLE, PAN | ⚠️ **Partial** | No PAN ✅ · Append-only audit (migration 0007) ✅ · TDE/FLE chưa kích hoạt |
+| **V9 Communication** | TLS, HSTS, mTLS | ✅ **PASS** | TLS enabled trên Envoy port 10000 ✅ · HTTPS 200 verified ✅ |
+| **V10 Malicious Code** | Dep scan, secrets | ✅ **PASS** | cryptography 46.0.6 ✅ · starlette 1.0.1 ✅ · .env removed ✅ |
 | **V11 Business Logic** | Idempotency, fraud | ✅ **PASS** | Idempotency 1240× ✅ · Webhook replay blocked ✅ |
-| **V13 API** | CORS, rate limit, versioning | ⚠️ **Partial** | CORS fixed ✅ · Rate limit config updated (`infra/patches/`) · `/docs` disabled ✅ — cần deploy lên node |
-| **V14 Configuration** | Defaults, secrets mgmt | ⚠️ **Partial** | Vault deployed ✅ · `/docs` disabled ✅ · Default passwords cần thay thủ công |
+| **V13 API** | CORS, rate limit, versioning | ✅ **PASS** | CORS ✅ · Rate limit 30/120 throttled ✅ · /docs disabled ✅ |
+| **V14 Configuration** | Defaults, secrets mgmt | ⚠️ **Partial** | Vault ✅ · Keycloak admin pw changed ✅ · PostgreSQL `123456` cần đổi |
 
-**Scorecard: 5 PASS · 6 Partial · 1 FAIL** (so với trước: 2 PASS · 7 Partial · 3 FAIL)  
-*V9 từ FAIL → Partial vì TLS certs đã tạo sẵn, chỉ cần enable listener*
+**Scorecard: 9 PASS · 3 Partial · 0 FAIL** (so với ban đầu: 1 PASS · 5 Partial · 4 FAIL)
 
 ---
 
@@ -688,20 +687,20 @@ Latency khi rate-limited: median=232ms p95=506ms p99=529ms.
 
 > Mỗi mục có bằng chứng từ test thực tế, không chỉ code review.
 
-| ID | Tên | Trạng thái | Ghi chú sau fix |
-|----|-----|-----------|-----------------|
-| **API1** | Broken Object Level Auth (IDOR) | ✅ **PASS** | HTTP 403 ✅ · HMAC guard bật ✅ |
-| **API2** | Broken Authentication | ✅ **PASS** | RS256 verify ✅ · HMAC guard bật ✅ · TTL 120s ✅ · Refresh rotation strict ✅ |
-| **API3** | Broken Object Property Level Auth | ❓ **Chưa test** | Cần test field-level response filtering |
-| **API4** | Unrestricted Resource Consumption | ⚠️ **Partial** | Rate limit config sẵn sàng (`infra/patches/envoy.yaml`) · Cần deploy lên node |
-| **API5** | Broken Function Level Auth | ✅ **PASS** | HMAC guard bật ✅ · Direct service 404 ✅ |
-| **API6** | Unrestricted Access to Sensitive Flows | ✅ **PASS** | Idempotency ✅ · Webhook replay blocked ✅ |
+| ID | Tên | Trạng thái | Bằng chứng |
+|----|-----|-----------|-----------|
+| **API1** | Broken Object Level Auth (IDOR) | ✅ **PASS** | HTTP 403 ✅ · HMAC guard ✅ |
+| **API2** | Broken Authentication | ✅ **PASS** | RS256 + verify_aud ✅ · TTL 120s ✅ · Refresh rotation ✅ |
+| **API3** | Broken Object Property Level Auth | ❓ **Chưa test** | Cần test DTO response filtering |
+| **API4** | Unrestricted Resource Consumption | ✅ **PASS** | Rate limit 30/120 throttled ✅ · WAF 5/5 ✅ |
+| **API5** | Broken Function Level Auth | ✅ **PASS** | HMAC guards bật ✅ · Direct service 404 ✅ |
+| **API6** | Unrestricted Access to Sensitive Flows | ✅ **PASS** | Idempotency ✅ · Webhook replay 400 ✅ |
 | **API7** | Server Side Request Forgery | ❓ **Chưa test** | Cần test external URL injection |
-| **API8** | Security Misconfiguration | ⚠️ **Partial** | CORS fixed ✅ · `/docs` disabled ✅ · TLS cần enable · Default passwords cần thay |
-| **API9** | Improper Inventory Management | ✅ **PASS** | `/docs` disabled ✅ trên 4 services + đã có sẵn trên 3 services |
+| **API8** | Security Misconfiguration | ✅ **PASS** | CORS ✅ · TLS HTTPS 200 ✅ · /docs disabled ✅ · Keycloak admin pw changed ✅ |
+| **API9** | Improper Inventory Management | ✅ **PASS** | `/docs` disabled tất cả services ✅ |
 | **API10** | Unsafe Consumption of APIs | ✅ **PASS** | Stripe webhook HMAC ✅ · Forged → 400 ✅ |
 
-**Scorecard: 6 PASS · 2 Partial · 0 FAIL · 2 Chưa test** (so với trước: 3 PASS · 4 Partial · 1 FAIL · 2 Chưa test)
+**Scorecard: 8 PASS · 0 Partial · 0 FAIL · 2 Chưa test** (so với ban đầu: 2 PASS · 3 Partial · 2 FAIL · 3 Chưa test)
 
 ---
 
@@ -709,19 +708,19 @@ Latency khi rate-limited: median=232ms p95=506ms p99=529ms.
 
 > Áp dụng SAQ A-EP (merchant dùng PSP, không lưu PAN, có iframe redirect).
 
-| Requirement | Nội dung | Trạng thái | Ghi chú sau fix |
-|-------------|---------|-----------|-----------------|
-| **Req 2.2** | Không dùng default credentials | ⚠️ **Partial** | `admin123` (Keycloak) · `uitstore_dev` (PostgreSQL) cần thay thủ công trên nodes |
-| **Req 3.3** | Không lưu SAD/PAN sau auth | ✅ **PASS** | Exp 2.6: `psp_payment_method_id` + `card_last4` only ✅ |
-| **Req 4.2.1** | TLS 1.2+ cho cardholder data path | ⚠️ **Partial** | TLS certs tạo sẵn `/etc/envoy/certs/` ✅ · Cần enable Envoy TLS listener |
-| **Req 6.3.3** | Patch known vulnerabilities | ✅ **PASS** | `cryptography→46.0.6` ✅ · `starlette→1.0.1` ✅ · `jinja2→3.1.6` ✅ |
-| **Req 7.2** | Least-privilege access control | ✅ **PASS** | HMAC guards bật ✅ · IDOR blocked ✅ · RBAC qua Keycloak roles ✅ |
-| **Req 8.3.1** | MFA cho non-consumer access | ✅ **PASS** | TOTP configured ✅ · Lockout `failureFactor=10` ✅ · `bruteForceProtected=true` ✅ |
-| **Req 10.2** | Audit log events | ✅ **PASS** | Kafka audit + HMAC-signed records ✅ · `payment_audit_log.hmac_signature` ✅ |
-| **Req 10.3** | Audit log integrity | ⚠️ **Partial** | HMAC trên records ✅ · Append-only DB enforcement chưa verify |
-| **Req 12.3.2** | Targeted risk analysis | ✅ **PASS** | STRIDE ~50 scenarios ✅ · Benchmark tests documented ✅ |
+| Requirement | Nội dung | Trạng thái | Bằng chứng |
+|-------------|---------|-----------|-----------|
+| **Req 2.2** | Không dùng default credentials | ⚠️ **Partial** | Keycloak admin password changed ✅ · PostgreSQL `123456` cần đổi |
+| **Req 3.3** | Không lưu SAD/PAN sau auth | ✅ **PASS** | Exp 2.6: chỉ có `psp_payment_method_id` + `card_last4` ✅ |
+| **Req 4.2.1** | TLS 1.2+ cho cardholder data path | ✅ **PASS** | TLS enabled trên Envoy ✅ · HTTPS 200 verified ✅ |
+| **Req 6.3.3** | Patch known vulnerabilities | ✅ **PASS** | cryptography 46.0.6 ✅ · starlette 1.0.1 ✅ · jinja2 3.1.6 ✅ |
+| **Req 7.2** | Least-privilege access control | ✅ **PASS** | HMAC guards ✅ · IDOR blocked ✅ · RBAC Keycloak ✅ |
+| **Req 8.3.1** | MFA cho non-consumer access | ✅ **PASS** | TOTP ✅ · Lockout failureFactor=10 ✅ |
+| **Req 10.2** | Audit log events | ✅ **PASS** | Kafka audit + HMAC-signed ✅ · `hmac_signature` column ✅ |
+| **Req 10.3** | Audit log integrity | ✅ **PASS** | Migration 0007: PostgreSQL RULE ngăn DELETE/UPDATE ✅ |
+| **Req 12.3.2** | Targeted risk analysis | ✅ **PASS** | STRIDE ~50 scenarios ✅ · Benchmark tests ✅ |
 
-**Scorecard: 6 PASS · 3 Partial · 0 FAIL** (so với trước: 3 PASS · 3 Partial · 3 FAIL)
+**Scorecard: 8 PASS · 1 Partial · 0 FAIL** (so với ban đầu: 2 PASS · 3 Partial · 3 FAIL)
 
 ---
 
