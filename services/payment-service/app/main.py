@@ -13,7 +13,26 @@ from app.api.v1.router import api_router
 from app.api.middleware.hmac_verification import HmacVerificationMiddleware
 from app.api.middleware.nonce_guard import NonceGuardMiddleware
 
+import re as _re
+
+class _PiiFilter(logging.Filter):
+    _PATTERNS = [
+        (_re.compile(r'\b[\w.+-]+@[\w-]+\.\w+\b'), '[EMAIL]'),
+        (_re.compile(r'\b\d{13,19}\b'), '[CARD]'),
+        (_re.compile(r'(?i)(Bearer\s+)[A-Za-z0-9\-._~+/]+=*'), r'\1[TOKEN]'),
+        (_re.compile(r'(?i)(whsec_|sk_test_|sk_live_)\w+'), r'\1[REDACTED]'),
+    ]
+    def filter(self, record):
+        msg = record.getMessage()
+        for pattern, repl in self._PATTERNS:
+            msg = pattern.sub(repl, msg)
+        record.msg = msg
+        record.args = ()
+        return True
+
 logging.basicConfig(level=logging.INFO)
+for h in logging.root.handlers or [logging.StreamHandler()]:
+    h.addFilter(_PiiFilter())
 logger = logging.getLogger(__name__)
 
 outbox_task: asyncio.Task | None = None

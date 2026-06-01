@@ -66,7 +66,7 @@ async def get_current_merchant_id(
             token,
             public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False},
+            audience="account",
         )
     except JWTError as exc:
         logger.warning("JWT validation failed: %s", exc)
