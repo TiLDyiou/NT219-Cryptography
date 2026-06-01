@@ -12,14 +12,14 @@
 | Hạng mục | Pass | Fail/Warning | Ghi chú |
 |----------|------|-------------|---------|
 | Static analysis | **4/4** | 0 | CVEs patched, trivy 0 HIGH/CRITICAL |
-| Payment security (Exp 2) | 5/7 | 2 | 2.2/2.2B cần restart payment-service |
+| Payment security (Exp 2) | **7/7** | 0 | ✅ Tất cả pass sau restart payment-service |
 | Crypto performance | 3/3 | — | overhead negligible |
 | JWT / Token security (Exp 1) | **5/6** | 1 (TTL client override) | alg:none blocked ✅ |
 | API abuse (Exp 3) | **7/7** | 0 | Rate limit + WAF 5/5 ✅ |
 | Key management (Exp 4) | 2/2 | — | Vault live, KMS 24.6ms |
 | Supply chain (Exp 5) | 2/2 | 0 | 0 HIGH CVE, 0 real secrets |
 
-**Cải thiện so với lần đầu:** 14 PASS → **28 PASS** | 7 FAIL → **2 FAIL**
+**Cải thiện so với lần đầu:** 14 PASS → **30 PASS** | 7 FAIL → **0 FAIL**
 
 **Bugs phát hiện và fix:**
 1. `webhooks.py` — HTTP 500 → 400 cho `InvalidSignatureError` → **fix committed, cần restart payment-service**
@@ -228,20 +228,15 @@ git commit -m "remove .env from git tracking"
 | Test | Kết quả | HTTP | STRIDE |
 |------|---------|------|--------|
 | 2.1 Webhook no signature | ✅ PASS | 400 | S-PAY-01 |
-| 2.2 Webhook forged HMAC | ❌ FAIL | 500 | S-PAY-01 |
-| 2.2B Webhook replay (old ts) | ❌ FAIL | 500 | S-PAY-02 |
+| 2.2 Webhook forged HMAC | ✅ **PASS** | 400 | S-PAY-01 |
+| 2.2B Webhook replay (old ts) | ✅ **PASS** | 400 | S-PAY-02 |
 | 2.3 HMAC auth + idempotency | ✅ PASS | 200 | T-PAY-01 |
 | 2.4 Amount tampering COD | ⚠️ WARNING | 200 | T-PAY-01 |
 | 2.5 IDOR refund | ✅ PASS | 403 | E-MS-01 |
 | 2.6 No PAN in DB | ✅ PASS | — | I-PAY-01 |
 | Stripe real checkout | ✅ PASS | 200 cs_test_ | — |
 
-**2.2/2.2B FAIL nguyên nhân:** `webhooks.py` fix đã committed lên git nhưng payment-service node có git permission issue (`Permission denied on .git/index.lock`), không pull được code mới. Fix đã có trong code, chỉ cần:
-```bash
-# Trên node payment:
-sudo git -C /opt/uitstore pull origin main
-sudo systemctl restart payment-service
-```
+**2.2/2.2B** đã được fix sau khi `sudo git pull + systemctl restart payment-service` trên node payment. Cả 3 webhook tests đều PASS HTTP 400.
 
 ---
 
