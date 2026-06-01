@@ -1,20 +1,28 @@
-from fastapi import FastAPI, Depends
+import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.exceptions import custom_exception_handler, CatalogException
 from app.core.database import init_db
 from app.api.v1.router import api_router
-from contextlib import asynccontextmanager
+
+logger = logging.getLogger(__name__)
+
+_db_ready = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Khởi tạo DB khi boot
-    await init_db()
+    global _db_ready
+    try:
+        await init_db()
+        _db_ready = True
+    except Exception as exc:
+        logger.critical("init_db failed: %s — service degraded, DB unreachable", exc)
     yield
-    # Cleanup khi shutdown
 
 
 app = FastAPI(
@@ -26,7 +34,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"https?://.*",
@@ -35,15 +42,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Exception handlers
 app.add_exception_handler(CatalogException, custom_exception_handler)
 
-# Routers, mount the API router under the API_V1_STR prefix (/api/v1)
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health", tags=["System"])
 def health_check():
+    if not _db_ready:
+        return Response(
+            content='{"status":"degraded","db":"unreachable","service":"' + settings.PROJECT_NAME + '"}',
+            status_code=503,
+            media_type="application/json",
+        )
     return {"status": "ok", "service": settings.PROJECT_NAME}
 
 
