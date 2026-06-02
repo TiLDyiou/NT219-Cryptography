@@ -49,6 +49,9 @@ class AppContainer:
     audit_logger: AuditLogger
     payment_gateway: PaymentGateway
     inventory_gateway: InventoryGateway
+    # Verifier riêng cho event đến từ payment-service (ký bằng payment-sign-key).
+    # Chỉ cần .verify_event(envelope) nên EventSigner là đủ.
+    payment_event_verifier: CryptoService = None  # type: ignore[assignment]
     vault_client: VaultClient | None = None
     redis_client: Redis | None = None
     kafka_producer: object | None = None
@@ -103,6 +106,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
     event_publisher: EventPublisher
     payment_gateway: PaymentGateway
 
+    # Verifier cho inbound payment events; mặc định dùng chính crypto_service
+    # (dev), sẽ được thay bằng EventSigner(payment-sign-key) khi Vault sẵn sàng.
+    payment_event_verifier: CryptoService
+
     if cfg.vault.enabled:
         try:
             vault_client = VaultClient(cfg.vault)
@@ -112,12 +119,15 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             hmac_signer = HmacSigner(transit, cfg.vault.hmac_key_name)
             event_signer = EventSigner(transit, cfg.vault.sign_key_name)
             crypto_service = VaultCryptoService(envelope, hmac_signer, event_signer)
+            payment_event_verifier = EventSigner(transit, cfg.vault.payment_sign_key_name)  # type: ignore[assignment]
             logger.info("Vault crypto initialized")
         except Exception:
             logger.warning("Vault unavailable; using local dev crypto", exc_info=True)
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
+            payment_event_verifier = crypto_service
     else:
         crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
+        payment_event_verifier = crypto_service
 
     if cfg.redis.enabled:
         try:
@@ -174,6 +184,7 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
         audit_logger=audit_logger,
         payment_gateway=payment_gateway,
         inventory_gateway=inventory_gateway,
+        payment_event_verifier=payment_event_verifier,
         vault_client=vault_client,
         redis_client=redis_client,
         kafka_producer=kafka_producer,

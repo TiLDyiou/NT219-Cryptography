@@ -13,6 +13,8 @@ class VaultConfig(BaseModel):
     fle_key_name: str = "order-fle-key"
     sign_key_name: str = "order-sign-key"
     hmac_key_name: str = "order-hmac-key"
+    # Key của payment-service để verify chữ ký event đến từ payment (transit verify cần đúng key bên ký).
+    payment_sign_key_name: str = "payment-sign-key"
     enabled: bool = True
 
 
@@ -96,6 +98,7 @@ class Settings(BaseSettings):
     VAULT_FLE_KEY: str = os.getenv("VAULT_FLE_KEY", "order-fle-key")
     VAULT_SIGN_KEY: str = os.getenv("VAULT_SIGN_KEY", "order-sign-key")
     VAULT_HMAC_KEY: str = os.getenv("VAULT_HMAC_KEY", "order-hmac-key")
+    VAULT_PAYMENT_SIGN_KEY: str = os.getenv("VAULT_PAYMENT_SIGN_KEY", "payment-sign-key")
     VAULT_RENEWAL_INTERVAL_SECONDS: int = int(
         os.getenv("VAULT_RENEWAL_INTERVAL_SECONDS", "1800")
     )
@@ -158,6 +161,7 @@ class Settings(BaseSettings):
             fle_key_name=self.VAULT_FLE_KEY,
             sign_key_name=self.VAULT_SIGN_KEY,
             hmac_key_name=self.VAULT_HMAC_KEY,
+            payment_sign_key_name=self.VAULT_PAYMENT_SIGN_KEY,
             enabled=self.VAULT_ENABLED,
         )
 

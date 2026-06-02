@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     if settings.KAFKA_ENABLED:
         try:
             from app.infrastructure.messaging.payment_event_consumer import build_payment_event_consumer
-            consumer = await build_payment_event_consumer(settings.kafka, container.crypto_service)
+            consumer = await build_payment_event_consumer(settings.kafka, container.payment_event_verifier)
             _payment_consumer_task = asyncio.create_task(consumer.start())
             logger.info("Payment event consumer started (topic=%s)", settings.KAFKA_TOPIC_PAYMENT_EVENTS)
         except Exception:
