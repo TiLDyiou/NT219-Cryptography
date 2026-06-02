@@ -1,0 +1,211 @@
+<mxfile host="app.diagrams.net" modified="2026-06-03" type="device">
+  <diagram id="topology" name="UIT Store - Topology bao mat">
+    <mxGraphModel dx="1800" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- =================== ZONE: HOST A =================== -->
+        <mxCell id="zA" value="MAY HOST A  —  3 VM (libvirt 192.168.122.x)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;fillOpacity=8;strokeColor=#1f6fb2;strokeWidth=3;dashed=1;dashPattern=14 10;verticalAlign=top;fontStyle=1;fontSize=16;fontColor=#1f6fb2;arcSize=2;spacingTop=8;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="255" y="210" width="1755" height="975" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== ZONE: HOST B =================== -->
+        <mxCell id="zB" value="MAY HOST B  —  Tailscale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;fillOpacity=8;strokeColor=#9b2226;strokeWidth=3;dashed=1;dashPattern=14 10;verticalAlign=top;fontStyle=1;fontSize=16;fontColor=#9b2226;arcSize=4;spacingTop=8;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="2145" y="435" width="285" height="555" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== ZONE: VM1 (API & Auth) =================== -->
+        <mxCell id="zVM1" value="VM1 (API &amp; Auth)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1f7ec2;strokeWidth=2;dashed=1;dashPattern=8 6;verticalAlign=top;fontStyle=1;fontSize=14;fontColor=#1f7ec2;arcSize=4;spacingTop=6;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="300" y="525" width="495" height="615" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== ZONE: VM2 (Core Services) =================== -->
+        <mxCell id="zVM2" value="VM2 (Core Services)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1f7ec2;strokeWidth=2;dashed=1;dashPattern=8 6;verticalAlign=top;fontStyle=1;fontSize=14;fontColor=#1f7ec2;arcSize=4;spacingTop=6;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="945" y="285" width="510" height="705" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== ZONE: VM3 (Payment & Vault) =================== -->
+        <mxCell id="zVM3" value="VM3 (Payment &amp; Vault)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#1f7ec2;strokeWidth=2;dashed=1;dashPattern=8 6;verticalAlign=top;fontStyle=1;fontSize=14;fontColor=#1f7ec2;arcSize=4;spacingTop=6;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="1545" y="480" width="435" height="270" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== ZONE: VM4 (Postgres & Kafka) =================== -->
+        <mxCell id="zVM4" value="VM4 (Postgres &amp; Kafka)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b45309;strokeWidth=2;dashed=1;dashPattern=8 6;verticalAlign=top;fontStyle=1;fontSize=14;fontColor=#b45309;arcSize=4;spacingTop=6;spacingLeft=6;" vertex="1" parent="1">
+          <mxGeometry x="2175" y="510" width="225" height="450" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== DIVIDER LINE (Host A | Host B) =================== -->
+        <mxCell id="divider" value="" style="endArrow=none;strokeColor=#9b2226;strokeWidth=2;dashed=1;dashPattern=12 8;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2070" y="180" as="sourcePoint"/>
+            <mxPoint x="2070" y="1155" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- =================== NODE: Client =================== -->
+        <mxCell id="n_client" value="&lt;b style=&quot;font-size:14px&quot;&gt;Client&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Browser + Keycloak login&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/laptop_client.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="-55" y="590" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Nginx =================== -->
+        <mxCell id="n_nginx" value="&lt;b style=&quot;font-size:14px&quot;&gt;Nginx&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Reverse proxy / TLS termination&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="365" y="590" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Envoy =================== -->
+        <mxCell id="n_envoy" value="&lt;b style=&quot;font-size:14px&quot;&gt;Envoy&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;API gateway + JWT routing&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/network_switch.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="665" y="590" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Keycloak =================== -->
+        <mxCell id="n_keycloak" value="&lt;b style=&quot;font-size:14px&quot;&gt;Keycloak&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;OIDC / OAuth2 (RS256)&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="665" y="980" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Catalog =================== -->
+        <mxCell id="n_catalog" value="&lt;b style=&quot;font-size:14px&quot;&gt;Catalog&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Product catalog service&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="350" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Cart =================== -->
+        <mxCell id="n_cart" value="&lt;b style=&quot;font-size:14px&quot;&gt;Cart&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Shopping cart service&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="590" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Order =================== -->
+        <mxCell id="n_order" value="&lt;b style=&quot;font-size:14px&quot;&gt;Order&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Saga orchestrator&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1025" y="830" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Inventory =================== -->
+        <mxCell id="n_inventory" value="&lt;b style=&quot;font-size:14px&quot;&gt;Inventory&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Inventory service&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1325" y="830" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Payment =================== -->
+        <mxCell id="n_payment" value="&lt;b style=&quot;font-size:14px&quot;&gt;Payment&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Payment gateway&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1625" y="590" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Vault =================== -->
+        <mxCell id="n_vault" value="&lt;b style=&quot;font-size:14px&quot;&gt;Vault&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Transit encrypt + sign&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1850" y="590" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Tailscale =================== -->
+        <mxCell id="n_cloud" value="&lt;b style=&quot;font-size:14px&quot;&gt;Tailscale&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;WireGuard tunnel&lt;/span&gt;" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#eaf4fb;strokeColor=#1f7ec2;strokeWidth=2;fontSize=12;fontColor=#16314a;verticalLabelPosition=bottom;verticalAlign=top;align=center;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="2025" y="825" width="90" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: PostgreSQL =================== -->
+        <mxCell id="n_postgres" value="&lt;b style=&quot;font-size:14px&quot;&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Database (asyncpg / TLS)&lt;/span&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#1f7ec2;fontColor=#ffffff;strokeColor=#0e3e63;fontSize=12;verticalLabelPosition=bottom;verticalAlign=top;align=center;labelBackgroundColor=none;spacingTop=4;labelFontColor=#16314a;" vertex="1" parent="1">
+          <mxGeometry x="2255" y="585" width="50" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Kafka =================== -->
+        <mxCell id="n_kafka" value="&lt;b style=&quot;font-size:14px&quot;&gt;Kafka&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;Audit event bus&lt;/span&gt;" style="shape=image;html=1;verticalLabelPosition=bottom;verticalAlign=top;align=center;imageAspect=0;aspect=fixed;image=img/lib/active_directory/generic_server.svg;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="2255" y="830" width="50" height="50" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== NODE: Stripe =================== -->
+        <mxCell id="n_stripe" value="&lt;b style=&quot;font-size:14px&quot;&gt;Stripe&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px;color:#5d6f82&quot;&gt;PSP + webhook HMAC&lt;/span&gt;" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#eaf4fb;strokeColor=#1f7ec2;strokeWidth=2;fontSize=12;fontColor=#16314a;verticalLabelPosition=bottom;verticalAlign=top;align=center;labelBackgroundColor=none;spacingTop=4;" vertex="1" parent="1">
+          <mxGeometry x="1605" y="197" width="90" height="60" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== EDGES =================== -->
+
+        <!-- Client -> Nginx : HTTPS / TLS 1.3 -->
+        <mxCell id="e1" value="HTTPS / TLS 1.3" style="endArrow=block;endFill=1;strokeColor=#0a7d82;strokeWidth=3;fontColor=#0a7d82;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="n_client" target="n_nginx" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Nginx -> Envoy : Reverse proxy -->
+        <mxCell id="e2" value="Reverse proxy" style="endArrow=block;endFill=1;strokeColor=#0a7d82;strokeWidth=3;fontColor=#0a7d82;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="n_nginx" target="n_envoy" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Client -> Keycloak : OIDC login -->
+        <mxCell id="e3" value="OIDC login" style="endArrow=block;endFill=1;strokeColor=#1f6fb2;strokeWidth=3;fontColor=#1f6fb2;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_client" target="n_keycloak" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Envoy -> Catalog : Bearer JWT -->
+        <mxCell id="e4" value="Bearer JWT" style="endArrow=block;endFill=1;strokeColor=#1f6fb2;strokeWidth=3;fontColor=#1f6fb2;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_envoy" target="n_catalog" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Envoy -> Cart : Bearer JWT -->
+        <mxCell id="e5" value="Bearer JWT" style="endArrow=block;endFill=1;strokeColor=#1f6fb2;strokeWidth=3;fontColor=#1f6fb2;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="n_envoy" target="n_cart" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Envoy -> Order : Bearer JWT -->
+        <mxCell id="e6" value="Bearer JWT" style="endArrow=block;endFill=1;strokeColor=#1f6fb2;strokeWidth=3;fontColor=#1f6fb2;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_envoy" target="n_order" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Order -> Keycloak : Verify JWT -->
+        <mxCell id="e7" value="Verify JWT" style="endArrow=block;endFill=1;strokeColor=#1f6fb2;strokeWidth=3;fontColor=#1f6fb2;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_order" target="n_keycloak" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Order -> Inventory : HMAC + Token -->
+        <mxCell id="e8" value="HMAC + Token" style="endArrow=block;endFill=1;strokeColor=#8a2d8f;strokeWidth=3;fontColor=#8a2d8f;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="n_order" target="n_inventory" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Order -> Payment : HMAC + Token -->
+        <mxCell id="e9" value="HMAC + Token" style="endArrow=block;endFill=1;strokeColor=#8a2d8f;strokeWidth=3;fontColor=#8a2d8f;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_order" target="n_payment" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Payment -> Vault : Envelope + Sign -->
+        <mxCell id="e10" value="Envelope + Sign" style="endArrow=block;endFill=1;strokeColor=#b45309;strokeWidth=3;fontColor=#b45309;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" source="n_payment" target="n_vault" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Payment -> Stripe : Stripe API -->
+        <mxCell id="e11" value="Stripe API" style="endArrow=block;endFill=1;strokeColor=#0a7d82;strokeWidth=3;fontColor=#0a7d82;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_payment" target="n_stripe" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Payment -> Tailscale (no label) -->
+        <mxCell id="e12" value="" style="endArrow=block;endFill=1;strokeColor=#9b2226;strokeWidth=3;rounded=1;" edge="1" source="n_payment" target="n_cloud" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Tailscale -> PostgreSQL : WireGuard + TLS -->
+        <mxCell id="e13" value="WireGuard + TLS" style="endArrow=block;endFill=1;strokeColor=#9b2226;strokeWidth=3;fontColor=#9b2226;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_cloud" target="n_postgres" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- Tailscale -> Kafka : WireGuard -->
+        <mxCell id="e14" value="WireGuard" style="endArrow=block;endFill=1;strokeColor=#9b2226;strokeWidth=3;fontColor=#9b2226;fontSize=13;fontStyle=1;labelBackgroundColor=#ffffff;rounded=1;" edge="1" source="n_cloud" target="n_kafka" parent="1">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- =================== LEGEND =================== -->
+        <mxCell id="leg_title" value="&lt;b style=&quot;font-size:16px&quot;&gt;Security Channels&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="255" y="30" width="200" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_tls" value="&lt;span style=&quot;color:#0a7d82;font-weight:bold&quot;&gt;——&amp;gt;  TLS / HTTPS&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=none;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="255" y="65" width="200" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_oidc" value="&lt;span style=&quot;color:#1f6fb2;font-weight:bold&quot;&gt;——&amp;gt;  OAuth2 / OIDC / JWT&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=none;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="255" y="92" width="250" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_hmac" value="&lt;span style=&quot;color:#8a2d8f;font-weight:bold&quot;&gt;——&amp;gt;  HMAC + Internal-Token (S2S)&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=none;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="255" y="119" width="320" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_vault" value="&lt;span style=&quot;color:#b45309;font-weight:bold&quot;&gt;——&amp;gt;  Vault Transit (envelope + sign)&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=none;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="255" y="146" width="340" height="25" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_wg" value="&lt;span style=&quot;color:#9b2226;font-weight:bold&quot;&gt;——&amp;gt;  WireGuard (Tailscale)&lt;/span&gt;" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fillColor=none;strokeColor=none;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="255" y="173" width="260" height="25" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
