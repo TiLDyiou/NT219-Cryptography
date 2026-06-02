@@ -1,398 +1,416 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Topology | Architecture Blueprint</title>
+    <title>Network Topology | UIT Store - 4 Node Deployment</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap');
 
         :root {
-            --bg-color: #ffffff;
+            --bg-color: #f7f9fb;
             --primary: #2d5986;
-            --primary-light: rgba(45, 89, 134, 0.1);
-            --primary-hover: rgba(45, 89, 134, 0.2);
-            --text-main: #2d5986;
-            --text-muted: rgba(45, 89, 134, 0.7);
-            --line-color: rgba(45, 89, 134, 0.3);
+            --primary-light: rgba(45, 89, 134, 0.10);
+            --primary-hover: rgba(45, 89, 134, 0.16);
+            --text-main: #1f3a57;
+            --text-muted: rgba(45, 89, 134, 0.65);
+            --line-color: rgba(45, 89, 134, 0.30);
             --line-active: #2d5986;
-            
+
+            --wan: #0a9396;          /* cross-host Tailscale */
+            --wan-soft: rgba(10, 147, 150, 0.35);
+            --machine-a: #2d5986;
+            --machine-b: #9b2226;
+
             --font-mono: 'JetBrains Mono', monospace;
             --font-sans: 'Inter', sans-serif;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
             font-family: var(--font-sans);
-            overflow: hidden;
             display: flex;
             flex-direction: column;
             height: 100vh;
+            overflow: hidden;
         }
 
         header {
-            padding: 24px 40px;
+            padding: 16px 32px;
             border-bottom: 1px solid var(--primary-light);
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
-            background: var(--bg-color);
-            z-index: 10;
+            align-items: center;
+            background: #ffffff;
+            z-index: 30;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .title-block h1 {
             font-family: var(--font-mono);
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 600;
             letter-spacing: -0.5px;
             text-transform: uppercase;
         }
-
         .title-block p {
             font-family: var(--font-mono);
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-top: 4px;
-        }
-
-        .legend {
-            display: flex;
-            gap: 20px;
-            font-family: var(--font-mono);
             font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 3px;
         }
 
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .legend-line {
-            width: 24px;
-            height: 2px;
-            background: var(--primary);
-        }
-
-        .legend-line.dashed {
-            background: repeating-linear-gradient(90deg, var(--primary) 0, var(--primary) 4px, transparent 4px, transparent 8px);
-        }
+        .legend { display: flex; gap: 18px; font-family: var(--font-mono); font-size: 11px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 7px; }
+        .legend-line { width: 26px; height: 2px; background: var(--primary); }
+        .legend-line.dashed { background: repeating-linear-gradient(90deg, var(--primary) 0, var(--primary) 4px, transparent 4px, transparent 8px); }
+        .legend-line.wan { height: 3px; background: var(--wan); }
+        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--machine-a); }
+        .legend-swatch.b { border-color: var(--machine-b); }
 
         #topology-container {
             flex: 1;
             position: relative;
             overflow: auto;
-            background-image: 
+            background-image:
                 linear-gradient(var(--primary-light) 1px, transparent 1px),
                 linear-gradient(90deg, var(--primary-light) 1px, transparent 1px);
             background-size: 40px 40px;
         }
 
-        #svg-canvas {
+        #stage { position: relative; width: 1560px; height: 1000px; }
+
+        #svg-canvas { position: absolute; top: 0; left: 0; width: 1560px; height: 1000px; pointer-events: none; z-index: 5; }
+
+        /* ---- Zone containers (host machines + nodes) ---- */
+        .zone {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
+            border-radius: 10px;
             z-index: 1;
         }
+        .machine {
+            border: 2px dashed var(--machine-a);
+            background: rgba(45, 89, 134, 0.025);
+        }
+        .machine.b { border-color: var(--machine-b); background: rgba(155, 34, 38, 0.03); }
+        .machine-label {
+            position: absolute; top: -11px; left: 18px;
+            background: var(--bg-color); padding: 0 10px;
+            font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+            color: var(--machine-a); letter-spacing: 0.5px;
+        }
+        .machine.b .machine-label { color: var(--machine-b); }
 
+        .subzone {
+            border: 1.5px solid var(--line-color);
+            background: rgba(255,255,255,0.55);
+        }
+        .subzone-label {
+            position: absolute; top: -10px; left: 14px;
+            background: var(--bg-color); padding: 0 8px;
+            font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+            color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase;
+        }
+        .subzone.ext { border-style: dashed; }
+
+        /* ---- Service nodes ---- */
         .node {
             position: absolute;
-            background: var(--bg-color);
+            background: #ffffff;
             border: 1.5px solid var(--primary);
-            padding: 16px;
-            border-radius: 4px;
-            min-width: 160px;
-            z-index: 2;
+            padding: 11px 13px;
+            border-radius: 5px;
+            min-width: 150px;
+            z-index: 10;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 4px 4px 0 var(--primary-light);
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            transform: translate(-50%, -50%); /* Centered on coordinates */
+            transition: box-shadow 0.25s, transform 0.25s, opacity 0.25s, background 0.25s;
+            box-shadow: 3px 3px 0 var(--primary-light);
+            display: flex; flex-direction: column; gap: 3px;
+            transform: translate(-50%, -50%);
         }
+        .node .node-name { font-weight: 600; font-size: 13px; }
+        .node .node-type { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
+        .node .node-meta { font-family: var(--font-mono); font-size: 9.5px; color: var(--wan); }
+
+        .node.infra { border-color: var(--machine-b); }
+        .node.infra .node-meta { color: var(--machine-b); }
+        .node.external { border-style: dashed; border-color: var(--text-muted); background: #fbfbfb; }
 
         .node:hover, .node.active {
-            box-shadow: 6px 6px 0 var(--primary);
-            transform: translate(-50%, -52%);
+            box-shadow: 5px 5px 0 var(--primary);
+            transform: translate(-50%, -53%);
             background: var(--primary-hover);
         }
+        .node.dimmed { opacity: 0.25; box-shadow: none; }
 
-        .node.dimmed {
-            opacity: 0.3;
-            border-color: var(--text-muted);
-            box-shadow: none;
-        }
+        /* ---- Edges ---- */
+        path.edge { fill: none; stroke: var(--line-color); stroke-width: 1.5px; transition: stroke 0.25s, stroke-width 0.25s, opacity 0.25s; }
+        path.edge.dashed { stroke-dasharray: 6 6; }
+        path.edge.wan { stroke: var(--wan-soft); }
+        path.edge.active { stroke: var(--line-active); stroke-width: 2.5px; opacity: 1; }
+        path.edge.wan.active { stroke: var(--wan); }
+        path.edge.dimmed { opacity: 0.06; }
 
-        .node-type {
-            font-family: var(--font-mono);
-            font-size: 10px;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            letter-spacing: 1px;
-        }
+        circle.packet { fill: var(--primary); r: 4; opacity: 0; }
+        circle.packet.wan { fill: var(--wan); }
 
-        .node-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        /* SVG Paths styling */
-        path.edge {
-            fill: none;
-            stroke: var(--line-color);
-            stroke-width: 1.5px;
-            transition: all 0.3s ease;
-        }
-
-        path.edge.dashed {
-            stroke-dasharray: 6 6;
-        }
-
-        path.edge.active {
-            stroke: var(--line-active);
-            stroke-width: 2.5px;
-        }
-
-        path.edge.dimmed {
-            stroke: rgba(45, 89, 134, 0.1);
-        }
-
-        /* Moving dots along active edges */
-        .packet {
-            fill: var(--primary);
-            r: 4;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .edge.active + .packet {
-            opacity: 1;
-        }
-
-        /* Detail panel */
+        /* ---- Detail panel ---- */
         #detail-panel {
-            position: fixed;
-            bottom: 40px;
-            right: 40px;
-            width: 320px;
-            background: var(--bg-color);
-            border: 1px solid var(--primary);
-            padding: 20px;
-            box-shadow: 8px 8px 0 var(--primary-light);
-            z-index: 20;
-            font-family: var(--font-mono);
-            transform: translateY(150%);
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: fixed; bottom: 24px; right: 24px; width: 330px;
+            background: #ffffff; border: 1px solid var(--primary);
+            padding: 18px; box-shadow: 8px 8px 0 var(--primary-light);
+            z-index: 40; font-family: var(--font-mono);
+            transform: translateY(160%); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
-        #detail-panel.visible {
-            transform: translateY(0);
-        }
-
-        #dp-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 12px;
-            border-bottom: 1px solid var(--primary-light);
-            padding-bottom: 8px;
-        }
-
-        #dp-content {
-            font-size: 11px;
-            color: var(--text-muted);
-            line-height: 1.6;
-        }
-        
-        .dp-tag {
-            display: inline-block;
-            background: var(--primary-light);
-            color: var(--primary);
-            padding: 2px 6px;
-            border-radius: 2px;
-            margin-top: 8px;
-            margin-right: 4px;
-        }
-
+        #detail-panel.visible { transform: translateY(0); }
+        #dp-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        #dp-sub { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--primary-light); }
+        #dp-content { font-size: 10.5px; color: var(--text-muted); line-height: 1.6; max-height: 40vh; overflow:auto; }
+        .dp-tag { display: inline-block; padding: 1px 5px; border-radius: 2px; margin-right: 4px; font-size: 9px; }
+        .dp-tag.out { background: rgba(45,89,134,0.12); color: var(--primary); }
+        .dp-tag.in  { background: rgba(10,147,150,0.14); color: var(--wan); }
     </style>
 </head>
 <body>
 
     <header>
         <div class="title-block">
-            <h1>System Topology Map</h1>
-            <p>NT219 Cryptography - Microservices Data Flow</p>
+            <h1>Network Topology — UIT Store</h1>
+            <p>NT219 Cryptography · 4-Node Deployment (3 VM trên Máy A + 1 VM trên Máy B qua Tailscale)</p>
         </div>
         <div class="legend">
-            <div class="legend-item">
-                <div class="legend-line"></div>
-                <span>Synchronous (HTTP)</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-line dashed"></div>
-                <span>Asynchronous (Kafka/AMQP)</span>
-            </div>
+            <div class="legend-item"><div class="legend-line"></div><span>HTTP đồng bộ (LAN)</span></div>
+            <div class="legend-item"><div class="legend-line dashed"></div><span>Kafka bất đồng bộ</span></div>
+            <div class="legend-item"><div class="legend-line wan"></div><span>Cross-host (Tailscale/WireGuard)</span></div>
+            <div class="legend-item"><div class="legend-swatch"></div><span>Máy A</span></div>
+            <div class="legend-item"><div class="legend-swatch b"></div><span>Máy B</span></div>
         </div>
     </header>
 
     <div id="topology-container">
-        <svg id="svg-canvas">
-            <defs>
-                <marker id="arrow" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                    <path d="M0,-5L10,0L0,5" fill="rgba(45, 89, 134, 0.3)" class="arrow-path"></path>
-                </marker>
-                <marker id="arrow-active" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                    <path d="M0,-5L10,0L0,5" fill="#2d5986"></path>
-                </marker>
-            </defs>
-        </svg>
-        <div id="nodes-layer"></div>
+        <div id="stage">
+            <svg id="svg-canvas">
+                <defs>
+                    <marker id="arrow" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M0,-5L10,0L0,5" fill="rgba(45, 89, 134, 0.3)"></path>
+                    </marker>
+                    <marker id="arrow-active" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M0,-5L10,0L0,5" fill="#2d5986"></path>
+                    </marker>
+                    <marker id="arrow-wan" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                        <path d="M0,-5L10,0L0,5" fill="#0a9396"></path>
+                    </marker>
+                </defs>
+            </svg>
+            <div id="zones-layer"></div>
+            <div id="nodes-layer"></div>
+        </div>
     </div>
 
     <div id="detail-panel">
-        <div id="dp-title">Node Details</div>
-        <div id="dp-content">Hover over a node to see data flows and details.</div>
+        <div id="dp-title">Chi tiết Node</div>
+        <div id="dp-sub"></div>
+        <div id="dp-content">Di chuột vào một node để xem vị trí và các luồng dữ liệu.</div>
     </div>
 
     <script>
-        // System nodes definition
+        /* =========================================================
+           ZONES — ranh giới máy host + node mạng
+           ========================================================= */
+        const zones = [
+            // Host machines
+            { kind: 'machine', label: 'MÁY HOST A · 3 VM (libvirt — mạng nội bộ 192.168.122.x)', x: 250, y: 70, w: 910, h: 800 },
+            { kind: 'machine', cls: 'b', label: 'MÁY HOST B · kết nối qua Tailscale (WireGuard)', x: 1240, y: 70, w: 230, h: 800 },
+            // Sub-zones (nodes)
+            { kind: 'sub', label: 'Internet / Client', cls: 'ext', x: 60,   y: 210, w: 180, h: 190 },
+            { kind: 'sub', label: 'NODE-1 · Ingress',          x: 285,  y: 100, w: 210, h: 560 },
+            { kind: 'sub', label: 'NODE-2 · Core Services',    x: 560,  y: 90,  w: 220, h: 740 },
+            { kind: 'sub', label: 'NODE-3 · Payment + Vault',  x: 860,  y: 300, w: 250, h: 400 },
+            { kind: 'sub', label: 'NODE-4 · Data + Observability', x: 1255, y: 90, w: 200, h: 760 },
+            { kind: 'sub', label: 'External APIs (Internet)', cls: 'ext', x: 560, y: 850, w: 550, h: 120 }
+        ];
+
+        /* =========================================================
+           NODES
+           ========================================================= */
         const nodes = [
-            // Column 1: Client/Auth
-            { id: 'client', type: 'External', name: 'Frontend Client', x: 10, y: 50, desc: 'End-user interface interacting with the system.' },
-            { id: 'keycloak', type: 'Identity', name: 'Keycloak', x: 10, y: 80, desc: 'Issues JWT tokens and handles authentication.' },
-            
-            // Column 2: Entry & User-Facing Services
-            { id: 'catalog', type: 'Microservice', name: 'Catalog Service', x: 35, y: 20, desc: 'Manages products and inventory catalog.' },
-            { id: 'cart', type: 'Microservice', name: 'Cart Service', x: 35, y: 50, desc: 'Manages user shopping carts. Calls Catalog Service.' },
-            { id: 'order', type: 'Microservice', name: 'Order Service', x: 35, y: 80, desc: 'Orchestrates checkout, validates with Inventory & Payment.' },
+            // Internet / client
+            { id:'client', node:'EXT', cls:'external', type:'External', name:'Trình duyệt / Client', meta:'HTTPS', x:150, y:305,
+              desc:'Người dùng cuối truy cập hệ thống qua trình duyệt. Vào điểm ingress NODE-1.' },
 
-            // Column 3: Domain / Backend Services
-            { id: 'inventory', type: 'Microservice', name: 'Inventory Service', x: 60, y: 35, desc: 'Handles stock reservation and management.' },
-            { id: 'payment', type: 'Microservice', name: 'Payment Service', x: 60, y: 65, desc: 'Integrates with Stripe. Handles payment processing.' },
-            { id: 'shipping', type: 'Microservice', name: 'Shipping Service', x: 60, y: 90, desc: 'Integrates with GHN API. Manages delivery tracking.' },
+            // NODE-1 — Ingress (Máy A)
+            { id:'nginx',   node:'NODE-1', type:'Web Server / Proxy', name:'Nginx', meta:':80 / :443', x:390, y:170,
+              desc:'Phục vụ frontend tĩnh và reverse-proxy: /api → Envoy, /auth → Keycloak.' },
+            { id:'envoy',   node:'NODE-1', type:'API Gateway', name:'Envoy Gateway', meta:':10000 · admin :9901', x:390, y:380,
+              desc:'API Gateway: validate JWT (JWKS từ Keycloak), rate-limit, route theo prefix tới các service NODE-2/NODE-3.' },
+            { id:'keycloak',node:'NODE-1', type:'Identity Provider', name:'Keycloak', meta:':8080', x:390, y:600,
+              desc:'OAuth2 / OIDC. Phát hành & ký JWT, MFA. Lưu realm trong keycloak_db (PostgreSQL trên NODE-4).' },
 
-            // Column 4: Messaging & Infra
-            { id: 'kafka', type: 'Message Broker', name: 'Kafka Cluster', x: 85, y: 50, desc: 'Event bus for async communication (order.checkout, payment.events, etc).' },
-            { id: 'noti', type: 'Microservice', name: 'Notification Service', x: 85, y: 20, desc: 'Consumes Kafka events to send emails/alerts.' },
-            { id: 'vault', type: 'Secrets Mgmt', name: 'HashiCorp Vault', x: 85, y: 80, desc: 'Provides Transit keys and secrets to services.' },
-            
-            // Column 5: DB/Cache
-            { id: 'redis', type: 'Cache / Store', name: 'Redis', x: 50, y: 15, desc: 'Idempotency, nonce storage, and rate limiting.' },
-            { id: 'postgres', type: 'Database', name: 'PostgreSQL Cluster', x: 50, y: 105, desc: 'Separate logical DBs for each service (catalog_db, order_db, etc).' },
-            
+            // NODE-2 — Core services (Máy A)
+            { id:'catalog',  node:'NODE-2', type:'Microservice', name:'Catalog Service', meta:':8001', x:670, y:150,
+              desc:'Quản lý sản phẩm & danh mục. DB: catalog_db.' },
+            { id:'cart',     node:'NODE-2', type:'Microservice', name:'Cart Service', meta:':8002', x:670, y:270,
+              desc:'Giỏ hàng người dùng. Gọi Catalog để lấy thông tin sản phẩm. DB: cart_db.' },
+            { id:'order',    node:'NODE-2', type:'Microservice · Saga', name:'Order Service', meta:':8003', x:670, y:390,
+              desc:'Orchestrator checkout (Saga). Điều phối Inventory + Payment qua Kafka, ghi order_db.' },
+            { id:'inventory',node:'NODE-2', type:'Microservice', name:'Inventory Service', meta:':8005', x:670, y:510,
+              desc:'Giữ chỗ & quản lý tồn kho. DB: inventory_db. Phát/nhận lệnh qua Kafka.' },
+            { id:'shipping', node:'NODE-2', type:'Microservice', name:'Shipping Service', meta:':8007', x:670, y:630,
+              desc:'Tạo vận đơn (tích hợp GHN), theo dõi giao hàng. DB: shipping_db.' },
+            { id:'noti',     node:'NODE-2', type:'Microservice', name:'Notification Service', meta:':8008', x:670, y:750,
+              desc:'Consume notification-events từ Kafka để gửi email/cảnh báo. DB: notification_db.' },
+
+            // NODE-3 — Payment + Vault (Máy A)
+            { id:'payment', node:'NODE-3', type:'Microservice', name:'Payment Service', meta:':8004', x:980, y:400,
+              desc:'Xử lý thanh toán (Stripe). Dùng Vault Transit để mã hóa envelope. DB: payment_db.' },
+            { id:'vault',   node:'NODE-3', type:'Secrets / KMS', name:'HashiCorp Vault', meta:':8200', x:980, y:620,
+              desc:'KMS & secrets. Transit engine cho envelope encryption; AppRole cấp credential cho order/shipping.' },
+
+            // NODE-4 — Data + Observability (Máy B, Tailscale)
+            { id:'postgres', node:'NODE-4', cls:'infra', type:'Database', name:'PostgreSQL', meta:':5432 (Tailscale)', x:1350, y:180,
+              desc:'Database-per-service: catalog/cart/order/payment/inventory/shipping/notification/keycloak_db.' },
+            { id:'kafka',    node:'NODE-4', cls:'infra', type:'Message Broker', name:'Kafka + Zookeeper', meta:':9092 (Tailscale)', x:1350, y:370,
+              desc:'Event bus. Topics: order-commands, order-events, inventory-commands, payment-commands, notification-events.' },
+            { id:'audit',    node:'NODE-4', cls:'infra', type:'Logging (ELK)', name:'Logstash + Elasticsearch + Kibana', meta:':5044 / :9200 / :5601', x:1350, y:560,
+              desc:'Audit log pipeline: service → Logstash → Elasticsearch → Kibana. Lưu HMAC-signed audit events.' },
+            { id:'monitor',  node:'NODE-4', cls:'infra', type:'Monitoring', name:'Prometheus + Grafana', meta:':9090 / :3000', x:1350, y:760,
+              desc:'Prometheus scrape /metrics của các service; Grafana hiển thị dashboard hiệu năng.' },
+
             // External APIs
-            { id: 'stripe', type: 'External API', name: 'Stripe API', x: 85, y: 65, desc: 'Payment Gateway' },
-            { id: 'ghn', type: 'External API', name: 'GHN API', x: 85, y: 105, desc: 'Giao Hang Nhanh Logistics' }
+            { id:'ghn',    node:'EXT', cls:'external', type:'External API', name:'GHN API', meta:'Internet', x:670, y:910,
+              desc:'Giao Hàng Nhanh — tạo & tra cứu vận đơn. Được Shipping Service gọi.' },
+            { id:'stripe', node:'EXT', cls:'external', type:'External API', name:'Stripe API', meta:'Internet', x:980, y:910,
+              desc:'Cổng thanh toán. Được Payment Service gọi để charge.' }
         ];
 
-        // System edges (data flows)
+        /* =========================================================
+           EDGES — link: 'lan' (cùng máy) | 'wan' (cross-host Tailscale) | 'net' (internet)
+           ========================================================= */
         const edges = [
-            // HTTP flows (sync)
-            { source: 'client', target: 'catalog', label: 'Browse', type: 'sync' },
-            { source: 'client', target: 'cart', label: 'Add to Cart', type: 'sync' },
-            { source: 'client', target: 'order', label: 'Checkout', type: 'sync' },
-            { source: 'client', target: 'keycloak', label: 'Login', type: 'sync' },
-            
-            { source: 'cart', target: 'catalog', label: 'Fetch Product', type: 'sync' },
-            { source: 'order', target: 'cart', label: 'Get Cart', type: 'sync' },
-            { source: 'order', target: 'payment', label: 'Init Payment', type: 'sync' },
-            { source: 'order', target: 'inventory', label: 'Check Stock', type: 'sync' },
-            
-            { source: 'payment', target: 'stripe', label: 'Charge', type: 'sync' },
-            { source: 'shipping', target: 'ghn', label: 'Create Order', type: 'sync' },
+            // Ingress / Auth
+            { s:'client',   t:'nginx',    label:'HTTPS (browse/checkout)', type:'sync', link:'net' },
+            { s:'client',   t:'keycloak', label:'Login OIDC',              type:'sync', link:'net' },
+            { s:'nginx',    t:'envoy',    label:'proxy /api/v1',           type:'sync', link:'lan' },
+            { s:'nginx',    t:'keycloak', label:'proxy /auth',             type:'sync', link:'lan' },
+            { s:'envoy',    t:'keycloak', label:'JWKS — validate JWT',     type:'sync', link:'lan' },
+            { s:'envoy',    t:'catalog',  label:'route /catalog',          type:'sync', link:'lan' },
+            { s:'envoy',    t:'cart',     label:'route /cart',             type:'sync', link:'lan' },
+            { s:'envoy',    t:'order',    label:'route /orders',           type:'sync', link:'lan' },
+            { s:'envoy',    t:'payment',  label:'route /payment',          type:'sync', link:'lan' },
 
-            // Kafka Async flows
-            { source: 'order', target: 'kafka', label: 'order.checkout', type: 'async' },
-            { source: 'payment', target: 'kafka', label: 'payment.events', type: 'async' },
-            { source: 'inventory', target: 'kafka', label: 'inventory.events', type: 'async' },
-            { source: 'shipping', target: 'kafka', label: 'shipping.events', type: 'async' },
-            
-            { source: 'kafka', target: 'noti', label: 'Consume Events', type: 'async' },
-            { source: 'kafka', target: 'shipping', label: 'order.confirmed', type: 'async' },
-            { source: 'kafka', target: 'vault', label: 'audit-logs (via service)', type: 'async' }, // conceptually, services write audit logs
+            // Core service-to-service (LAN, Máy A)
+            { s:'cart',     t:'catalog',  label:'fetch product',           type:'sync', link:'lan' },
+            { s:'order',    t:'cart',     label:'get cart',                type:'sync', link:'lan' },
+            { s:'order',    t:'inventory',label:'check stock',             type:'sync', link:'lan' },
+            { s:'order',    t:'payment',  label:'init payment',            type:'sync', link:'lan' },
 
-            // Infra Connections (drawn implicitly to avoid clutter, but we'll include them)
-            { source: 'order', target: 'redis', label: 'Idempotency', type: 'sync' },
-            { source: 'payment', target: 'redis', label: 'Nonce', type: 'sync' },
-            { source: 'shipping', target: 'vault', label: 'Secrets', type: 'sync' },
-            { source: 'payment', target: 'vault', label: 'Transit Keys', type: 'sync' },
-            
-            { source: 'catalog', target: 'postgres', label: 'Store', type: 'sync' },
-            { source: 'order', target: 'postgres', label: 'Store', type: 'sync' },
-            { source: 'inventory', target: 'postgres', label: 'Store', type: 'sync' }
+            // Vault (LAN, Máy A: NODE-2/NODE-3 → NODE-3 Vault)
+            { s:'payment',  t:'vault',    label:'Transit encrypt/decrypt', type:'sync', link:'lan' },
+            { s:'order',    t:'vault',    label:'AppRole secret',          type:'sync', link:'lan' },
+            { s:'shipping', t:'vault',    label:'AppRole secret',          type:'sync', link:'lan' },
+
+            // External APIs (Internet)
+            { s:'payment',  t:'stripe',   label:'charge',                  type:'sync', link:'net' },
+            { s:'shipping', t:'ghn',      label:'create shipment',         type:'sync', link:'net' },
+
+            // Kafka async (cross-host → NODE-4 trên Máy B)
+            { s:'order',    t:'kafka',    label:'order-commands / order-events', type:'async', link:'wan' },
+            { s:'payment',  t:'kafka',    label:'payment-commands',        type:'async', link:'wan' },
+            { s:'inventory',t:'kafka',    label:'inventory-commands',      type:'async', link:'wan' },
+            { s:'shipping', t:'kafka',    label:'shipping events',         type:'async', link:'wan' },
+            { s:'kafka',    t:'noti',     label:'notification-events',     type:'async', link:'wan' },
+            { s:'kafka',    t:'shipping', label:'order.confirmed',         type:'async', link:'wan' },
+
+            // Database (cross-host → PostgreSQL trên NODE-4)
+            { s:'catalog',  t:'postgres', label:'catalog_db',              type:'sync', link:'wan' },
+            { s:'cart',     t:'postgres', label:'cart_db',                 type:'sync', link:'wan' },
+            { s:'order',    t:'postgres', label:'order_db',                type:'sync', link:'wan' },
+            { s:'inventory',t:'postgres', label:'inventory_db',            type:'sync', link:'wan' },
+            { s:'shipping', t:'postgres', label:'shipping_db',             type:'sync', link:'wan' },
+            { s:'noti',     t:'postgres', label:'notification_db',         type:'sync', link:'wan' },
+            { s:'payment',  t:'postgres', label:'payment_db',              type:'sync', link:'wan' },
+            { s:'keycloak', t:'postgres', label:'keycloak_db',             type:'sync', link:'wan' },
+
+            // Observability (cross-host)
+            { s:'order',    t:'audit',    label:'audit log → Logstash',    type:'async', link:'wan' },
+            { s:'payment',  t:'audit',    label:'audit log → Logstash',    type:'async', link:'wan' },
+            { s:'monitor',  t:'order',    label:'scrape /metrics',         type:'sync', link:'wan' },
+            { s:'monitor',  t:'payment',  label:'scrape /metrics',         type:'sync', link:'wan' }
         ];
 
-        const container = document.getElementById('topology-container');
+        /* =========================================================
+           RENDER
+           ========================================================= */
+        const stage = document.getElementById('stage');
+        const zonesLayer = document.getElementById('zones-layer');
         const nodesLayer = document.getElementById('nodes-layer');
         const svg = document.getElementById('svg-canvas');
         const detailPanel = document.getElementById('detail-panel');
         const dpTitle = document.getElementById('dp-title');
+        const dpSub = document.getElementById('dp-sub');
         const dpContent = document.getElementById('dp-content');
 
-        // Render Nodes
-        nodes.forEach(n => {
+        // Zones
+        zones.forEach(z => {
             const el = document.createElement('div');
-            el.className = 'node';
+            el.className = 'zone ' + (z.kind === 'machine' ? 'machine' : 'subzone') + (z.cls ? ' ' + z.cls : '');
+            el.style.left = z.x + 'px'; el.style.top = z.y + 'px';
+            el.style.width = z.w + 'px'; el.style.height = z.h + 'px';
+            const lbl = document.createElement('div');
+            lbl.className = z.kind === 'machine' ? 'machine-label' : 'subzone-label';
+            lbl.textContent = z.label;
+            el.appendChild(lbl);
+            zonesLayer.appendChild(el);
+        });
+
+        // Nodes
+        const nodeMap = {};
+        nodes.forEach(n => {
+            nodeMap[n.id] = n;
+            const el = document.createElement('div');
+            el.className = 'node' + (n.cls ? ' ' + n.cls : '');
             el.id = `node-${n.id}`;
-            // Position based on percentage (converted to pixels on resize)
-            el.dataset.x = n.x;
-            el.dataset.y = n.y;
-            
+            el.style.left = n.x + 'px';
+            el.style.top = n.y + 'px';
             el.innerHTML = `
                 <div class="node-type">${n.type}</div>
                 <div class="node-name">${n.name}</div>
-            `;
-            
+                <div class="node-meta">${n.meta || ''}</div>`;
             el.addEventListener('mouseenter', () => activateNode(n.id));
             el.addEventListener('mouseleave', deactivateAll);
-            
             nodesLayer.appendChild(el);
         });
 
-        // SVG Elements arrays
+        // Edges
         let pathElements = [];
         let packetElements = [];
 
         function drawEdges() {
-            // Clear existing
-            svg.querySelectorAll('path.edge').forEach(p => p.remove());
-            svg.querySelectorAll('circle.packet').forEach(p => p.remove());
-            pathElements = [];
-            packetElements = [];
-            
-            const rect = container.getBoundingClientRect();
+            svg.querySelectorAll('path.edge, circle.packet').forEach(p => p.remove());
+            pathElements = []; packetElements = [];
 
             edges.forEach(edge => {
-                const sourceNode = nodes.find(n => n.id === edge.source);
-                const targetNode = nodes.find(n => n.id === edge.target);
-                if (!sourceNode || !targetNode) return;
-
+                if (!nodeMap[edge.s] || !nodeMap[edge.t]) return;
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 path.classList.add('edge');
                 if (edge.type === 'async') path.classList.add('dashed');
-                path.dataset.source = edge.source;
-                path.dataset.target = edge.target;
+                if (edge.link === 'wan') path.classList.add('wan');
+                path.dataset.source = edge.s;
+                path.dataset.target = edge.t;
                 path.dataset.label = edge.label;
                 path.setAttribute('marker-end', 'url(#arrow)');
-                
                 svg.appendChild(path);
                 pathElements.push(path);
 
-                // Add animation packet
                 const packet = document.createElementNS("http://www.w3.org/2000/svg", "circle");
                 packet.classList.add('packet');
-                packet.dataset.source = edge.source;
-                packet.dataset.target = edge.target;
+                if (edge.link === 'wan') packet.classList.add('wan');
+                packet.dataset.source = edge.s;
+                packet.dataset.target = edge.t;
                 svg.appendChild(packet);
                 packetElements.push(packet);
             });
@@ -400,132 +418,79 @@
         }
 
         function updateEdgePositions() {
-            const rect = container.getBoundingClientRect();
-            
-            // Position nodes
-            document.querySelectorAll('.node').forEach(el => {
-                const px = (parseFloat(el.dataset.x) / 100) * rect.width;
-                const py = (parseFloat(el.dataset.y) / 100) * rect.height;
-                // Add margins to prevent clipping
-                const safeX = Math.max(100, Math.min(rect.width - 100, px));
-                const safeY = Math.max(60, Math.min(rect.height - 60, py));
-                el.style.left = `${safeX}px`;
-                el.style.top = `${safeY}px`;
-            });
-
-            // Position paths
             pathElements.forEach(path => {
-                const sourceEl = document.getElementById(`node-${path.dataset.source}`);
-                const targetEl = document.getElementById(`node-${path.dataset.target}`);
-                
-                const sRect = sourceEl.getBoundingClientRect();
-                const tRect = targetEl.getBoundingClientRect();
-                const cRect = container.getBoundingClientRect();
-
-                // Calculate center points relative to SVG container
-                const sx = sRect.left + sRect.width / 2 - cRect.left;
-                const sy = sRect.top + sRect.height / 2 - cRect.top;
-                const tx = tRect.left + tRect.width / 2 - cRect.left;
-                const ty = tRect.top + tRect.height / 2 - cRect.top;
-
-                // Bezier curve control points
+                const s = nodeMap[path.dataset.source];
+                const t = nodeMap[path.dataset.target];
+                const sx = s.x, sy = s.y, tx = t.x, ty = t.y;
                 const dx = tx - sx;
-                const dy = ty - sy;
-                
-                // Curve logic for visual appeal
-                const controlX1 = sx + dx * 0.4;
-                const controlY1 = sy;
-                const controlX2 = tx - dx * 0.4;
-                const controlY2 = ty;
-
-                path.setAttribute('d', `M ${sx},${sy} C ${controlX1},${controlY1} ${controlX2},${controlY2} ${tx},${ty}`);
+                // Horizontal-biased bezier for a clean, untangled look
+                const c1x = sx + dx * 0.45, c1y = sy;
+                const c2x = tx - dx * 0.45, c2y = ty;
+                path.setAttribute('d', `M ${sx},${sy} C ${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`);
             });
         }
 
-        // Animation loop for packets
+        // Packet animation
         let animationFrame;
         function animatePackets(timestamp) {
             packetElements.forEach(packet => {
                 const path = svg.querySelector(`path[data-source="${packet.dataset.source}"][data-target="${packet.dataset.target}"]`);
                 if (path && path.classList.contains('active')) {
-                    const length = path.getTotalLength();
-                    const duration = 2000; // 2 seconds per loop
-                    const progress = (timestamp % duration) / duration;
-                    const point = path.getPointAtLength(progress * length);
-                    packet.setAttribute('cx', point.x);
-                    packet.setAttribute('cy', point.y);
+                    const len = path.getTotalLength();
+                    const progress = (timestamp % 2000) / 2000;
+                    const pt = path.getPointAtLength(progress * len);
+                    packet.setAttribute('cx', pt.x);
+                    packet.setAttribute('cy', pt.y);
+                    packet.style.opacity = 1;
+                } else {
+                    packet.style.opacity = 0;
                 }
             });
             animationFrame = requestAnimationFrame(animatePackets);
         }
 
-        // Interaction logic
+        /* =========================================================
+           INTERACTION
+           ========================================================= */
         function activateNode(nodeId) {
-            const nodeData = nodes.find(n => n.id === nodeId);
-            
-            // Dim all nodes and edges
+            const data = nodeMap[nodeId];
+
             document.querySelectorAll('.node').forEach(el => el.classList.add('dimmed'));
-            pathElements.forEach(p => {
-                p.classList.add('dimmed');
-                p.classList.remove('active');
-                p.setAttribute('marker-end', 'url(#arrow)');
+            pathElements.forEach(p => { p.classList.add('dimmed'); p.classList.remove('active'); p.setAttribute('marker-end', 'url(#arrow)'); });
+
+            const activeEl = document.getElementById(`node-${nodeId}`);
+            activeEl.classList.remove('dimmed');
+            activeEl.classList.add('active');
+
+            const connected = edges.filter(e => e.s === nodeId || e.t === nodeId);
+            let html = '';
+            connected.forEach(e => {
+                const peer = e.s === nodeId ? e.t : e.s;
+                document.getElementById(`node-${peer}`).classList.remove('dimmed');
+                const path = svg.querySelector(`path[data-source="${e.s}"][data-target="${e.t}"]`);
+                if (path) { path.classList.remove('dimmed'); path.classList.add('active'); path.setAttribute('marker-end', e.link === 'wan' ? 'url(#arrow-wan)' : 'url(#arrow-active)'); }
+                const dir = e.s === nodeId ? 'OUT' : 'IN';
+                const linkTag = e.link === 'wan' ? ' · Tailscale' : (e.link === 'net' ? ' · Internet' : '');
+                html += `<div style="margin-bottom:5px"><span class="dp-tag ${dir==='OUT'?'out':'in'}">${dir}</span>${e.label} ${dir==='OUT'?'→':'←'} <strong>${nodeMap[peer].name}</strong><span style="opacity:.7">${linkTag}</span></div>`;
             });
 
-            // Highlight target node
-            const activeNode = document.getElementById(`node-${nodeId}`);
-            activeNode.classList.remove('dimmed');
-            activeNode.classList.add('active');
-
-            // Find connected edges
-            const connectedEdges = edges.filter(e => e.source === nodeId || e.target === nodeId);
-            let flowsHtml = '';
-
-            connectedEdges.forEach(e => {
-                // Highlight connected nodes
-                const peerId = e.source === nodeId ? e.target : e.source;
-                document.getElementById(`node-${peerId}`).classList.remove('dimmed');
-                
-                // Highlight edge
-                const path = svg.querySelector(`path[data-source="${e.source}"][data-target="${e.target}"]`);
-                if (path) {
-                    path.classList.remove('dimmed');
-                    path.classList.add('active');
-                    path.setAttribute('marker-end', 'url(#arrow-active)');
-                }
-
-                // Build detail text
-                const dir = e.source === nodeId ? 'OUT' : 'IN';
-                flowsHtml += `<span class="dp-tag">${dir}</span> ${e.label} ${dir==='OUT'?'to':'from'} <strong>${nodes.find(n=>n.id===peerId).name}</strong><br>`;
-            });
-
-            // Update Panel
-            dpTitle.innerText = nodeData.name;
+            dpTitle.innerText = data.name;
+            dpSub.innerText = `${data.node} · ${data.type}${data.meta ? ' · ' + data.meta : ''}`;
             dpContent.innerHTML = `
-                <p style="margin-bottom: 12px">${nodeData.desc}</p>
-                <div style="margin-top: 12px; border-top: 1px dashed var(--primary-light); padding-top: 12px;">
-                    <strong>Data Flows:</strong><br>
-                    ${flowsHtml || 'None specific to this diagram scope.'}
-                </div>
-            `;
+                <p style="margin-bottom:10px;color:var(--text-main)">${data.desc}</p>
+                <div style="border-top:1px dashed var(--primary-light);padding-top:8px"><strong>Luồng dữ liệu:</strong><br><br>${html || 'Không có luồng trong phạm vi sơ đồ.'}</div>`;
             detailPanel.classList.add('visible');
         }
 
         function deactivateAll() {
-            document.querySelectorAll('.node').forEach(el => {
-                el.classList.remove('dimmed', 'active');
-            });
-            pathElements.forEach(p => {
-                p.classList.remove('dimmed', 'active');
-                p.setAttribute('marker-end', 'url(#arrow)');
-            });
+            document.querySelectorAll('.node').forEach(el => el.classList.remove('dimmed', 'active'));
+            pathElements.forEach(p => { p.classList.remove('dimmed', 'active'); p.setAttribute('marker-end', 'url(#arrow)'); });
             detailPanel.classList.remove('visible');
         }
 
         // Init
-        window.addEventListener('resize', updateEdgePositions);
         drawEdges();
         animationFrame = requestAnimationFrame(animatePackets);
-
     </script>
 </body>
 </html>
