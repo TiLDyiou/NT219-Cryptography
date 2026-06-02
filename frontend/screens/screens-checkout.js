@@ -1255,6 +1255,44 @@ const OrderScreenContent = ({
     cod: 'Thanh toán khi nhận hàng',
     e_wallet: 'Ví điện tử'
   };
+
+  // Tiến trình phải bám theo trạng thái thật của đơn, không cứng "Đã xác nhận".
+  // Đơn COD nằm ở pending_payment cho tới khi NGƯỜI BÁN bấm xác nhận.
+  const _STEP_BY_STATUS = {
+    pending_payment: 0,
+    payment_processing: 0,
+    confirmed: 1,
+    processing: 2,
+    ready_to_ship: 3,
+    shipped: 4,
+    delivered: 5,
+    completed: 5
+  };
+  const orderStatus = fetchedPayload.status || 'pending_payment';
+  const currentStep = orderStatus === 'cancelled' ? -1 : _STEP_BY_STATUS[orderStatus] != null ? _STEP_BY_STATUS[orderStatus] : 0;
+  const trackSteps = [{
+    label: 'Đã đặt hàng',
+    sub: ts.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }).replace('Invalid Date', '')
+  }, {
+    label: 'Đã xác nhận',
+    sub: currentStep < 1 ? 'Chờ người bán xác nhận' : ''
+  }, {
+    label: 'Đang đóng gói',
+    sub: ''
+  }, {
+    label: 'Giao ĐVVC',
+    sub: ''
+  }, {
+    label: 'Đang giao',
+    sub: fmtDate(addBusinessDays(ts, 2))
+  }, {
+    label: 'Đã giao',
+    sub: fmtDate(deliveryDate)
+  }];
+  const trackFill = currentStep > 0 ? currentStep / (trackSteps.length - 1) * 100 : 0;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '24px',
@@ -1542,45 +1580,14 @@ const OrderScreenContent = ({
       position: 'absolute',
       top: 16,
       left: 16,
-      width: '12.5%',
+      width: trackFill + '%',
       height: 2,
       background: 'var(--success)',
       zIndex: 0
     }
-  }), [{
-    label: 'Đã đặt hàng',
-    sub: ts.toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    }).replace('Invalid Date', ''),
-    done: true,
-    active: false
-  }, {
-    label: 'Đã xác nhận',
-    sub: 'Trong 30 phút',
-    done: false,
-    active: true
-  }, {
-    label: 'Đang đóng gói',
-    sub: 'Trong 2-3h',
-    done: false,
-    active: false
-  }, {
-    label: 'Giao ĐVVC',
-    sub: 'Trước 18h hôm nay',
-    done: false,
-    active: false
-  }, {
-    label: 'Đang giao',
-    sub: fmtDate(addBusinessDays(ts, 2)),
-    done: false,
-    active: false
-  }, {
-    label: 'Đã giao',
-    sub: fmtDate(deliveryDate),
-    done: false,
-    active: false
-  }].map(function (s, i) {
+  }), trackSteps.map(function (s, i) {
+    var done = i < currentStep;
+    var active = i === currentStep;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       style: {
@@ -1594,16 +1601,16 @@ const OrderScreenContent = ({
         width: 32,
         height: 32,
         borderRadius: '50%',
-        background: s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'white',
-        border: '2px solid ' + (s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'var(--ink-300)'),
-        color: s.done || s.active ? 'white' : 'var(--ink-400)',
+        background: done ? 'var(--success)' : active ? 'var(--primary)' : 'white',
+        border: '2px solid ' + (done ? 'var(--success)' : active ? 'var(--primary)' : 'var(--ink-300)'),
+        color: done || active ? 'white' : 'var(--ink-400)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontSize: 12,
         fontWeight: 600
       }
-    }, s.done ? /*#__PURE__*/React.createElement(Icon, {
+    }, done ? /*#__PURE__*/React.createElement(Icon, {
       name: "check",
       size: 14,
       color: "white"
@@ -1611,8 +1618,8 @@ const OrderScreenContent = ({
       style: {
         marginTop: 8,
         fontSize: 12,
-        fontWeight: s.done || s.active ? 600 : 400,
-        color: s.done || s.active ? 'var(--ink-900)' : 'var(--ink-500)'
+        fontWeight: done || active ? 600 : 400,
+        color: done || active ? 'var(--ink-900)' : 'var(--ink-500)'
       }
     }, s.label), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1699,8 +1706,13 @@ const OrdersScreen = ({
     });
   }, []);
   const statusBadge = {
-    pending: {
+    pending_payment: {
       label: 'Chờ xác nhận',
+      color: '#F59E0B',
+      bg: '#FEF3C7'
+    },
+    payment_processing: {
+      label: 'Chờ thanh toán',
       color: '#F59E0B',
       bg: '#FEF3C7'
     },
@@ -1709,6 +1721,16 @@ const OrdersScreen = ({
       color: '#3B82F6',
       bg: '#EFF6FF'
     },
+    processing: {
+      label: 'Đang xử lý',
+      color: '#3B82F6',
+      bg: '#EFF6FF'
+    },
+    ready_to_ship: {
+      label: 'Chờ giao',
+      color: '#8B5CF6',
+      bg: '#F5F3FF'
+    },
     shipped: {
       label: 'Đang giao',
       color: '#8B5CF6',
@@ -1716,6 +1738,11 @@ const OrdersScreen = ({
     },
     delivered: {
       label: 'Đã giao',
+      color: '#10B981',
+      bg: '#ECFDF5'
+    },
+    completed: {
+      label: 'Hoàn tất',
       color: '#10B981',
       bg: '#ECFDF5'
     },
@@ -1812,7 +1839,7 @@ const OrdersScreen = ({
       gap: 10
     }
   }, orders.map(function (o) {
-    var badge = statusBadge[o.status] || statusBadge.pending;
+    var badge = statusBadge[o.status] || statusBadge.pending_payment;
     var date = new Date(o.created_at).toLocaleDateString('vi-VN', {
       day: '2-digit',
       month: '2-digit',

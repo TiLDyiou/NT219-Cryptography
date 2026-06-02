@@ -33,7 +33,7 @@ const MerchantAnalyticsSection = ({ merchantId, user }) => {
   // Compute derived stats
   const totalRevenue = orders.filter(o => o.status === 'delivered')
     .reduce((s, o) => s + (o.total_amount || 0), 0);
-  const pending   = orders.filter(o => o.status === 'pending').length;
+  const pending   = orders.filter(o => o.status === 'pending_payment' || o.status === 'payment_processing').length;
   const confirmed = orders.filter(o => o.status === 'confirmed').length;
   const shipped   = orders.filter(o => o.status === 'shipped').length;
   const delivered = orders.filter(o => o.status === 'delivered').length;

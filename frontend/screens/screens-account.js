@@ -135,7 +135,7 @@ const MerchantScreen = ({
       }
     }).catch(e => console.error("Error loading merchant orders in dashboard:", e));
   }, [merchantId, user, isMerchant]);
-  const pendingCount = orders.filter(o => o.status === 'pending').length;
+  const pendingCount = orders.filter(o => o.status === 'pending_payment' || o.status === 'payment_processing').length;
   const confirmedCount = orders.filter(o => o.status === 'confirmed').length;
   const SECTION_TITLES = {
     dash: 'Tổng quan',

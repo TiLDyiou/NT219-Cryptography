@@ -44,6 +44,13 @@ const _PAYMENT_LABEL = {
   cod: 'COD',
   credit_card: 'CARD'
 };
+
+// Đơn cũ có thể không lưu product_name -> tra tên từ catalog đã nạp, tránh hiện ID thô.
+const _itemName = item => {
+  if (item.product_name || item.name) return item.product_name || item.name;
+  const p = (window.PRODUCTS || []).find(pp => pp.id === item.product_id);
+  return p && p.name || 'SP ' + String(item.product_id || '').substring(0, 8);
+};
 const MerchantOrdersSection = ({
   merchantId,
   user
@@ -243,7 +250,7 @@ const MerchantOrdersSection = ({
     const exp = expanded === order.id;
     const phone = order.shipping_address && order.shipping_address.phone || '';
     const maskedPhone = phone ? phone.slice(0, 3) + '****' + phone.slice(-3) : 'N/A';
-    const canConfirm = ['pending_payment', 'payment_processing'].includes(order.status);
+    const canConfirm = order.status === 'pending_payment';
     return /*#__PURE__*/React.createElement("div", {
       key: order.id,
       style: {
@@ -305,7 +312,7 @@ const MerchantOrdersSection = ({
         textOverflow: 'ellipsis',
         paddingRight: 8
       }
-    }, item.product_name || item.name || item.product_id), /*#__PURE__*/React.createElement("span", {
+    }, _itemName(item)), /*#__PURE__*/React.createElement("span", {
       style: {
         fontFamily: 'monospace',
         fontWeight: 700

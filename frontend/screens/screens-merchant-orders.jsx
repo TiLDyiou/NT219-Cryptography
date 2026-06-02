@@ -12,6 +12,13 @@ const _ORDER_STATUS = {
 };
 const _PAYMENT_LABEL = { cod: 'COD', credit_card: 'CARD' };
 
+// Đơn cũ có thể không lưu product_name -> tra tên từ catalog đã nạp, tránh hiện ID thô.
+const _itemName = (item) => {
+  if (item.product_name || item.name) return item.product_name || item.name;
+  const p = (window.PRODUCTS || []).find(pp => pp.id === item.product_id);
+  return (p && p.name) || ('SP ' + String(item.product_id || '').substring(0, 8));
+};
+
 const MerchantOrdersSection = ({ merchantId, user }) => {
   const [orders, setOrders]   = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -155,7 +162,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
             const exp = expanded === order.id;
             const phone = (order.shipping_address && order.shipping_address.phone) || '';
             const maskedPhone = phone ? phone.slice(0, 3) + '****' + phone.slice(-3) : 'N/A';
-            const canConfirm = ['pending_payment', 'payment_processing'].includes(order.status);
+            const canConfirm = order.status === 'pending_payment';
 
             return (
               <div key={order.id} style={{ borderBottom: '2px solid #000' }}>
@@ -184,7 +191,7 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
                       {(order.items || []).map((item, i) => (
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 8 }}>
-                            {item.product_name || item.name || item.product_id}
+                            {_itemName(item)}
                           </span>
                           <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>x{item.quantity}</span>
                         </div>

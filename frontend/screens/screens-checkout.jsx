@@ -619,6 +619,27 @@ const OrderScreenContent = ({ orderTotal, orderId: realOrderId, orderPayload, us
 
   const pmLabel = { credit_card: 'Thẻ tín dụng / ghi nợ', cod: 'Thanh toán khi nhận hàng', e_wallet: 'Ví điện tử' };
 
+  // Tiến trình phải bám theo trạng thái thật của đơn, không cứng "Đã xác nhận".
+  // Đơn COD nằm ở pending_payment cho tới khi NGƯỜI BÁN bấm xác nhận.
+  const _STEP_BY_STATUS = {
+    pending_payment: 0, payment_processing: 0,
+    confirmed: 1, processing: 2, ready_to_ship: 3,
+    shipped: 4, delivered: 5, completed: 5,
+  };
+  const orderStatus = fetchedPayload.status || 'pending_payment';
+  const currentStep = orderStatus === 'cancelled'
+    ? -1
+    : (_STEP_BY_STATUS[orderStatus] != null ? _STEP_BY_STATUS[orderStatus] : 0);
+  const trackSteps = [
+    { label: 'Đã đặt hàng',   sub: ts.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'}).replace('Invalid Date', '') },
+    { label: 'Đã xác nhận',   sub: currentStep < 1 ? 'Chờ người bán xác nhận' : '' },
+    { label: 'Đang đóng gói', sub: '' },
+    { label: 'Giao ĐVVC',     sub: '' },
+    { label: 'Đang giao',     sub: fmtDate(addBusinessDays(ts,2)) },
+    { label: 'Đã giao',       sub: fmtDate(deliveryDate) },
+  ];
+  const trackFill = currentStep > 0 ? (currentStep / (trackSteps.length - 1)) * 100 : 0;
+
   return (
     <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
       <div style={{ marginBottom: 16 }}>
@@ -731,28 +752,23 @@ const OrderScreenContent = ({ orderTotal, orderId: realOrderId, orderPayload, us
         <h3 style={{ margin: '0 0 18px', fontSize: 15, fontWeight: 600 }}>Tiến trình đơn hàng</h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative' }}>
           <div style={{ position: 'absolute', top: 16, left: 16, right: 16, height: 2, background: 'var(--ink-200)', zIndex: 0 }} />
-          <div style={{ position: 'absolute', top: 16, left: 16, width: '12.5%', height: 2, background: 'var(--success)', zIndex: 0 }} />
-          {[
-            { label: 'Đã đặt hàng',   sub: ts.toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit'}).replace('Invalid Date', ''), done: true,  active: false },
-            { label: 'Đã xác nhận',   sub: 'Trong 30 phút',    done: false, active: true  },
-            { label: 'Đang đóng gói', sub: 'Trong 2-3h',        done: false, active: false },
-            { label: 'Giao ĐVVC',     sub: 'Trước 18h hôm nay', done: false, active: false },
-            { label: 'Đang giao',     sub: fmtDate(addBusinessDays(ts,2)), done: false, active: false },
-            { label: 'Đã giao',       sub: fmtDate(deliveryDate), done: false, active: false },
-          ].map(function(s, i) {
+          <div style={{ position: 'absolute', top: 16, left: 16, width: trackFill + '%', height: 2, background: 'var(--success)', zIndex: 0 }} />
+          {trackSteps.map(function(s, i) {
+            var done   = i < currentStep;
+            var active = i === currentStep;
             return (
               <div key={i} style={{ position: 'relative', zIndex: 1, textAlign: 'center', flex: 1 }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%',
-                  background: s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'white',
-                  border: '2px solid ' + (s.done ? 'var(--success)' : s.active ? 'var(--primary)' : 'var(--ink-300)'),
-                  color: s.done || s.active ? 'white' : 'var(--ink-400)',
+                  background: done ? 'var(--success)' : active ? 'var(--primary)' : 'white',
+                  border: '2px solid ' + (done ? 'var(--success)' : active ? 'var(--primary)' : 'var(--ink-300)'),
+                  color: done || active ? 'white' : 'var(--ink-400)',
                   display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 600,
                 }}>
-                  {s.done ? <Icon name="check" size={14} color="white" /> : i + 1}
+                  {done ? <Icon name="check" size={14} color="white" /> : i + 1}
                 </div>
-                <div style={{ marginTop: 8, fontSize: 12, fontWeight: s.done || s.active ? 600 : 400, color: s.done || s.active ? 'var(--ink-900)' : 'var(--ink-500)' }}>{s.label}</div>
+                <div style={{ marginTop: 8, fontSize: 12, fontWeight: done || active ? 600 : 400, color: done || active ? 'var(--ink-900)' : 'var(--ink-500)' }}>{s.label}</div>
                 <div style={{ fontSize: 10, color: 'var(--ink-500)', marginTop: 2 }}>{s.sub}</div>
               </div>
             );
@@ -816,10 +832,14 @@ const OrdersScreen = ({ onNav, user }) => {
   }, []);
 
   const statusBadge = {
-    pending:    { label: 'Chờ xác nhận', color: '#F59E0B', bg: '#FEF3C7' },
+    pending_payment:    { label: 'Chờ xác nhận',   color: '#F59E0B', bg: '#FEF3C7' },
+    payment_processing: { label: 'Chờ thanh toán', color: '#F59E0B', bg: '#FEF3C7' },
     confirmed:  { label: 'Đã xác nhận',  color: '#3B82F6', bg: '#EFF6FF' },
+    processing: { label: 'Đang xử lý',   color: '#3B82F6', bg: '#EFF6FF' },
+    ready_to_ship: { label: 'Chờ giao',  color: '#8B5CF6', bg: '#F5F3FF' },
     shipped:    { label: 'Đang giao',     color: '#8B5CF6', bg: '#F5F3FF' },
     delivered:  { label: 'Đã giao',       color: '#10B981', bg: '#ECFDF5' },
+    completed:  { label: 'Hoàn tất',      color: '#10B981', bg: '#ECFDF5' },
     cancelled:  { label: 'Đã huỷ',        color: '#EF4444', bg: '#FEF2F2' },
   };
 
@@ -859,7 +879,7 @@ const OrdersScreen = ({ onNav, user }) => {
       {orders && orders.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {orders.map(function (o) {
-            var badge = statusBadge[o.status] || statusBadge.pending;
+            var badge = statusBadge[o.status] || statusBadge.pending_payment;
             var date  = new Date(o.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
             return (
               <div key={o.id} className="card" style={{ padding: 18, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}
