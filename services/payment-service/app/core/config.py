@@ -38,6 +38,17 @@ class StripeConfig(BaseModel):
     checkout_cancel_url: str = "http://localhost:3000/?payment_cancelled=true"
 
 
+class OrderServiceConfig(BaseModel):
+    base_url: str = "http://localhost:8003"
+    timeout_seconds: int = 30
+    mtls_enabled: bool = False
+    client_cert_path: str | None = None
+    client_key_path: str | None = None
+    ca_cert_path: str | None = None
+    dev_stub_on_failure: bool = False
+    internal_token: str = ""
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Payment Service"
     API_V1_STR: str = "/api/v1"
@@ -106,6 +117,12 @@ class Settings(BaseSettings):
 
     ORDER_SERVICE_URL: str = os.getenv("ORDER_SERVICE_URL", "http://localhost:8003")
     ORDER_SERVICE_INTERNAL_TOKEN: str = os.getenv("ORDER_SERVICE_INTERNAL_TOKEN", "payment_to_order_dev_token")
+    ORDER_MTLS_ENABLED: bool = os.getenv("ORDER_MTLS_ENABLED", "false").lower() == "true"
+    ORDER_CLIENT_CERT: str | None = os.getenv("ORDER_CLIENT_CERT")
+    ORDER_CLIENT_KEY: str | None = os.getenv("ORDER_CLIENT_KEY")
+    ORDER_CA_CERT: str | None = os.getenv("ORDER_CA_CERT")
+    ORDER_REQUEST_TIMEOUT_SECONDS: int = int(os.getenv("ORDER_REQUEST_TIMEOUT_SECONDS", "30"))
+    ORDER_DEV_STUB_ON_FAILURE: bool = os.getenv("ORDER_DEV_STUB_ON_FAILURE", "false").lower() == "true"
 
     BANK_PAYOUT_STUB: bool = os.getenv("BANK_PAYOUT_STUB", "true").lower() == "true"
 
@@ -160,6 +177,19 @@ class Settings(BaseSettings):
             publishable_key=self.STRIPE_PUBLISHABLE_KEY,
             checkout_success_url=self.STRIPE_CHECKOUT_SUCCESS_URL,
             checkout_cancel_url=self.STRIPE_CHECKOUT_CANCEL_URL,
+        )
+
+    @property
+    def order(self) -> OrderServiceConfig:
+        return OrderServiceConfig(
+            base_url=self.ORDER_SERVICE_URL,
+            timeout_seconds=self.ORDER_REQUEST_TIMEOUT_SECONDS,
+            mtls_enabled=self.ORDER_MTLS_ENABLED,
+            client_cert_path=self.ORDER_CLIENT_CERT,
+            client_key_path=self.ORDER_CLIENT_KEY,
+            ca_cert_path=self.ORDER_CA_CERT,
+            dev_stub_on_failure=self.ORDER_DEV_STUB_ON_FAILURE,
+            internal_token=self.ORDER_SERVICE_INTERNAL_TOKEN,
         )
 
 

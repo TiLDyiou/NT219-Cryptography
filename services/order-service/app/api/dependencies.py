@@ -109,7 +109,7 @@ async def bind_checkout_to_server_cart(
             resp = await client.get(
                 cart_url,
                 params={"user_id": user_id},
-                headers={"X-Internal-Token": settings.CART_INTERNAL_API_TOKEN},
+                headers={"X-Internal-Token": settings.CART_INTERNAL_TOKEN},
             )
     except httpx.HTTPError as exc:
         raise BusinessRuleException(
@@ -151,7 +151,7 @@ async def clear_cart_on_server(cart_id: str, user_id: str) -> None:
             await client.post(
                 cart_url,
                 params={"user_id": user_id},
-                headers={"X-Internal-Token": settings.CART_INTERNAL_API_TOKEN},
+                headers={"X-Internal-Token": settings.CART_INTERNAL_TOKEN},
             )
     except Exception as exc:
         import logging

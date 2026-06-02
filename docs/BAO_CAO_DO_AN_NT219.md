@@ -1,4 +1,5 @@
 # BÁO CÁO ĐỒ ÁN NT219 — CRYPTOGRAPHY
+
 ## Thiết kế & Đánh giá An toàn Mật mã cho Nền tảng Thương mại Điện tử
 
 **Môn học:** NT219 — Mật mã học ứng dụng  
@@ -38,7 +39,7 @@
 
 Đề tài thiết kế và triển khai một nền tảng thương mại điện tử (e-commerce) dưới dạng microservices — bao gồm catalog, cart, order, payment, inventory, shipping và notification — với trọng tâm là áp dụng, đánh giá và đo lường các cơ chế mật mã học trong môi trường thực tế. Hệ thống được triển khai trên 4 máy ảo kết nối qua Tailscale WireGuard và chạy production với live infrastructure.
 
-Thay vì chỉ mô tả lý thuyết, đề tài thực hiện **26 security tests**, đo overhead mật mã bằng 5000 iterations, và xác minh kết quả trên live system với Stripe checkout thật (cs_test_... URL), JWT thật từ Keycloak, và Vault Transit đang chạy.
+Thay vì chỉ mô tả lý thuyết, đề tài thực hiện **26 security tests**, đo overhead mật mã bằng 5000 iterations, và xác minh kết quả trên live system với Stripe checkout thật (cs*test*... URL), JWT thật từ Keycloak, và Vault Transit đang chạy.
 
 ### 1.2 Câu hỏi nghiên cứu (Research Questions)
 
@@ -66,18 +67,18 @@ Thay vì chỉ mô tả lý thuyết, đề tài thực hiện **26 security tes
 
 ### 2.1 Stack công nghệ
 
-| Lớp | Công nghệ | Vai trò |
-|-----|-----------|---------|
-| Language | Python 3.13, FastAPI | Tất cả microservices |
-| API Gateway | Envoy Proxy | TLS termination, JWT, WAF, rate limit |
-| Identity | Keycloak 26 | OAuth2/OIDC, MFA, JWT RS256 |
-| Key Management | HashiCorp Vault | Transit encryption, secrets management |
-| Database | PostgreSQL 15 | Persistent storage, TDE |
-| Message Bus | Apache Kafka 7.6 | Event streaming, audit logs |
-| Cache | Redis | Nonce guard, idempotency |
-| Observability | ELK Stack + Prometheus + Grafana | Logging, metrics, alerting |
-| Payment PSP | Stripe (test mode) | Tokenization, 3DS |
-| Networking | Tailscale WireGuard | VPN giữa 4 nodes |
+| Lớp            | Công nghệ                        | Vai trò                                |
+| -------------- | -------------------------------- | -------------------------------------- |
+| Language       | Python 3.13, FastAPI             | Tất cả microservices                   |
+| API Gateway    | Envoy Proxy                      | TLS termination, JWT, WAF, rate limit  |
+| Identity       | Keycloak 26                      | OAuth2/OIDC, MFA, JWT RS256            |
+| Key Management | HashiCorp Vault                  | Transit encryption, secrets management |
+| Database       | PostgreSQL 15                    | Persistent storage, TDE                |
+| Message Bus    | Apache Kafka 7.6                 | Event streaming, audit logs            |
+| Cache          | Redis                            | Nonce guard, idempotency               |
+| Observability  | ELK Stack + Prometheus + Grafana | Logging, metrics, alerting             |
+| Payment PSP    | Stripe (test mode)               | Tokenization, 3DS                      |
+| Networking     | Tailscale WireGuard              | VPN giữa 4 nodes                       |
 
 ### 2.2 Sơ đồ kiến trúc tổng thể
 
@@ -135,15 +136,15 @@ External:
 
 ### 2.3 Microservices chi tiết
 
-| Service | Port | Công nghệ | Vai trò chính |
-|---------|------|-----------|---------------|
-| catalog-service | 8001 | FastAPI + SQLAlchemy | Catalog sản phẩm, public read |
-| cart-service | 8002 | FastAPI + Redis | Giỏ hàng người dùng |
-| order-service | 8003 | FastAPI + PostgreSQL | Saga orchestrator, quản lý đơn hàng |
-| payment-service | 8004 | FastAPI + Stripe + Vault | Xử lý thanh toán, tokenization |
-| inventory-service | 8005 | FastAPI + PostgreSQL | Quản lý tồn kho |
-| shipping-service | 8006 | FastAPI + GHN API | Tạo đơn vận chuyển |
-| noti-service | 8007 | FastAPI + SMTP | Gửi email thông báo |
+| Service           | Port | Công nghệ                | Vai trò chính                       |
+| ----------------- | ---- | ------------------------ | ----------------------------------- |
+| catalog-service   | 8001 | FastAPI + SQLAlchemy     | Catalog sản phẩm, public read       |
+| cart-service      | 8002 | FastAPI + Redis          | Giỏ hàng người dùng                 |
+| order-service     | 8003 | FastAPI + PostgreSQL     | Saga orchestrator, quản lý đơn hàng |
+| payment-service   | 8004 | FastAPI + Stripe + Vault | Xử lý thanh toán, tokenization      |
+| inventory-service | 8005 | FastAPI + PostgreSQL     | Quản lý tồn kho                     |
+| shipping-service  | 8006 | FastAPI + GHN API        | Tạo đơn vận chuyển                  |
+| noti-service      | 8007 | FastAPI + SMTP           | Gửi email thông báo                 |
 
 ---
 
@@ -151,20 +152,20 @@ External:
 
 ### 3.1 Định nghĩa 8 Trust Boundaries
 
-| TB | Layer | Cơ chế bảo vệ | Threat model |
-|----|-------|---------------|-------------|
-| **TB1** | Internet (Untrusted) | Không | Mọi packet đều là suspect |
-| **TB2** | Edge: CDN + Envoy | TLS 1.3 + JWT RS256 validation | Spoofing, MitM, DDoS |
-| **TB3** | Backend Services | HMAC-SHA256 + Nonce Guard | Rogue service, replay attack |
-| **TB4** | Data Layer | TLS + TDE (disk) + FLE (field) | Insider threat, physical access |
-| **TB5** | Key Management (Vault) | AppRole auth + audit log | Key theft, unauthorized access |
-| **TB6** | Stripe PSP | HTTPS + webhook HMAC verify | Webhook spoofing, replay |
-| **TB7** | ML/Fraud API | HTTPS + API key từ Vault | API key leak |
-| **TB8** | Gmail SMTP | SMTP/TLS + credentials từ Vault | Credential leak, spam abuse |
+| TB      | Layer                  | Cơ chế bảo vệ                   | Threat model                    |
+| ------- | ---------------------- | ------------------------------- | ------------------------------- |
+| **TB1** | Internet (Untrusted)   | Không                           | Mọi packet đều là suspect       |
+| **TB2** | Edge: CDN + Envoy      | TLS 1.3 + JWT RS256 validation  | Spoofing, MitM, DDoS            |
+| **TB3** | Backend Services       | HMAC-SHA256 + Nonce Guard       | Rogue service, replay attack    |
+| **TB4** | Data Layer             | TLS + TDE (disk) + FLE (field)  | Insider threat, physical access |
+| **TB5** | Key Management (Vault) | AppRole auth + audit log        | Key theft, unauthorized access  |
+| **TB6** | Stripe PSP             | HTTPS + webhook HMAC verify     | Webhook spoofing, replay        |
+| **TB7** | ML/Fraud API           | HTTPS + API key từ Vault        | API key leak                    |
+| **TB8** | Gmail SMTP             | SMTP/TLS + credentials từ Vault | Credential leak, spam abuse     |
 
 **Nguyên tắc thiết kế:** Zero implicit trust — mọi thứ phải xác thực lại tại mỗi boundary.
 
-### 3.2 Data Flow Diagram (DFD)
+### 3.2 Data Flow Diagram (DFD) hiện tại đang thiếu Nginx tại cổng 80
 
 ```
 [User Browser]
@@ -219,6 +220,7 @@ transport_socket:
 **Xác minh thực tế:** `curl -k https://100.96.240.45:10000/api/v1/catalog/products` → HTTP 200
 
 **Ý nghĩa bảo mật:**
+
 - Mã hóa tất cả traffic từ user đến gateway
 - Chống MitM trên mạng không tin cậy (WiFi công cộng)
 - TLS 1.3 — loại bỏ các cipher suite yếu của TLS 1.2
@@ -239,31 +241,33 @@ transport_socket:
 ```
 
 **JWT Claims quan trọng:**
+
 ```json
 {
   "sub": "user-uuid",
   "aud": ["account"],
   "exp": 1748765552,
   "iss": "https://keycloak/realms/uitstore",
-  "realm_access": {"roles": ["user"]},
+  "realm_access": { "roles": ["user"] },
   "email": "user@example.com"
 }
 ```
 
 **Cấu hình bảo mật đã áp dụng:**
 
-| Tham số | Giá trị | Lý do |
-|---------|---------|-------|
-| Algorithm | RS256 (asymmetric) | Private key chỉ Keycloak giữ |
-| Access Token TTL | 120 giây | Giảm window nếu token bị đánh cắp |
-| Refresh Rotation | Strict | Token cũ hủy ngay khi refresh |
-| PKCE Method | S256 | Chống authorization code interception |
-| MFA | TOTP Google Auth | Chống account takeover dù lộ password |
-| redirect_uri | Whitelist chính xác | Chống open redirect |
-| verify_aud | `account` | Chống audience confusion attack |
-| brute_force | lockout sau 5 fail | Chống credential stuffing |
+| Tham số          | Giá trị             | Lý do                                 |
+| ---------------- | ------------------- | ------------------------------------- |
+| Algorithm        | RS256 (asymmetric)  | Private key chỉ Keycloak giữ          |
+| Access Token TTL | 120 giây            | Giảm window nếu token bị đánh cắp     |
+| Refresh Rotation | Strict              | Token cũ hủy ngay khi refresh         |
+| PKCE Method      | S256                | Chống authorization code interception |
+| MFA              | TOTP Google Auth    | Chống account takeover dù lộ password |
+| redirect_uri     | Whitelist chính xác | Chống open redirect                   |
+| verify_aud       | `account`           | Chống audience confusion attack       |
+| brute_force      | lockout sau 5 fail  | Chống credential stuffing             |
 
 **Kết quả test:**
+
 ```
 Test 1.1 — alg:none attack    → HTTP 500 (Keycloak reject)    ✅
 Test 1.2 — JWT claim forgery   → HTTP 401 (invalid signature)  ✅
@@ -307,15 +311,15 @@ class HmacVerificationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if not settings.REQUIRE_INBOUND_HMAC:
             return await call_next(request)
-        
+
         signature = request.headers.get("X-Signature")
         timestamp  = request.headers.get("X-Timestamp")
         nonce      = request.headers.get("X-Nonce")
-        
+
         # 1. Kiểm tra timestamp: |now - ts| ≤ 5 phút → chống replay cũ
-        # 2. Kiểm tra nonce trong Redis → chống replay exact copy  
+        # 2. Kiểm tra nonce trong Redis → chống replay exact copy
         # 3. Recompute canonical + verify HMAC qua Vault Transit
-        
+
         valid = await container.crypto_service.verify_request(
             method=request.method, path=request.url.path,
             body=body, timestamp=timestamp,
@@ -326,6 +330,7 @@ class HmacVerificationMiddleware(BaseHTTPMiddleware):
 ```
 
 **Headers gửi đi:**
+
 ```
 X-Signature: dev:v1:vault:v1:HMAC...
 X-Timestamp: 1748765432
@@ -356,6 +361,7 @@ X-Nonce: a3f8b2c1d4e5f6789abc
 ```
 
 **Database schema thực tế** (không có PAN):
+
 ```sql
 -- payment_transactions table
 -- Các cột KHÔNG TỒN TẠI: card_number, cvv, expiry_date
@@ -366,13 +372,15 @@ card_brand             VARCHAR  -- "visa"
 ```
 
 **PCI-DSS scope reduction:**
+
 - **Trước tokenization:** Toàn bộ hệ thống trong scope → SAQ D
 - **Sau tokenization:** Chỉ Payment Service → SAQ A-EP (đơn giản hơn nhiều)
 
 **Kết quả test:**
+
 ```
 Test 2.1 — Webhook không có Stripe-Signature  → HTTP 400  ✅
-Test 2.2 — Webhook forged HMAC signature      → HTTP 400  ✅  
+Test 2.2 — Webhook forged HMAC signature      → HTTP 400  ✅
 Test 2.2B — Webhook replay (old timestamp)    → HTTP 400  ✅
 Test 2.6 — Kiểm tra DB schema, no PAN        → Verified  ✅
 Real Stripe checkout session                  → cs_test_... URL thật ✅
@@ -382,16 +390,17 @@ Real Stripe checkout session                  → cs_test_... URL thật ✅
 
 **Tại sao Vault thay vì environment variables?**
 
-| Tiêu chí | Env Vars | HashiCorp Vault |
-|---------|----------|----------------|
-| Audit log | ✗ (không biết ai đọc) | ✅ mọi lần đọc có log |
-| Key rotation không redeploy | ✗ | ✅ |
-| Dynamic secrets (TTL tự expire) | ✗ | ✅ |
-| Per-service access policy | ✗ | ✅ AppRole |
-| Encrypted at rest | ✗ (plain text) | ✅ AES-256-GCM |
-| Không ra khỏi server (KEK) | ✗ | ✅ Transit never exports |
+| Tiêu chí                        | Env Vars              | HashiCorp Vault          |
+| ------------------------------- | --------------------- | ------------------------ |
+| Audit log                       | ✗ (không biết ai đọc) | ✅ mọi lần đọc có log    |
+| Key rotation không redeploy     | ✗                     | ✅                       |
+| Dynamic secrets (TTL tự expire) | ✗                     | ✅                       |
+| Per-service access policy       | ✗                     | ✅ AppRole               |
+| Encrypted at rest               | ✗ (plain text)        | ✅ AES-256-GCM           |
+| Không ra khỏi server (KEK)      | ✗                     | ✅ Transit never exports |
 
 **Authentication — AppRole:**
+
 ```python
 # vault_client.py
 if config.role_id and config.secret_id:
@@ -404,17 +413,17 @@ if config.role_id and config.secret_id:
 
 **9 Transit Keys đã provisioned:**
 
-| Key Name | Algorithm | Dùng cho |
-|----------|-----------|---------|
-| payment-fle-key | AES-256-GCM | FLE: mã hóa PII (email, address) |
-| order-hmac-key | HMAC-SHA256 | Service-to-service request signing |
-| payment-sign-key | ECDSA-P256 | Digital signature cho audit records |
-| payment-audit-key | HMAC-SHA256 | Audit log integrity |
-| inventory-fle-key | AES-256-GCM | FLE: inventory sensitive data |
-| inventory-sign-key | ECDSA-P256 | Inventory audit signing |
-| order-fle-key | AES-256-GCM | FLE: order PII |
-| shipping-fle-key | AES-256-GCM | FLE: shipping address |
-| noti-fle-key | AES-256-GCM | FLE: notification data |
+| Key Name           | Algorithm   | Dùng cho                            |
+| ------------------ | ----------- | ----------------------------------- |
+| payment-fle-key    | AES-256-GCM | FLE: mã hóa PII (email, address)    |
+| order-hmac-key     | HMAC-SHA256 | Service-to-service request signing  |
+| payment-sign-key   | ECDSA-P256  | Digital signature cho audit records |
+| payment-audit-key  | HMAC-SHA256 | Audit log integrity                 |
+| inventory-fle-key  | AES-256-GCM | FLE: inventory sensitive data       |
+| inventory-sign-key | ECDSA-P256  | Inventory audit signing             |
+| order-fle-key      | AES-256-GCM | FLE: order PII                      |
+| shipping-fle-key   | AES-256-GCM | FLE: shipping address               |
+| noti-fle-key       | AES-256-GCM | FLE: notification data              |
 
 **Envelope Encryption (thiết kế chi tiết):**
 
@@ -441,6 +450,7 @@ Plaintext PII (email, address)
 **DEK Caching:** Sau khi unwrap từ Vault (24.6ms), DEK được cache 5 phút. 99% requests chỉ tốn 0.0005ms AES-GCM local.
 
 **KMS Latency (Test 4.3 — 50 iterations):**
+
 ```
 Median: 24.6ms
 p95:    38ms
@@ -450,11 +460,13 @@ p99:   140ms
 ### 4.6 Database Encryption (TDE + FLE)
 
 **Layer 1 — TDE (Transparent Data Encryption):**
+
 - Mã hóa toàn bộ PostgreSQL data files trên disk
 - Attacker vật lý lấy ổ cứng → không đọc được
 - Transparent với application — không cần thay code
 
 **Layer 2 — FLE (Field-Level Encryption):**
+
 ```python
 # EnvelopeEncryptor — services/payment-service/app/infrastructure/crypto/envelope_encryption.py
 async def encrypt(self, plaintext: str) -> bytes:
@@ -462,10 +474,10 @@ async def encrypt(self, plaintext: str) -> bytes:
     iv  = os.urandom(12)
     cipher = AESGCM(dek)
     ciphertext = cipher.encrypt(iv, plaintext.encode("utf-8"), None)
-    
+
     # Wrap DEK với KEK trong Vault Transit
     wrapped_dek = await self._transit.encrypt("payment-fle-key", b64(dek))
-    
+
     # Format blob để lưu vào DB
     return (
         BLOB_VERSION.to_bytes(1, "big") +
@@ -477,6 +489,7 @@ async def encrypt(self, plaintext: str) -> bytes:
 ```
 
 **Ý nghĩa bảo mật:**
+
 - DBA có quyền database đọc được ciphertext — nhưng không đọc được plaintext
 - Cần Vault Transit để decrypt → cần AppRole credentials → controlled access
 - Bảo vệ theo nguyên tắc least privilege
@@ -506,6 +519,7 @@ def upgrade():
 **Kafka Audit Logger:** Mỗi transaction được ghi vào Kafka topic `audit-logs` → Logstash → Elasticsearch → Kibana.
 
 **Đáp ứng chuẩn:**
+
 - **PCI DSS Req 10.3** — Protect audit logs from destruction and unauthorized modifications
 - **STRIDE: chống Repudiation** — Không thể xóa bằng chứng transaction
 - **GDPR Article 30** — Records of processing activities
@@ -526,12 +540,13 @@ def upgrade():
 ```
 
 **WAF Lua Filter — patterns blocked:**
+
 ```lua
 local blocked_patterns = {
     -- SQLi
     "union%s+select", "or%s+1%s*=%s*1", "admin'%-%-",
     "' or '", "1=1", "drop%s+table",
-    -- XSS  
+    -- XSS
     "<script", "onerror%s*=", "javascript:",
     "onload%s*=", "eval%(", "document%.cookie",
     -- Scanner User-Agents
@@ -540,6 +555,7 @@ local blocked_patterns = {
 ```
 
 **Kết quả WAF test:**
+
 ```
 SQLi patterns (5 tests):        5/5 → HTTP 403  ✅
 Scanner User-Agents (5 tools):  5/5 → HTTP 403  ✅
@@ -571,7 +587,7 @@ POST /api/v1/orders/checkout
     │
     ├── Step 2: CheckFraud (optional)
     │   → ML scoring service
-    │   → Nếu risk score > threshold: 
+    │   → Nếu risk score > threshold:
     │       → ReleaseInventory (compensation) → CANCELLED
     │
     ├── Step 3: ProcessPayment
@@ -597,18 +613,19 @@ POST /api/v1/orders/checkout
 
 ### 5.3 Compensation (Rollback)
 
-| Bước thất bại | Compensation |
-|---------------|-------------|
-| Inventory reserve fail | Không có rollback cần thiết |
-| Fraud detected | ReleaseInventory → CANCELLED |
-| Payment fail (Stripe declined) | ReleaseInventory → CANCELLED |
-| Shipment fail | Không rollback payment — customer service xử lý |
+| Bước thất bại                  | Compensation                                    |
+| ------------------------------ | ----------------------------------------------- |
+| Inventory reserve fail         | Không có rollback cần thiết                     |
+| Fraud detected                 | ReleaseInventory → CANCELLED                    |
+| Payment fail (Stripe declined) | ReleaseInventory → CANCELLED                    |
+| Shipment fail                  | Không rollback payment — customer service xử lý |
 
 ### 5.4 Idempotency
 
 Mỗi payment request có `idempotency_key` (UUID). Kết quả đầu tiên được cache trong Redis.
 
 **Test 2.3 — 3 identical requests:**
+
 ```
 Request 1 → 438ms (Stripe round-trip thật)
 Request 2 →   5ms (Redis cache hit — không charge lần 2)
@@ -623,14 +640,14 @@ Request 3 →   5ms (Redis cache hit — không charge lần 3)
 
 **STRIDE** — threat modeling framework của Microsoft:
 
-| Ký hiệu | Tên | Vi phạm |
-|---------|-----|---------|
-| **S** | Spoofing | Authentication |
-| **T** | Tampering | Integrity |
-| **R** | Repudiation | Non-repudiation |
-| **I** | Information Disclosure | Confidentiality |
-| **D** | Denial of Service | Availability |
-| **E** | Elevation of Privilege | Authorization |
+| Ký hiệu | Tên                    | Vi phạm         |
+| ------- | ---------------------- | --------------- |
+| **S**   | Spoofing               | Authentication  |
+| **T**   | Tampering              | Integrity       |
+| **R**   | Repudiation            | Non-repudiation |
+| **I**   | Information Disclosure | Confidentiality |
+| **D**   | Denial of Service      | Availability    |
+| **E**   | Elevation of Privilege | Authorization   |
 
 ### 6.2 Phạm vi phân tích — 8 thành phần
 
@@ -648,30 +665,30 @@ Request 3 →   5ms (Redis cache hit — không charge lần 3)
 
 **Phân bố theo severity:**
 
-| Severity | Số lượng | Ví dụ đại diện |
-|----------|---------|----------------|
-| Critical | 13 | JWT forgery, PAN exposure, Vault compromise, webhook spoofing |
-| High | 18 | HMAC bypass, token theft, SQLi, MitM |
-| Medium | 12 | User enumeration, CORS bypass, repudiation |
-| Low | 7 | Client ReDoS, timing attacks, info leakage via headers |
+| Severity | Số lượng | Ví dụ đại diện                                                |
+| -------- | -------- | ------------------------------------------------------------- |
+| Critical | 13       | JWT forgery, PAN exposure, Vault compromise, webhook spoofing |
+| High     | 18       | HMAC bypass, token theft, SQLi, MitM                          |
+| Medium   | 12       | User enumeration, CORS bypass, repudiation                    |
+| Low      | 7        | Client ReDoS, timing attacks, info leakage via headers        |
 
 ### 6.4 Selected Critical Threats & Mitigations
 
-| ID | Threat | Mitigation | Status |
-|----|--------|-----------|--------|
-| S-GW-01 | JWT forgery (alg:none) | RS256 + JWKS verify (không accept alg:none) | ✅ |
-| S-PAY-01 | Fake Stripe webhook | Webhook HMAC verify (Stripe-Signature header) | ✅ |
-| T-PAY-01 | Amount manipulation | Server lookup price từ catalog, không tin client | ✅ |
-| T-GW-01 | SQLi via API params | ORM parameterized + WAF 5/5 block | ✅ |
-| R-PAY-01 | Payment repudiation | Append-only audit log (migration 0007) | ✅ |
-| I-PAY-01 | PAN stored in DB | PSP tokenization — no PAN in DB | ✅ |
-| I-LOG-01 | PII in logs | Logstash PII masking filter | ✅ |
-| D-PAY-01 | DDoS payment endpoint | Rate limit 100/60s + circuit breaker | ✅ |
-| D-GW-01 | Rate limit bypass | Per-IP bucket + Keycloak lockout | ✅ |
-| E-GW-01 | User → admin escalation | RBAC + JWT role verify | ✅ |
-| E-INT-01 | Rogue service internal | HMAC guards (REQUIRE_INBOUND_HMAC=True) | ✅ |
-| S-VAULT-01 | Vault token theft | AppRole + token renewal + audit log | ✅ |
-| T-CICD-01 | Supply chain tamper | gitleaks + Trivy scan | ⚠️ (cosign pending) |
+| ID         | Threat                  | Mitigation                                       | Status              |
+| ---------- | ----------------------- | ------------------------------------------------ | ------------------- |
+| S-GW-01    | JWT forgery (alg:none)  | RS256 + JWKS verify (không accept alg:none)      | ✅                  |
+| S-PAY-01   | Fake Stripe webhook     | Webhook HMAC verify (Stripe-Signature header)    | ✅                  |
+| T-PAY-01   | Amount manipulation     | Server lookup price từ catalog, không tin client | ✅                  |
+| T-GW-01    | SQLi via API params     | ORM parameterized + WAF 5/5 block                | ✅                  |
+| R-PAY-01   | Payment repudiation     | Append-only audit log (migration 0007)           | ✅                  |
+| I-PAY-01   | PAN stored in DB        | PSP tokenization — no PAN in DB                  | ✅                  |
+| I-LOG-01   | PII in logs             | Logstash PII masking filter                      | ✅                  |
+| D-PAY-01   | DDoS payment endpoint   | Rate limit 100/60s + circuit breaker             | ✅                  |
+| D-GW-01    | Rate limit bypass       | Per-IP bucket + Keycloak lockout                 | ✅                  |
+| E-GW-01    | User → admin escalation | RBAC + JWT role verify                           | ✅                  |
+| E-INT-01   | Rogue service internal  | HMAC guards (REQUIRE_INBOUND_HMAC=True)          | ✅                  |
+| S-VAULT-01 | Vault token theft       | AppRole + token renewal + audit log              | ✅                  |
+| T-CICD-01  | Supply chain tamper     | gitleaks + Trivy scan                            | ⚠️ (cosign pending) |
 
 ---
 
@@ -696,6 +713,7 @@ user_id = request.headers.get("X-User-Id")
 ### Lỗ hổng T2 — [High] HMAC Guards Bị Tắt
 
 **Phát hiện:** Default config trong `.env` files:
+
 ```bash
 REQUIRE_INBOUND_HMAC=False  # mọi request nội bộ đều pass
 REQUIRE_NONCE_GUARD=False   # không check replay
@@ -710,15 +728,17 @@ REQUIRE_NONCE_GUARD=False   # không check replay
 ### Lỗ hổng T3 — [High] Dev Stubs Ẩn Lỗi Thực
 
 **Phát hiện:**
+
 ```python
 # Adapter config (inventory client):
 dev_stub_on_failure = True  # inventory fail → trả "success" giả
 
-# Database config:  
+# Database config:
 ENABLE_SQLITE_FALLBACK = True  # postgres down → tự dùng SQLite
 ```
 
 **Rủi ro:**
+
 - Đơn hàng chốt thành công dù kho không trừ và tiền không thu → data loss
 - SQLite fallback → data inconsistency giữa các requests
 
@@ -729,11 +749,13 @@ ENABLE_SQLITE_FALLBACK = True  # postgres down → tự dùng SQLite
 **Phát hiện:** `InvalidSignatureError` từ Stripe rơi vào generic exception handler → HTTP 500.
 
 **Rủi ro:**
+
 - Stripe retry lại webhook (vì thấy 500)
 - Log spam làm noise trong monitoring
 - 500 có thể leak stack trace → information disclosure
 
 **Fix:**
+
 ```python
 # webhooks.py — trước:
 # InvalidSignatureError → generic 500 handler
@@ -771,6 +793,7 @@ Ghi chú: 1 test fail = Kafka timeout trên payment node → macOS
 ### 8.2 Static Analysis
 
 **Bandit SAST:**
+
 ```
 HIGH   = 0  ✅
 MEDIUM = 8  (B104 ×7 — bind 0.0.0.0 trong container, false positive)
@@ -780,19 +803,20 @@ LOW    = 28
 
 **pip-audit CVE Scan:**
 
-| Service | HIGH CVEs | Trạng thái |
-|---------|-----------|-----------|
-| cart-service | 0 | ✅ |
-| catalog-service | 0 | ✅ |
-| order-service | 0 | ✅ |
-| inventory-service | 0 HIGH (2 MEDIUM) | ✅ |
-| payment-service | 0 HIGH (2 MEDIUM) | ✅ |
-| shipping-service | 0 HIGH (2 MEDIUM) | ✅ |
-| noti-service | 0 HIGH (2 MEDIUM) | ✅ |
+| Service           | HIGH CVEs         | Trạng thái |
+| ----------------- | ----------------- | ---------- |
+| cart-service      | 0                 | ✅         |
+| catalog-service   | 0                 | ✅         |
+| order-service     | 0                 | ✅         |
+| inventory-service | 0 HIGH (2 MEDIUM) | ✅         |
+| payment-service   | 0 HIGH (2 MEDIUM) | ✅         |
+| shipping-service  | 0 HIGH (2 MEDIUM) | ✅         |
+| noti-service      | 0 HIGH (2 MEDIUM) | ✅         |
 
-*2 MEDIUM còn lại: `cryptography==46.0.6` PYSEC-2026-36 — không phải HIGH*
+_2 MEDIUM còn lại: `cryptography==46.0.6` PYSEC-2026-36 — không phải HIGH_
 
 **Trivy & gitleaks:**
+
 ```
 Trivy CVE HIGH/CRITICAL:  0  ✅
 Trivy secret scan:         0  ✅
@@ -801,70 +825,70 @@ gitleaks:   7 findings — 0 real credentials (toàn placeholder/example)  ✅
 
 ### 8.3 Experiment 1 — JWT & Token Security
 
-| Test ID | Mô tả | HTTP | Kết quả |
-|---------|-------|------|---------|
-| 1.1 | JWT alg:none attack | 500 | ✅ Keycloak reject |
-| 1.2 | JWT claim forgery (xóa sig) | 401 | ✅ |
-| 1.3 | JWT expiry enforcement | 401 | ✅ |
-| 1.4 | Refresh token rotation replay | 400 | ✅ invalid_grant |
-| 1.B | User enumeration timing | — | ✅ same message |
-| 1.5 | Token after logout | valid | ⚠️ Known: stateless JWT, TTL 120s mitigates |
+| Test ID | Mô tả                         | HTTP  | Kết quả                                     |
+| ------- | ----------------------------- | ----- | ------------------------------------------- |
+| 1.1     | JWT alg:none attack           | 500   | ✅ Keycloak reject                          |
+| 1.2     | JWT claim forgery (xóa sig)   | 401   | ✅                                          |
+| 1.3     | JWT expiry enforcement        | 401   | ✅                                          |
+| 1.4     | Refresh token rotation replay | 400   | ✅ invalid_grant                            |
+| 1.B     | User enumeration timing       | —     | ✅ same message                             |
+| 1.5     | Token after logout            | valid | ⚠️ Known: stateless JWT, TTL 120s mitigates |
 
-*Test 1.5: Stateless JWT không thể revoke ngay. TTL 120s là mitigation — sau 2 phút token tự expire. Tradeoff đã documented.*
+_Test 1.5: Stateless JWT không thể revoke ngay. TTL 120s là mitigation — sau 2 phút token tự expire. Tradeoff đã documented._
 
 ### 8.4 Experiment 2 — Payment Fraud
 
-| Test ID | Mô tả | HTTP | Kết quả |
-|---------|-------|------|---------|
-| 2.1 | Webhook không có Stripe-Signature | 400 | ✅ |
-| 2.2 | Webhook forged HMAC | 400 | ✅ |
-| 2.2B | Webhook replay (timestamp cũ) | 400 | ✅ |
-| 2.3 | Idempotency 3 requests | 200 | ✅ Cache: 438ms → 5ms |
-| 2.4 | Amount tampering COD | 200 | ⚠️ COD trusts client amount |
-| 2.5 | IDOR refund | 403 | ✅ (*) |
-| 2.6 | No PAN in DB | — | ✅ Verified schema |
-| — | Stripe real checkout | 200 | ✅ cs_test_... URL |
+| Test ID | Mô tả                             | HTTP | Kết quả                     |
+| ------- | --------------------------------- | ---- | --------------------------- |
+| 2.1     | Webhook không có Stripe-Signature | 400  | ✅                          |
+| 2.2     | Webhook forged HMAC               | 400  | ✅                          |
+| 2.2B    | Webhook replay (timestamp cũ)     | 400  | ✅                          |
+| 2.3     | Idempotency 3 requests            | 200  | ✅ Cache: 438ms → 5ms       |
+| 2.4     | Amount tampering COD              | 200  | ⚠️ COD trusts client amount |
+| 2.5     | IDOR refund                       | 403  | ✅ (\*)                     |
+| 2.6     | No PAN in DB                      | —    | ✅ Verified schema          |
+| —       | Stripe real checkout              | 200  | ✅ cs*test*... URL          |
 
-*Test 2.5: Re-run gặp HTTP 500 do Kafka timeout (payment node → macOS) — infrastructure issue. IDOR protection code không thay đổi, HTTP 403 đã verified session trước.*
+_Test 2.5: Re-run gặp HTTP 500 do Kafka timeout (payment node → macOS) — infrastructure issue. IDOR protection code không thay đổi, HTTP 403 đã verified session trước._
 
-*Test 2.4 warning: COD (Cash on Delivery) flow cho phép client gửi amount — server cần lookup từ catalog. P1 backlog.*
+_Test 2.4 warning: COD (Cash on Delivery) flow cho phép client gửi amount — server cần lookup từ catalog. P1 backlog._
 
 ### 8.5 Experiment 3 — API Abuse (Envoy HTTPS)
 
-| Test ID | Mô tả | Kết quả |
-|---------|-------|---------|
-| 3.1 | Credential stuffing 15 attempts | ✅ Lockout tại #17 → 429 |
-| 3.3 | Rate limit 110 requests HTTPS | ✅ 100×200 + 10×429 |
-| 3.4 | User enumeration | ✅ Same message, timing diff <5ms |
-| 3.5 | CORS evil.com origin | ✅ No CORS header (blocked) |
-| 3.6 | WAF SQLi (5 patterns) | ✅ **5/5 → HTTP 403** |
-| 3.7 | WAF scanner agents (5 tools) | ✅ **5/5 → HTTP 403** |
-| 3.8 | Direct service bypass | ✅ HTTP 404 on root |
+| Test ID | Mô tả                           | Kết quả                           |
+| ------- | ------------------------------- | --------------------------------- |
+| 3.1     | Credential stuffing 15 attempts | ✅ Lockout tại #17 → 429          |
+| 3.3     | Rate limit 110 requests HTTPS   | ✅ 100×200 + 10×429               |
+| 3.4     | User enumeration                | ✅ Same message, timing diff <5ms |
+| 3.5     | CORS evil.com origin            | ✅ No CORS header (blocked)       |
+| 3.6     | WAF SQLi (5 patterns)           | ✅ **5/5 → HTTP 403**             |
+| 3.7     | WAF scanner agents (5 tools)    | ✅ **5/5 → HTTP 403**             |
+| 3.8     | Direct service bypass           | ✅ HTTP 404 on root               |
 
 **Latency throttled:** median=121ms · p95=210ms · p99=221ms
 
 ### 8.6 Experiment 4 — Key Management
 
-| Test ID | Mô tả | Kết quả |
-|---------|-------|---------|
-| 4.0 | Vault health check | ✅ initialized, unsealed, auth required |
-| 4.3 | KMS latency 50 iterations | ✅ median 24.6ms · p95 38ms · p99 140ms |
-| 4.1 | Seal/unseal drill | ⏸ SKIPPED (production risk) |
+| Test ID | Mô tả                     | Kết quả                                 |
+| ------- | ------------------------- | --------------------------------------- |
+| 4.0     | Vault health check        | ✅ initialized, unsealed, auth required |
+| 4.3     | KMS latency 50 iterations | ✅ median 24.6ms · p95 38ms · p99 140ms |
+| 4.1     | Seal/unseal drill         | ⏸ SKIPPED (production risk)             |
 
 ### 8.7 Experiment 5 — Supply Chain
 
-| Test ID | Mô tả | Kết quả |
-|---------|-------|---------|
-| 5.2 | Dependency CVE scan | ✅ 0 HIGH/CRITICAL |
-| 5.3 | Secrets in git history | ✅ 0 real credentials |
-| 5.1 | Unsigned image deploy | ⏸ cần cosign + k8s admission |
+| Test ID | Mô tả                  | Kết quả                      |
+| ------- | ---------------------- | ---------------------------- |
+| 5.2     | Dependency CVE scan    | ✅ 0 HIGH/CRITICAL           |
+| 5.3     | Secrets in git history | ✅ 0 real credentials        |
+| 5.1     | Unsigned image deploy  | ⏸ cần cosign + k8s admission |
 
 ### 8.8 Additional Tests (API3 + API7)
 
-| Test | Kết quả |
-|------|---------|
+| Test                          | Kết quả                                   |
+| ----------------------------- | ----------------------------------------- |
 | API3 — Catalog field exposure | ✅ Không có cost/margin/supplier/password |
-| API7 — SSRF via URL param | ✅ URL treated as plain text, không fetch |
+| API7 — SSRF via URL param     | ✅ URL treated as plain text, không fetch |
 
 ---
 
@@ -880,21 +904,21 @@ gitleaks:   7 findings — 0 real credentials (toàn placeholder/example)  ✅
 
 **Symmetric crypto (local):**
 
-| Operation | Median | p95 | p99 | Throughput |
-|-----------|--------|-----|-----|------------|
+| Operation           | Median        | p95       | p99       | Throughput |
+| ------------------- | ------------- | --------- | --------- | ---------- |
 | AES-256-GCM encrypt | **0.0005 ms** | 0.0006 ms | 0.0007 ms | 2.2M ops/s |
 | AES-256-GCM decrypt | **0.0005 ms** | 0.0006 ms | 0.0007 ms | 2.1M ops/s |
-| HMAC-SHA256 sign | **0.0013 ms** | 0.0014 ms | 0.0015 ms | 960K ops/s |
-| JWT decode (cached) | **0.0013 ms** | 0.0015 ms | 0.0018 ms | — |
+| HMAC-SHA256 sign    | **0.0013 ms** | 0.0014 ms | 0.0015 ms | 960K ops/s |
+| JWT decode (cached) | **0.0013 ms** | 0.0015 ms | 0.0018 ms | —          |
 
 **Network operations:**
 
-| Operation | Median | p95 | p99 |
-|-----------|--------|-----|-----|
-| Vault DEK unwrap (cold) | **24.6 ms** | 38 ms | 140 ms |
-| Vault DEK unwrap (cached) | **~0.001 ms** | — | — |
-| Rate-limited response (429) | 121 ms | 210 ms | 221 ms |
-| Stripe API round-trip | 200–500 ms | — | — |
+| Operation                   | Median        | p95    | p99    |
+| --------------------------- | ------------- | ------ | ------ |
+| Vault DEK unwrap (cold)     | **24.6 ms**   | 38 ms  | 140 ms |
+| Vault DEK unwrap (cached)   | **~0.001 ms** | —      | —      |
+| Rate-limited response (429) | 121 ms        | 210 ms | 221 ms |
+| Stripe API round-trip       | 200–500 ms    | —      | —      |
 
 ### 9.3 Phân tích overhead per request
 
@@ -930,53 +954,54 @@ Overhead crypto / tổng latency:  < 6%
 
 ### 10.1 OWASP ASVS v4.0 Level 2 — **9P / 3⚠ / 0❌**
 
-| Chapter | Nội dung | Status | Ghi chú |
-|---------|---------|--------|---------|
-| V2 Authentication | Keycloak, MFA, brute-force | ✅ | Lockout · TOTP · User enum blocked |
-| V3 Session Management | JWT TTL, refresh rotation | ✅ | TTL=120s · RS256 · Rotation strict |
-| V4 Access Control | RBAC, IDOR | ✅ | IDOR 403 · HMAC guards · verify_aud |
-| V5 Input Validation | SQLi, WAF | ✅ | WAF 5/5 · ORM parameterized |
-| V6 Cryptography | AES-GCM, Vault | ⚠️ | RS256 ✅ · Vault ✅ · FLE chưa activate |
-| V7 Error Handling | Logging, PII | ✅ | HTTP 400 · PII filter · Audit HMAC |
-| V8 Data Protection | TDE, FLE, PAN | ⚠️ | No PAN ✅ · Append-only ✅ · FLE pending |
-| V9 Communication | TLS, HTTPS | ✅ | Envoy HTTPS 200 verified live |
-| V10 Malicious Code | Dep scan, secrets | ✅ | 0 HIGH CVE · 0 real secrets |
-| V11 Business Logic | Idempotency | ✅ | Cache 438ms→5ms · Webhook replay blocked |
-| V13 API | CORS, rate limit | ✅ | 100/60s throttle · CORS ✅ · /docs disabled |
-| V14 Configuration | Secrets, defaults | ⚠️ | Vault ✅ · Keycloak pw ✅ · PG pw cần đổi |
+| Chapter               | Nội dung                   | Status | Ghi chú                                     |
+| --------------------- | -------------------------- | ------ | ------------------------------------------- |
+| V2 Authentication     | Keycloak, MFA, brute-force | ✅     | Lockout · TOTP · User enum blocked          |
+| V3 Session Management | JWT TTL, refresh rotation  | ✅     | TTL=120s · RS256 · Rotation strict          |
+| V4 Access Control     | RBAC, IDOR                 | ✅     | IDOR 403 · HMAC guards · verify_aud         |
+| V5 Input Validation   | SQLi, WAF                  | ✅     | WAF 5/5 · ORM parameterized                 |
+| V6 Cryptography       | AES-GCM, Vault             | ⚠️     | RS256 ✅ · Vault ✅ · FLE chưa activate     |
+| V7 Error Handling     | Logging, PII               | ✅     | HTTP 400 · PII filter · Audit HMAC          |
+| V8 Data Protection    | TDE, FLE, PAN              | ⚠️     | No PAN ✅ · Append-only ✅ · FLE pending    |
+| V9 Communication      | TLS, HTTPS                 | ✅     | Envoy HTTPS 200 verified live               |
+| V10 Malicious Code    | Dep scan, secrets          | ✅     | 0 HIGH CVE · 0 real secrets                 |
+| V11 Business Logic    | Idempotency                | ✅     | Cache 438ms→5ms · Webhook replay blocked    |
+| V13 API               | CORS, rate limit           | ✅     | 100/60s throttle · CORS ✅ · /docs disabled |
+| V14 Configuration     | Secrets, defaults          | ⚠️     | Vault ✅ · Keycloak pw ✅ · PG pw cần đổi   |
 
 **3 Partial lý do:**
+
 - V6/V8: FLE code sẵn sàng nhưng chưa activate runtime (cần Vault root token trong lab)
 - V14: PostgreSQL default password `123456` chưa đổi
 
 ### 10.2 OWASP API Security Top 10 (2023) — **10/10 PASS**
 
-| ID | Threat | Mitigation | Kết quả |
-|----|--------|-----------|---------|
-| API1 | Broken Object Level Auth | HTTP 403 IDOR test | ✅ |
-| API2 | Broken Authentication | RS256 + verify_aud + TTL 120s | ✅ |
-| API3 | Broken Object Property Level Auth | No sensitive fields in catalog | ✅ |
-| API4 | Unrestricted Resource Consumption | Rate limit 100/60s | ✅ |
-| API5 | Broken Function Level Auth | HMAC guards · direct 404 | ✅ |
-| API6 | Unrestricted Sensitive Flows | Idempotency · webhook replay 400 | ✅ |
-| API7 | SSRF | URL params → plain text | ✅ |
-| API8 | Security Misconfiguration | CORS · HTTPS · /docs disabled | ✅ |
-| API9 | Improper Inventory Management | /docs disabled tất cả 7 services | ✅ |
-| API10 | Unsafe API Consumption | Stripe webhook HMAC verify | ✅ |
+| ID    | Threat                            | Mitigation                       | Kết quả |
+| ----- | --------------------------------- | -------------------------------- | ------- |
+| API1  | Broken Object Level Auth          | HTTP 403 IDOR test               | ✅      |
+| API2  | Broken Authentication             | RS256 + verify_aud + TTL 120s    | ✅      |
+| API3  | Broken Object Property Level Auth | No sensitive fields in catalog   | ✅      |
+| API4  | Unrestricted Resource Consumption | Rate limit 100/60s               | ✅      |
+| API5  | Broken Function Level Auth        | HMAC guards · direct 404         | ✅      |
+| API6  | Unrestricted Sensitive Flows      | Idempotency · webhook replay 400 | ✅      |
+| API7  | SSRF                              | URL params → plain text          | ✅      |
+| API8  | Security Misconfiguration         | CORS · HTTPS · /docs disabled    | ✅      |
+| API9  | Improper Inventory Management     | /docs disabled tất cả 7 services | ✅      |
+| API10 | Unsafe API Consumption            | Stripe webhook HMAC verify       | ✅      |
 
 ### 10.3 PCI DSS v4.0 — **8P / 1⚠ / 0❌**
 
-| Requirement | Nội dung | Status | Ghi chú |
-|-------------|---------|--------|---------|
-| Req 2.2 | No default credentials | ⚠️ | Keycloak pw changed ✅ · PG `123456` cần đổi |
-| Req 3.3 | No PAN retention | ✅ | Chỉ `psp_payment_method_id` + `card_last4` |
-| Req 4.2.1 | TLS 1.2+ | ✅ | Envoy HTTPS · TLS 1.3 verified |
-| Req 6.3.3 | Patch vulnerabilities | ✅ | cryptography 46.0.6 · starlette 1.0.1 |
-| Req 7.2 | Least-privilege access | ✅ | HMAC · IDOR blocked · RBAC |
-| Req 8.3.1 | MFA for admin | ✅ | TOTP · failureFactor=10 |
-| Req 10.2 | Audit log events | ✅ | Kafka + HMAC-signed audit records |
-| Req 10.3 | Audit log integrity | ✅ | PostgreSQL RULE ngăn DELETE/UPDATE |
-| Req 12.3.2 | Targeted risk analysis | ✅ | STRIDE ~50 scenarios documented |
+| Requirement | Nội dung               | Status | Ghi chú                                      |
+| ----------- | ---------------------- | ------ | -------------------------------------------- |
+| Req 2.2     | No default credentials | ⚠️     | Keycloak pw changed ✅ · PG `123456` cần đổi |
+| Req 3.3     | No PAN retention       | ✅     | Chỉ `psp_payment_method_id` + `card_last4`   |
+| Req 4.2.1   | TLS 1.2+               | ✅     | Envoy HTTPS · TLS 1.3 verified               |
+| Req 6.3.3   | Patch vulnerabilities  | ✅     | cryptography 46.0.6 · starlette 1.0.1        |
+| Req 7.2     | Least-privilege access | ✅     | HMAC · IDOR blocked · RBAC                   |
+| Req 8.3.1   | MFA for admin          | ✅     | TOTP · failureFactor=10                      |
+| Req 10.2    | Audit log events       | ✅     | Kafka + HMAC-signed audit records            |
+| Req 10.3    | Audit log integrity    | ✅     | PostgreSQL RULE ngăn DELETE/UPDATE           |
+| Req 12.3.2  | Targeted risk analysis | ✅     | STRIDE ~50 scenarios documented              |
 
 ---
 
@@ -1012,14 +1037,15 @@ Qua code review và thực nghiệm trên codebase thực tế, phát hiện 4 �
 
 ### 11.3 Trả lời RQ3 — Vault/KMS vs Software Keys
 
-| Approach | Latency | Security | Phù hợp khi nào |
-|----------|---------|----------|-----------------|
-| Local AES-GCM | 0.0005ms | Software boundary — key trong memory | Dev, test |
+| Approach          | Latency    | Security                                   | Phù hợp khi nào    |
+| ----------------- | ---------- | ------------------------------------------ | ------------------ |
+| Local AES-GCM     | 0.0005ms   | Software boundary — key trong memory       | Dev, test          |
 | **Vault Transit** | **24.6ms** | **Network + server — KEK không rời Vault** | **Lab, prototype** |
-| AWS/GCP KMS | ~10–20ms | Hardware-backed HSM | Production |
-| Dedicated HSM | ~1ms | Physical isolation | High-security |
+| AWS/GCP KMS       | ~10–20ms   | Hardware-backed HSM                        | Production         |
+| Dedicated HSM     | ~1ms       | Physical isolation                         | High-security      |
 
 **Trade-offs Vault:**
+
 - ✅ Audit log mọi lần đọc key (quan trọng cho PCI compliance)
 - ✅ AppRole auth per-service (least privilege)
 - ✅ Key rotation không cần redeploy
@@ -1032,28 +1058,28 @@ Qua code review và thực nghiệm trên codebase thực tế, phát hiện 4 �
 
 **Đã hoàn thành:**
 
-| Hạng mục | Kết quả |
-|----------|---------|
-| Kiến trúc | 7 microservices · 8 trust boundaries · DFD đầy đủ · 4 nodes live |
-| TLS 1.3 + HTTPS | ✅ Envoy HTTPS 200 verified |
-| OAuth2/OIDC + PKCE + MFA | ✅ TTL=120s · RS256 · Refresh rotation |
-| HMAC-SHA256 S2S | ✅ Production: REQUIRE_INBOUND_HMAC=True |
-| PSP Tokenization | ✅ No PAN · DB schema verified |
-| Vault Transit + Envelope Encryption | ✅ 9 transit keys |
-| Append-only Audit Log | ✅ Migration 0007 — DELETE blocked |
-| WAF + Rate Limit | ✅ 5/5 SQLi · 5/5 scanners blocked |
-| STRIDE Analysis | ✅ ~50 threats · 13 Critical |
-| 4 lỗ hổng phát hiện & fix | ✅ Tất cả đã fix và verified |
-| 25/26 security tests PASS | ✅ Trên live infra 4 nodes |
-| OWASP API Top 10 | ✅ 10/10 PASS |
+| Hạng mục                            | Kết quả                                                          |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| Kiến trúc                           | 7 microservices · 8 trust boundaries · DFD đầy đủ · 4 nodes live |
+| TLS 1.3 + HTTPS                     | ✅ Envoy HTTPS 200 verified                                      |
+| OAuth2/OIDC + PKCE + MFA            | ✅ TTL=120s · RS256 · Refresh rotation                           |
+| HMAC-SHA256 S2S                     | ✅ Production: REQUIRE_INBOUND_HMAC=True                         |
+| PSP Tokenization                    | ✅ No PAN · DB schema verified                                   |
+| Vault Transit + Envelope Encryption | ✅ 9 transit keys                                                |
+| Append-only Audit Log               | ✅ Migration 0007 — DELETE blocked                               |
+| WAF + Rate Limit                    | ✅ 5/5 SQLi · 5/5 scanners blocked                               |
+| STRIDE Analysis                     | ✅ ~50 threats · 13 Critical                                     |
+| 4 lỗ hổng phát hiện & fix           | ✅ Tất cả đã fix và verified                                     |
+| 25/26 security tests PASS           | ✅ Trên live infra 4 nodes                                       |
+| OWASP API Top 10                    | ✅ 10/10 PASS                                                    |
 
 **Còn lại (P0):**
 
-| # | Việc | Lý do chưa xong |
-|---|------|----------------|
-| 1 | Đổi PostgreSQL password `123456` | Cần schedule maintenance window |
-| 2 | Kích hoạt FLE runtime | Cần Vault root token trong lab |
-| 3 | cosign artifact signing | Cần k8s admission webhook |
+| #   | Việc                             | Lý do chưa xong                 |
+| --- | -------------------------------- | ------------------------------- |
+| 1   | Đổi PostgreSQL password `123456` | Cần schedule maintenance window |
+| 2   | Kích hoạt FLE runtime            | Cần Vault root token trong lab  |
+| 3   | cosign artifact signing          | Cần k8s admission webhook       |
 
 ---
 
@@ -1094,15 +1120,15 @@ NT219-Cryptography/
 
 ### B. Security Libraries & Versions
 
-| Library | Version | Dùng cho |
-|---------|---------|---------|
-| cryptography | 46.0.6 | AES-256-GCM, ECDSA, TLS |
-| python-jose | 3.3.0 | JWT decode/verify |
-| hvac | 2.x | HashiCorp Vault client |
-| stripe | 11.x | Payment SDK |
-| httpx | 0.27 | Async HTTP client (inter-service) |
-| starlette | 1.0.1 | ASGI middleware |
-| fastapi | 0.115.x | REST API framework |
+| Library      | Version | Dùng cho                          |
+| ------------ | ------- | --------------------------------- |
+| cryptography | 46.0.6  | AES-256-GCM, ECDSA, TLS           |
+| python-jose  | 3.3.0   | JWT decode/verify                 |
+| hvac         | 2.x     | HashiCorp Vault client            |
+| stripe       | 11.x    | Payment SDK                       |
+| httpx        | 0.27    | Async HTTP client (inter-service) |
+| starlette    | 1.0.1   | ASGI middleware                   |
+| fastapi      | 0.115.x | REST API framework                |
 
 ### C. Envoy JWT Filter Config
 
@@ -1119,7 +1145,7 @@ http_filters:
               uri: "http://keycloak:8080/realms/uitstore/protocol/openid-connect/certs"
               cluster: keycloak_service
               timeout: 5s
-            cache_duration: 300s  # Cache JWKS 5 phút
+            cache_duration: 300s # Cache JWKS 5 phút
       rules:
         - match: { prefix: "/api/v1/cart" }
           requires: { provider_name: "keycloak_provider" }
@@ -1152,22 +1178,22 @@ vault write auth/approle/role/payment-service \
 
 ### E. Kafka Topics
 
-| Topic | Producers | Consumers | Nội dung |
-|-------|-----------|-----------|---------|
-| `inventory.events` | inventory-service | order-service | Stock updates |
-| `payment.events` | payment-service | order-service | Payment results |
-| `audit-logs` | tất cả services | Logstash | Audit records (HMAC-signed) |
+| Topic              | Producers         | Consumers     | Nội dung                    |
+| ------------------ | ----------------- | ------------- | --------------------------- |
+| `inventory.events` | inventory-service | order-service | Stock updates               |
+| `payment.events`   | payment-service   | order-service | Payment results             |
+| `audit-logs`       | tất cả services   | Logstash      | Audit records (HMAC-signed) |
 
 ### F. Remaining Backlog
 
-| Priority | Issue | Impact |
-|----------|-------|--------|
-| P0 | Đổi PostgreSQL `123456` | PCI Req 2.2 |
-| P0 | Activate FLE runtime (cần Vault token) | ASVS V6/V8 Partial |
-| P1 | Fix Kafka payment→macOS timeout | Unblock Test 2.5 re-run |
-| P1 | COD amount validation từ catalog | Test 2.4 warning |
-| P1 | cosign + k8s admission webhook | Test 5.1 supply chain |
+| Priority | Issue                                  | Impact                  |
+| -------- | -------------------------------------- | ----------------------- |
+| P0       | Đổi PostgreSQL `123456`                | PCI Req 2.2             |
+| P0       | Activate FLE runtime (cần Vault token) | ASVS V6/V8 Partial      |
+| P1       | Fix Kafka payment→macOS timeout        | Unblock Test 2.5 re-run |
+| P1       | COD amount validation từ catalog       | Test 2.4 warning        |
+| P1       | cosign + k8s admission webhook         | Test 5.1 supply chain   |
 
 ---
 
-*NT219 Cryptography · UIT Store — E-commerce Security Platform · 2026-06-01*
+_NT219 Cryptography · UIT Store — E-commerce Security Platform · 2026-06-01_
