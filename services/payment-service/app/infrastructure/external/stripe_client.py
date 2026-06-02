@@ -108,7 +108,6 @@ class StripeClient(StripeGateway):
             client_reference_id=order_id,
             metadata=metadata,
             payment_intent_data={"metadata": metadata},
-            expires_at=int(time.time()) + 3600,
             idempotency_key=idempotency_key,
         )
         return mask_psp_response(res.to_dict())

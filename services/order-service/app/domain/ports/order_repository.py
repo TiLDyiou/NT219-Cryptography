@@ -43,6 +43,14 @@ class OrderRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def list_merchant_orders(self, merchant_id: str) -> list[OrderEntity]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_merchant_order(self, merchant_id: str, order_id: str) -> OrderEntity:
+        raise NotImplementedError
+
+    @abstractmethod
     async def update_order(self, order: OrderEntity) -> OrderEntity:
         raise NotImplementedError
 

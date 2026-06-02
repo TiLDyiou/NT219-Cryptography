@@ -185,8 +185,8 @@ cat >/tmp/realm-export-vm.json <<REALM
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["http://${VM1_IP}/*"],
-      "webOrigins": ["+"],
+      "redirectUris": ["http://${VM1_IP}/*", "https://digestional-eldridge-devastative.ngrok-free.dev/*"],
+      "webOrigins": ["http://${VM1_IP}", "https://digestional-eldridge-devastative.ngrok-free.dev"],
       "protocol": "openid-connect",
       "attributes": {
         "pkce.code.challenge.method": "S256",

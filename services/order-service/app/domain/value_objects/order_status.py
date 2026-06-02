@@ -43,5 +43,5 @@ def can_transition(from_status: OrderStatus, to_status: OrderStatus) -> bool:
 
 def status_for_payment_method(payment_method_type: str) -> OrderStatus:
     if payment_method_type == "cod":
-        return OrderStatus.CONFIRMED
+        return OrderStatus.PENDING_PAYMENT
     return OrderStatus.PAYMENT_PROCESSING

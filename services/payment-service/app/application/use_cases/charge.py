@@ -110,7 +110,7 @@ class ChargeUseCase:
                         amount=amount,
                         currency=currency,
                         line_items=line_items,
-                        idempotency_key=order_id,
+                        idempotency_key=idempotency_key,
                         metadata={"order_id": order_id, "user_id": user_id},
                     )
                     session_id = stripe_res.get("id")

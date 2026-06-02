@@ -295,6 +295,38 @@ class PgOrderRepository(OrderRepository):
             raise EntityNotFoundException(entity="Order", entity_id=order_id)
         return _to_entity(row)
 
+    async def list_merchant_orders(self, merchant_id: str) -> list[OrderEntity]:
+        stmt: Select[tuple[OrderModel]] = (
+            select(OrderModel)
+            .options(
+                selectinload(OrderModel.items),
+                selectinload(OrderModel.addresses)
+            )
+            .where(
+                OrderModel.merchant_id == merchant_id,
+                OrderModel.parent_order_id.is_not(None),
+            )
+            .order_by(OrderModel.created_at.desc())
+        )
+        result = await self._session.execute(stmt)
+        return [_to_entity(row) for row in result.scalars().all()]
+
+    async def get_merchant_order(self, merchant_id: str, order_id: str) -> OrderEntity:
+        stmt: Select[tuple[OrderModel]] = (
+            select(OrderModel)
+            .options(
+                selectinload(OrderModel.items),
+                selectinload(OrderModel.addresses)
+            )
+            .where(OrderModel.id == order_id, OrderModel.merchant_id == merchant_id)
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        row = result.scalars().first()
+        if not row:
+            raise EntityNotFoundException(entity="Order", entity_id=order_id)
+        return _to_entity(row)
+
     async def update_order(self, order: OrderEntity) -> OrderEntity:
         stmt = select(OrderModel).where(OrderModel.id == order.id).limit(1)
         result = await self._session.execute(stmt)

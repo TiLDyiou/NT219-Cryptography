@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-
 from sqlalchemy import Boolean, Column, DateTime, Index, Integer, JSON, LargeBinary, String
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from app.infrastructure.persistence.models.base import Base, generate_uuid
 
@@ -106,7 +106,7 @@ class AuditLogModel(Base):
     action = Column(String(10), nullable=False)
     old_data = Column(JSON, nullable=True)
     new_data = Column(JSON, nullable=True)
-    changed_fields = Column(JSON, nullable=True)
+    changed_fields = Column(JSON().with_variant(ARRAY(String), "postgresql"), nullable=True)
     actor_id = Column(String(36), nullable=True)
     actor_type = Column(String(20), nullable=True)
     ip_address = Column(String(64), nullable=True)

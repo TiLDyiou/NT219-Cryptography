@@ -339,6 +339,18 @@ const BACKEND_URL = resolveBackendUrl();
     },
   };
 
+  // ── Merchant Orders ─────────────────────────────────────────
+  const merchantOrders = {
+    list: function () {
+      return apiFetch(BACKEND_URL + '/api/v1/orders/merchant/orders');
+    },
+    confirm: function (orderId) {
+      return apiFetch(BACKEND_URL + '/api/v1/orders/merchant/orders/' + orderId + '/confirm', {
+        method: 'POST'
+      });
+    }
+  };
+
   function productImageUrl(product) {
     const imgs = product && product.images;
     if (!imgs || !imgs.length) return null;
@@ -384,6 +396,7 @@ const BACKEND_URL = resolveBackendUrl();
     resolveMediaUrl: resolveMediaUrl,
     parseApiError:  getErrorMessage,
     merchantProducts: merchantProducts,
+    merchantOrders: merchantOrders,
     mapCartItemRow: mapCartItemRow,
     productFromCartLine: productFromCartLine,
     mergeCartSnapshotsIntoProducts: mergeCartSnapshotsIntoProducts,

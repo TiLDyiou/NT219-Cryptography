@@ -11,6 +11,7 @@ from app.application.use_cases.checkout import (
     GetOrderUseCase,
     ListOrdersUseCase,
 )
+from app.application.use_cases.merchant_order import ListMerchantOrdersUseCase, ConfirmOrderUseCase
 from app.core.config import Settings, settings
 from app.domain.ports.audit_logger import AuditLogger
 from app.domain.ports.crypto_service import CryptoService
@@ -74,6 +75,16 @@ class AppContainer:
 
     def cancel_order_use_case(self, session: AsyncSession) -> CancelOrderUseCase:
         return CancelOrderUseCase(
+            PgOrderRepository(session),
+            self.event_publisher,
+            self.audit_logger,
+        )
+
+    def list_merchant_orders_use_case(self, session: AsyncSession) -> ListMerchantOrdersUseCase:
+        return ListMerchantOrdersUseCase(PgOrderRepository(session))
+
+    def confirm_order_use_case(self, session: AsyncSession) -> ConfirmOrderUseCase:
+        return ConfirmOrderUseCase(
             PgOrderRepository(session),
             self.event_publisher,
             self.audit_logger,
