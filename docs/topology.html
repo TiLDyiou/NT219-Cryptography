@@ -48,17 +48,21 @@ svg.appendChild(defs);
 
 /* =================== ZONES =================== */
 const zones=[
- {label:'MÁY HOST A  —  3 VM (libvirt 192.168.122.x)',x:296,y:250,w:892,h:516,col:'#1f6fb2'},
- {label:'MÁY HOST B  —  Tailscale',x:1408,y:146,w:168,h:380,col:'#9b2226'},
+ {label:'MÁY HOST A  —  3 VM (libvirt 192.168.122.x)',x:170,y:140,w:1170,h:650,col:'#1f6fb2'},
+ {label:'MÁY HOST B  —  Tailscale',x:1430,y:290,w:190,h:370,col:'#9b2226'},
+ {label:'VM1 (API & Auth)', x:200, y:350, w:330, h:410, col:'#1f7ec2', isVm:true},
+ {label:'VM2 (Core Services)', x:630, y:190, w:340, h:470, col:'#1f7ec2', isVm:true},
+ {label:'VM3 (Payment & Vault)', x:1030, y:320, w:290, h:180, col:'#1f7ec2', isVm:true},
+ {label:'VM4 (Postgres & Kafka)', x:1450, y:340, w:150, h:300, col:'#b45309', isVm:true},
 ];
 zones.forEach(z=>{
     add(el('rect',{x:z.x,y:z.y,width:z.w,height:z.h,rx:16,
-        fill:z.col==='#9b2226'?'rgba(155,34,38,.03)':'rgba(31,111,178,.025)',
-        stroke:z.col,'stroke-width':2.4,'stroke-dasharray':'10 7'}));
-    add(el('rect',{x:z.x+14,y:z.y-14,width:z.label.length*8.0+18,height:28,rx:7,fill:'#fff',stroke:z.col,'stroke-width':1.3}));
-    add(el('text',{x:z.x+24,y:z.y+5,class:'z-machine',fill:z.col},txt(z.label)));
+        fill:z.isVm ? 'rgba(255,255,255,0.6)' : (z.col==='#9b2226'?'rgba(155,34,38,.03)':'rgba(31,111,178,.025)'),
+        stroke:z.col,'stroke-width':z.isVm?1.5:2.4,'stroke-dasharray':z.isVm?'6 4':'10 7'}));
+    add(el('rect',{x:z.x+14,y:z.y-14,width:z.label.length*(z.isVm?6.8:8.0)+18,height:z.isVm?24:28,rx:7,fill:'#fff',stroke:z.col,'stroke-width':1.3}));
+    add(el('text',{x:z.x+24,y:z.y+(z.isVm?3:5),class:'z-machine',fill:z.col,style:z.isVm?'font-size:13px':''},txt(z.label)));
 });
-add(el('line',{x1:1392,y1:175,x2:1392,y2:520,stroke:'#9b2226','stroke-width':1.5,'stroke-dasharray':'9 6'}));
+add(el('line',{x1:1380,y1:120,x2:1380,y2:770,stroke:'#9b2226','stroke-width':1.5,'stroke-dasharray':'9 6'}));
 
 /* =================== CISCO-STYLE ICONS =================== */
 function icon(type){const g=el('g',{filter:'url(#sh)'}),A=e=>g.appendChild(e);
@@ -91,18 +95,20 @@ function icon(type){const g=el('g',{filter:'url(#sh)'}),A=e=>g.appendChild(e);
 
 /* =================== NODES (chức năng đúng theo code) =================== */
 const nodes=[
- {id:'client',  x:140,y:410,icon:'laptop',name:'Client',     role:'Browser + Keycloak login'},
- {id:'nginx',   x:360,y:410,icon:'server',name:'Nginx',      role:'Reverse proxy / TLS'},
- {id:'envoy',   x:560,y:410,icon:'switch',name:'Envoy',      role:'API gateway — routing'},
- {id:'keycloak',x:560,y:690,icon:'server',name:'Keycloak',   role:'OIDC — phát hành JWT (RS256)'},
- {id:'order',   x:830,y:330,icon:'server',name:'Order',      role:'Saga — verify JWT, ký HMAC'},
- {id:'inventory',x:830,y:560,icon:'server',name:'Inventory', role:'verify JWT, HMAC nội bộ'},
- {id:'payment', x:1100,y:330,icon:'server',name:'Payment',   role:'Envelope-encrypt — Stripe'},
- {id:'vault',   x:1100,y:560,icon:'server',name:'Vault',     role:'Transit: bọc DEK + ký sự kiện'},
- {id:'cloud',   x:1300,y:330,icon:'cloud', name:'Tailscale', role:'WireGuard tunnel'},
- {id:'postgres',x:1492,y:222,icon:'db',    name:'PostgreSQL',name2:'',role:'asyncpg / TLS'},
- {id:'kafka',   x:1492,y:452,icon:'server',name:'Kafka',     role:'audit events (đã ký)'},
- {id:'stripe',  x:1100,y:130,icon:'cloud', name:'Stripe',    role:'PSP — webhook HMAC'},
+ {id:'client',  x:90, y:410,icon:'laptop',name:'Client',     role:'Browser + Keycloak login'},
+ {id:'nginx',   x:260,y:410,icon:'server',name:'Nginx',      role:'Reverse proxy / TLS'},
+ {id:'envoy',   x:460,y:410,icon:'switch',name:'Envoy',      role:'API gateway — routing'},
+ {id:'keycloak',x:460,y:670,icon:'server',name:'Keycloak',   role:'OIDC — phát hành JWT (RS256)'},
+ {id:'catalog', x:700,y:250,icon:'server',name:'Catalog',    role:'Product catalog'},
+ {id:'cart',    x:700,y:410,icon:'server',name:'Cart',       role:'Shopping cart'},
+ {id:'order',   x:700,y:570,icon:'server',name:'Order',      role:'Saga — verify JWT, ký HMAC'},
+ {id:'inventory',x:900,y:570,icon:'server',name:'Inventory', role:'verify JWT, HMAC nội bộ'},
+ {id:'payment', x:1100,y:410,icon:'server',name:'Payment',    role:'Envelope-encrypt — Stripe'},
+ {id:'vault',   x:1250,y:410,icon:'server',name:'Vault',     role:'Transit: bọc DEK + ký sự kiện'},
+ {id:'cloud',   x:1380,y:570,icon:'cloud', name:'Tailscale', role:'WireGuard tunnel'},
+ {id:'postgres',x:1520,y:410,icon:'db',    name:'PostgreSQL',name2:'',role:'asyncpg / TLS'},
+ {id:'kafka',   x:1520,y:570,icon:'server',name:'Kafka',     role:'audit events (đã ký)'},
+ {id:'stripe',  x:1100,y:150,icon:'cloud', name:'Stripe',     role:'PSP — webhook HMAC'},
 ];
 const M={};nodes.forEach(n=>M[n.id]=n);
 
@@ -111,6 +117,8 @@ const edges=[
  {s:'client',t:'nginx',   k:'tls', l:'HTTPS / TLS 1.3'},
  {s:'nginx', t:'envoy',   k:'tls', l:'reverse proxy'},
  {s:'client',t:'keycloak',k:'oidc',l:'OIDC login → JWT'},
+ {s:'envoy', t:'catalog', k:'oidc',l:'Bearer JWT (RS256)'},
+ {s:'envoy', t:'cart',    k:'oidc',l:'Bearer JWT (RS256)'},
  {s:'envoy', t:'order',   k:'oidc',l:'Bearer JWT (RS256)'},
  {s:'order', t:'keycloak',k:'oidc',l:'verify JWT (public key)'},
  {s:'order', t:'inventory',k:'hmac',l:'HMAC + Internal-Token'},
@@ -127,7 +135,7 @@ function trimPts(s,e,r1,r2){const dx=e.x-s.x,dy=e.y-s.y,d=Math.hypot(dx,dy)||1;
 const labelJobs=[];
 edges.forEach(ed=>{
   const c=SEC[ed.k],s=M[ed.s],e=M[ed.t];
-  const [a,b]=trimPts(s,e,36,33);
+  const [a,b]=trimPts(s,e,42,42);
   add(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:c,'stroke-width':2.8,'marker-end':`url(#m-${ed.k})`}));
   if(!ed.l)return;
   const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,dx=b.x-a.x,dy=b.y-a.y;
@@ -147,6 +155,7 @@ labelJobs.forEach(j=>{const w=j.l.length*7.4+14, bx=j.anchor==='start'?j.x-6:j.x
 nodes.forEach(n=>{
   const g=el('g',{transform:`translate(${n.x},${n.y})`});
   g.appendChild(icon(n.icon));
+  g.appendChild(el('rect',{x:-70,y:28,width:140,height:38,fill:'rgba(255,255,255,0.85)',rx:4}));
   g.appendChild(el('text',{x:0,y:44,'text-anchor':'middle',class:'n-name'},txt(n.name)));
   g.appendChild(el('text',{x:0,y:61,'text-anchor':'middle',class:'n-role'},txt(n.role)));
   add(g);
