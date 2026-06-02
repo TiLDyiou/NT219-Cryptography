@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Topology | Architecture Blueprint</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap');
+
+        :root {
+            --bg-color: #ffffff;
+            --primary: #2d5986;
+            --primary-light: rgba(45, 89, 134, 0.1);
+            --primary-hover: rgba(45, 89, 134, 0.2);
+            --text-main: #2d5986;
+            --text-muted: rgba(45, 89, 134, 0.7);
+            --line-color: rgba(45, 89, 134, 0.3);
+            --line-active: #2d5986;
+            
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 24px 40px;
+            border-bottom: 1px solid var(--primary-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            background: var(--bg-color);
+            z-index: 10;
+        }
+
+        .title-block h1 {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+
+        .title-block p {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-line {
+            width: 24px;
+            height: 2px;
+            background: var(--primary);
+        }
+
+        .legend-line.dashed {
+            background: repeating-linear-gradient(90deg, var(--primary) 0, var(--primary) 4px, transparent 4px, transparent 8px);
+        }
+
+        #topology-container {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background-image: 
+                linear-gradient(var(--primary-light) 1px, transparent 1px),
+                linear-gradient(90deg, var(--primary-light) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        #svg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .node {
+            position: absolute;
+            background: var(--bg-color);
+            border: 1.5px solid var(--primary);
+            padding: 16px;
+            border-radius: 4px;
+            min-width: 160px;
+            z-index: 2;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 4px 4px 0 var(--primary-light);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            transform: translate(-50%, -50%); /* Centered on coordinates */
+        }
+
+        .node:hover, .node.active {
+            box-shadow: 6px 6px 0 var(--primary);
+            transform: translate(-50%, -52%);
+            background: var(--primary-hover);
+        }
+
+        .node.dimmed {
+            opacity: 0.3;
+            border-color: var(--text-muted);
+            box-shadow: none;
+        }
+
+        .node-type {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        .node-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* SVG Paths styling */
+        path.edge {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 1.5px;
+            transition: all 0.3s ease;
+        }
+
+        path.edge.dashed {
+            stroke-dasharray: 6 6;
+        }
+
+        path.edge.active {
+            stroke: var(--line-active);
+            stroke-width: 2.5px;
+        }
+
+        path.edge.dimmed {
+            stroke: rgba(45, 89, 134, 0.1);
+        }
+
+        /* Moving dots along active edges */
+        .packet {
+            fill: var(--primary);
+            r: 4;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .edge.active + .packet {
+            opacity: 1;
+        }
+
+        /* Detail panel */
+        #detail-panel {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            width: 320px;
+            background: var(--bg-color);
+            border: 1px solid var(--primary);
+            padding: 20px;
+            box-shadow: 8px 8px 0 var(--primary-light);
+            z-index: 20;
+            font-family: var(--font-mono);
+            transform: translateY(150%);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #detail-panel.visible {
+            transform: translateY(0);
+        }
+
+        #dp-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--primary-light);
+            padding-bottom: 8px;
+        }
+
+        #dp-content {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        
+        .dp-tag {
+            display: inline-block;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 2px 6px;
+            border-radius: 2px;
+            margin-top: 8px;
+            margin-right: 4px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="title-block">
+            <h1>System Topology Map</h1>
+            <p>NT219 Cryptography - Microservices Data Flow</p>
+        </div>
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-line"></div>
+                <span>Synchronous (HTTP)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-line dashed"></div>
+                <span>Asynchronous (Kafka/AMQP)</span>
+            </div>
+        </div>
+    </header>
+
+    <div id="topology-container">
+        <svg id="svg-canvas">
+            <defs>
+                <marker id="arrow" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M0,-5L10,0L0,5" fill="rgba(45, 89, 134, 0.3)" class="arrow-path"></path>
+                </marker>
+                <marker id="arrow-active" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
+                    <path d="M0,-5L10,0L0,5" fill="#2d5986"></path>
+                </marker>
+            </defs>
+        </svg>
+        <div id="nodes-layer"></div>
+    </div>
+
+    <div id="detail-panel">
+        <div id="dp-title">Node Details</div>
+        <div id="dp-content">Hover over a node to see data flows and details.</div>
+    </div>
+
+    <script>
+        // System nodes definition
+        const nodes = [
+            // Column 1: Client/Auth
+            { id: 'client', type: 'External', name: 'Frontend Client', x: 10, y: 50, desc: 'End-user interface interacting with the system.' },
+            { id: 'keycloak', type: 'Identity', name: 'Keycloak', x: 10, y: 80, desc: 'Issues JWT tokens and handles authentication.' },
+            
+            // Column 2: Entry & User-Facing Services
+            { id: 'catalog', type: 'Microservice', name: 'Catalog Service', x: 35, y: 20, desc: 'Manages products and inventory catalog.' },
+            { id: 'cart', type: 'Microservice', name: 'Cart Service', x: 35, y: 50, desc: 'Manages user shopping carts. Calls Catalog Service.' },
+            { id: 'order', type: 'Microservice', name: 'Order Service', x: 35, y: 80, desc: 'Orchestrates checkout, validates with Inventory & Payment.' },
+
+            // Column 3: Domain / Backend Services
+            { id: 'inventory', type: 'Microservice', name: 'Inventory Service', x: 60, y: 35, desc: 'Handles stock reservation and management.' },
+            { id: 'payment', type: 'Microservice', name: 'Payment Service', x: 60, y: 65, desc: 'Integrates with Stripe. Handles payment processing.' },
+            { id: 'shipping', type: 'Microservice', name: 'Shipping Service', x: 60, y: 90, desc: 'Integrates with GHN API. Manages delivery tracking.' },
+
+            // Column 4: Messaging & Infra
+            { id: 'kafka', type: 'Message Broker', name: 'Kafka Cluster', x: 85, y: 50, desc: 'Event bus for async communication (order.checkout, payment.events, etc).' },
+            { id: 'noti', type: 'Microservice', name: 'Notification Service', x: 85, y: 20, desc: 'Consumes Kafka events to send emails/alerts.' },
+            { id: 'vault', type: 'Secrets Mgmt', name: 'HashiCorp Vault', x: 85, y: 80, desc: 'Provides Transit keys and secrets to services.' },
+            
+            // Column 5: DB/Cache
+            { id: 'redis', type: 'Cache / Store', name: 'Redis', x: 50, y: 15, desc: 'Idempotency, nonce storage, and rate limiting.' },
+            { id: 'postgres', type: 'Database', name: 'PostgreSQL Cluster', x: 50, y: 105, desc: 'Separate logical DBs for each service (catalog_db, order_db, etc).' },
+            
+            // External APIs
+            { id: 'stripe', type: 'External API', name: 'Stripe API', x: 85, y: 65, desc: 'Payment Gateway' },
+            { id: 'ghn', type: 'External API', name: 'GHN API', x: 85, y: 105, desc: 'Giao Hang Nhanh Logistics' }
+        ];
+
+        // System edges (data flows)
+        const edges = [
+            // HTTP flows (sync)
+            { source: 'client', target: 'catalog', label: 'Browse', type: 'sync' },
+            { source: 'client', target: 'cart', label: 'Add to Cart', type: 'sync' },
+            { source: 'client', target: 'order', label: 'Checkout', type: 'sync' },
+            { source: 'client', target: 'keycloak', label: 'Login', type: 'sync' },
+            
+            { source: 'cart', target: 'catalog', label: 'Fetch Product', type: 'sync' },
+            { source: 'order', target: 'cart', label: 'Get Cart', type: 'sync' },
+            { source: 'order', target: 'payment', label: 'Init Payment', type: 'sync' },
+            { source: 'order', target: 'inventory', label: 'Check Stock', type: 'sync' },
+            
+            { source: 'payment', target: 'stripe', label: 'Charge', type: 'sync' },
+            { source: 'shipping', target: 'ghn', label: 'Create Order', type: 'sync' },
+
+            // Kafka Async flows
+            { source: 'order', target: 'kafka', label: 'order.checkout', type: 'async' },
+            { source: 'payment', target: 'kafka', label: 'payment.events', type: 'async' },
+            { source: 'inventory', target: 'kafka', label: 'inventory.events', type: 'async' },
+            { source: 'shipping', target: 'kafka', label: 'shipping.events', type: 'async' },
+            
+            { source: 'kafka', target: 'noti', label: 'Consume Events', type: 'async' },
+            { source: 'kafka', target: 'shipping', label: 'order.confirmed', type: 'async' },
+            { source: 'kafka', target: 'vault', label: 'audit-logs (via service)', type: 'async' }, // conceptually, services write audit logs
+
+            // Infra Connections (drawn implicitly to avoid clutter, but we'll include them)
+            { source: 'order', target: 'redis', label: 'Idempotency', type: 'sync' },
+            { source: 'payment', target: 'redis', label: 'Nonce', type: 'sync' },
+            { source: 'shipping', target: 'vault', label: 'Secrets', type: 'sync' },
+            { source: 'payment', target: 'vault', label: 'Transit Keys', type: 'sync' },
+            
+            { source: 'catalog', target: 'postgres', label: 'Store', type: 'sync' },
+            { source: 'order', target: 'postgres', label: 'Store', type: 'sync' },
+            { source: 'inventory', target: 'postgres', label: 'Store', type: 'sync' }
+        ];
+
+        const container = document.getElementById('topology-container');
+        const nodesLayer = document.getElementById('nodes-layer');
+        const svg = document.getElementById('svg-canvas');
+        const detailPanel = document.getElementById('detail-panel');
+        const dpTitle = document.getElementById('dp-title');
+        const dpContent = document.getElementById('dp-content');
+
+        // Render Nodes
+        nodes.forEach(n => {
+            const el = document.createElement('div');
+            el.className = 'node';
+            el.id = `node-${n.id}`;
+            // Position based on percentage (converted to pixels on resize)
+            el.dataset.x = n.x;
+            el.dataset.y = n.y;
+            
+            el.innerHTML = `
+                <div class="node-type">${n.type}</div>
+                <div class="node-name">${n.name}</div>
+            `;
+            
+            el.addEventListener('mouseenter', () => activateNode(n.id));
+            el.addEventListener('mouseleave', deactivateAll);
+            
+            nodesLayer.appendChild(el);
+        });
+
+        // SVG Elements arrays
+        let pathElements = [];
+        let packetElements = [];
+
+        function drawEdges() {
+            // Clear existing
+            svg.querySelectorAll('path.edge').forEach(p => p.remove());
+            svg.querySelectorAll('circle.packet').forEach(p => p.remove());
+            pathElements = [];
+            packetElements = [];
+            
+            const rect = container.getBoundingClientRect();
+
+            edges.forEach(edge => {
+                const sourceNode = nodes.find(n => n.id === edge.source);
+                const targetNode = nodes.find(n => n.id === edge.target);
+                if (!sourceNode || !targetNode) return;
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.classList.add('edge');
+                if (edge.type === 'async') path.classList.add('dashed');
+                path.dataset.source = edge.source;
+                path.dataset.target = edge.target;
+                path.dataset.label = edge.label;
+                path.setAttribute('marker-end', 'url(#arrow)');
+                
+                svg.appendChild(path);
+                pathElements.push(path);
+
+                // Add animation packet
+                const packet = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                packet.classList.add('packet');
+                packet.dataset.source = edge.source;
+                packet.dataset.target = edge.target;
+                svg.appendChild(packet);
+                packetElements.push(packet);
+            });
+            updateEdgePositions();
+        }
+
+        function updateEdgePositions() {
+            const rect = container.getBoundingClientRect();
+            
+            // Position nodes
+            document.querySelectorAll('.node').forEach(el => {
+                const px = (parseFloat(el.dataset.x) / 100) * rect.width;
+                const py = (parseFloat(el.dataset.y) / 100) * rect.height;
+                // Add margins to prevent clipping
+                const safeX = Math.max(100, Math.min(rect.width - 100, px));
+                const safeY = Math.max(60, Math.min(rect.height - 60, py));
+                el.style.left = `${safeX}px`;
+                el.style.top = `${safeY}px`;
+            });
+
+            // Position paths
+            pathElements.forEach(path => {
+                const sourceEl = document.getElementById(`node-${path.dataset.source}`);
+                const targetEl = document.getElementById(`node-${path.dataset.target}`);
+                
+                const sRect = sourceEl.getBoundingClientRect();
+                const tRect = targetEl.getBoundingClientRect();
+                const cRect = container.getBoundingClientRect();
+
+                // Calculate center points relative to SVG container
+                const sx = sRect.left + sRect.width / 2 - cRect.left;
+                const sy = sRect.top + sRect.height / 2 - cRect.top;
+                const tx = tRect.left + tRect.width / 2 - cRect.left;
+                const ty = tRect.top + tRect.height / 2 - cRect.top;
+
+                // Bezier curve control points
+                const dx = tx - sx;
+                const dy = ty - sy;
+                
+                // Curve logic for visual appeal
+                const controlX1 = sx + dx * 0.4;
+                const controlY1 = sy;
+                const controlX2 = tx - dx * 0.4;
+                const controlY2 = ty;
+
+                path.setAttribute('d', `M ${sx},${sy} C ${controlX1},${controlY1} ${controlX2},${controlY2} ${tx},${ty}`);
+            });
+        }
+
+        // Animation loop for packets
+        let animationFrame;
+        function animatePackets(timestamp) {
+            packetElements.forEach(packet => {
+                const path = svg.querySelector(`path[data-source="${packet.dataset.source}"][data-target="${packet.dataset.target}"]`);
+                if (path && path.classList.contains('active')) {
+                    const length = path.getTotalLength();
+                    const duration = 2000; // 2 seconds per loop
+                    const progress = (timestamp % duration) / duration;
+                    const point = path.getPointAtLength(progress * length);
+                    packet.setAttribute('cx', point.x);
+                    packet.setAttribute('cy', point.y);
+                }
+            });
+            animationFrame = requestAnimationFrame(animatePackets);
+        }
+
+        // Interaction logic
+        function activateNode(nodeId) {
+            const nodeData = nodes.find(n => n.id === nodeId);
+            
+            // Dim all nodes and edges
+            document.querySelectorAll('.node').forEach(el => el.classList.add('dimmed'));
+            pathElements.forEach(p => {
+                p.classList.add('dimmed');
+                p.classList.remove('active');
+                p.setAttribute('marker-end', 'url(#arrow)');
+            });
+
+            // Highlight target node
+            const activeNode = document.getElementById(`node-${nodeId}`);
+            activeNode.classList.remove('dimmed');
+            activeNode.classList.add('active');
+
+            // Find connected edges
+            const connectedEdges = edges.filter(e => e.source === nodeId || e.target === nodeId);
+            let flowsHtml = '';
+
+            connectedEdges.forEach(e => {
+                // Highlight connected nodes
+                const peerId = e.source === nodeId ? e.target : e.source;
+                document.getElementById(`node-${peerId}`).classList.remove('dimmed');
+                
+                // Highlight edge
+                const path = svg.querySelector(`path[data-source="${e.source}"][data-target="${e.target}"]`);
+                if (path) {
+                    path.classList.remove('dimmed');
+                    path.classList.add('active');
+                    path.setAttribute('marker-end', 'url(#arrow-active)');
+                }
+
+                // Build detail text
+                const dir = e.source === nodeId ? 'OUT' : 'IN';
+                flowsHtml += `<span class="dp-tag">${dir}</span> ${e.label} ${dir==='OUT'?'to':'from'} <strong>${nodes.find(n=>n.id===peerId).name}</strong><br>`;
+            });
+
+            // Update Panel
+            dpTitle.innerText = nodeData.name;
+            dpContent.innerHTML = `
+                <p style="margin-bottom: 12px">${nodeData.desc}</p>
+                <div style="margin-top: 12px; border-top: 1px dashed var(--primary-light); padding-top: 12px;">
+                    <strong>Data Flows:</strong><br>
+                    ${flowsHtml || 'None specific to this diagram scope.'}
+                </div>
+            `;
+            detailPanel.classList.add('visible');
+        }
+
+        function deactivateAll() {
+            document.querySelectorAll('.node').forEach(el => {
+                el.classList.remove('dimmed', 'active');
+            });
+            pathElements.forEach(p => {
+                p.classList.remove('dimmed', 'active');
+                p.setAttribute('marker-end', 'url(#arrow)');
+            });
+            detailPanel.classList.remove('visible');
+        }
+
+        // Init
+        window.addEventListener('resize', updateEdgePositions);
+        drawEdges();
+        animationFrame = requestAnimationFrame(animatePackets);
+
+    </script>
+</body>
+</html>

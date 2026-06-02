@@ -55,6 +55,17 @@ class InventoryServiceConfig(BaseModel):
     internal_token: str = ""
 
 
+class CartServiceConfig(BaseModel):
+    base_url: str = "http://localhost:8002"
+    timeout_seconds: int = 30
+    mtls_enabled: bool = False
+    client_cert_path: str | None = None
+    client_key_path: str | None = None
+    ca_cert_path: str | None = None
+    dev_stub_on_failure: bool = False
+    internal_token: str = ""
+
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Order Service"
     API_V1_STR: str = "/api/v1"
@@ -126,8 +137,8 @@ class Settings(BaseSettings):
 
     PAYMENT_SERVICE_URL: str = os.getenv("PAYMENT_SERVICE_URL", "http://localhost:8004")
     # H-02: token nội bộ order gửi sang payment (phải khớp INTERNAL_API_TOKEN của payment).
-    PAYMENT_INTERNAL_API_TOKEN: str = os.getenv(
-        "PAYMENT_INTERNAL_API_TOKEN", "payment_internal_dev_token"
+    PAYMENT_INTERNAL_TOKEN: str = os.getenv(
+        "PAYMENT_INTERNAL_TOKEN", "payment_internal_dev_token"
     )
     PAYMENT_MTLS_ENABLED: bool = (
         os.getenv("PAYMENT_MTLS_ENABLED", "false").lower() == "true"
@@ -143,13 +154,19 @@ class Settings(BaseSettings):
         "INVENTORY_SERVICE_URL", "http://localhost:8005"
     )
     # H-03: token nội bộ order gửi sang inventory (phải khớp INTERNAL_API_TOKEN của inventory).
-    INVENTORY_INTERNAL_API_TOKEN: str = os.getenv(
-        "INVENTORY_INTERNAL_API_TOKEN", "inventory_internal_dev_token"
+    INVENTORY_INTERNAL_TOKEN: str = os.getenv(
+        "INVENTORY_INTERNAL_TOKEN", "inventory_internal_dev_token"
     )
     CART_SERVICE_URL: str = os.getenv("CART_SERVICE_URL", "http://localhost:8002")
-    CART_INTERNAL_API_TOKEN: str = os.getenv(
-        "CART_INTERNAL_API_TOKEN", "cart_internal_dev_token"
+    CART_INTERNAL_TOKEN: str = os.getenv(
+        "CART_INTERNAL_TOKEN", "cart_internal_dev_token"
     )
+    CART_MTLS_ENABLED: bool = os.getenv("CART_MTLS_ENABLED", "false").lower() == "true"
+    CART_CLIENT_CERT: str | None = os.getenv("CART_CLIENT_CERT")
+    CART_CLIENT_KEY: str | None = os.getenv("CART_CLIENT_KEY")
+    CART_CA_CERT: str | None = os.getenv("CART_CA_CERT")
+    CART_DEV_STUB_ON_FAILURE: bool = os.getenv("CART_DEV_STUB_ON_FAILURE", "false").lower() == "true"
+
     INVENTORY_MTLS_ENABLED: bool = (
         os.getenv("INVENTORY_MTLS_ENABLED", "false").lower() == "true"
     )
@@ -214,7 +231,7 @@ class Settings(BaseSettings):
             client_key_path=self.PAYMENT_CLIENT_KEY,
             ca_cert_path=self.PAYMENT_CA_CERT,
             dev_stub_on_failure=self.PAYMENT_DEV_STUB_ON_FAILURE,
-            internal_token=self.PAYMENT_INTERNAL_API_TOKEN,
+            internal_token=self.PAYMENT_INTERNAL_TOKEN,
         )
 
     @property
@@ -227,7 +244,20 @@ class Settings(BaseSettings):
             client_key_path=self.INVENTORY_CLIENT_KEY,
             ca_cert_path=self.INVENTORY_CA_CERT,
             dev_stub_on_failure=self.INVENTORY_DEV_STUB_ON_FAILURE,
-            internal_token=self.INVENTORY_INTERNAL_API_TOKEN,
+            internal_token=self.INVENTORY_INTERNAL_TOKEN,
+        )
+
+    @property
+    def cart(self) -> CartServiceConfig:
+        return CartServiceConfig(
+            base_url=self.CART_SERVICE_URL,
+            timeout_seconds=self.CHECKOUT_REQUEST_TIMEOUT_SECONDS,
+            mtls_enabled=self.CART_MTLS_ENABLED,
+            client_cert_path=self.CART_CLIENT_CERT,
+            client_key_path=self.CART_CLIENT_KEY,
+            ca_cert_path=self.CART_CA_CERT,
+            dev_stub_on_failure=self.CART_DEV_STUB_ON_FAILURE,
+            internal_token=self.CART_INTERNAL_TOKEN,
         )
 
 
