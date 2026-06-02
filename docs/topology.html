@@ -57,7 +57,7 @@ const zones=[
 ];
 zones.forEach(z=>{
     add(el('rect',{x:z.x,y:z.y,width:z.w,height:z.h,rx:16,
-        fill:z.isVm ? 'rgba(255,255,255,0.6)' : (z.col==='#9b2226'?'rgba(155,34,38,.03)':'rgba(31,111,178,.025)'),
+        fill:z.isVm ? 'none' : (z.col==='#9b2226'?'rgba(155,34,38,.03)':'rgba(31,111,178,.025)'),
         stroke:z.col,'stroke-width':z.isVm?1.5:2.4,'stroke-dasharray':z.isVm?'6 4':'10 7'}));
     add(el('rect',{x:z.x+14,y:z.y-14,width:z.label.length*(z.isVm?6.8:8.0)+18,height:z.isVm?24:28,rx:7,fill:'#fff',stroke:z.col,'stroke-width':1.3}));
     add(el('text',{x:z.x+24,y:z.y+(z.isVm?3:5),class:'z-machine',fill:z.col,style:z.isVm?'font-size:13px':''},txt(z.label)));
@@ -95,39 +95,39 @@ function icon(type){const g=el('g',{filter:'url(#sh)'}),A=e=>g.appendChild(e);
 
 /* =================== NODES (chức năng đúng theo code) =================== */
 const nodes=[
- {id:'client',  x:90, y:410,icon:'laptop',name:'Client',     role:'Browser + Keycloak login'},
- {id:'nginx',   x:260,y:410,icon:'server',name:'Nginx',      role:'Reverse proxy / TLS'},
- {id:'envoy',   x:460,y:410,icon:'switch',name:'Envoy',      role:'API gateway — routing'},
- {id:'keycloak',x:460,y:670,icon:'server',name:'Keycloak',   role:'OIDC — phát hành JWT (RS256)'},
- {id:'catalog', x:700,y:250,icon:'server',name:'Catalog',    role:'Product catalog'},
- {id:'cart',    x:700,y:410,icon:'server',name:'Cart',       role:'Shopping cart'},
- {id:'order',   x:700,y:570,icon:'server',name:'Order',      role:'Saga — verify JWT, ký HMAC'},
- {id:'inventory',x:900,y:570,icon:'server',name:'Inventory', role:'verify JWT, HMAC nội bộ'},
- {id:'payment', x:1100,y:410,icon:'server',name:'Payment',    role:'Envelope-encrypt — Stripe'},
- {id:'vault',   x:1250,y:410,icon:'server',name:'Vault',     role:'Transit: bọc DEK + ký sự kiện'},
- {id:'cloud',   x:1380,y:570,icon:'cloud', name:'Tailscale', role:'WireGuard tunnel'},
- {id:'postgres',x:1520,y:410,icon:'db',    name:'PostgreSQL',name2:'',role:'asyncpg / TLS'},
- {id:'kafka',   x:1520,y:570,icon:'server',name:'Kafka',     role:'audit events (đã ký)'},
- {id:'stripe',  x:1100,y:150,icon:'cloud', name:'Stripe',     role:'PSP — webhook HMAC'},
+ {id:'client',  x:90, y:410,icon:'laptop',name:'Client',     role:'Browser'},
+ {id:'nginx',   x:260,y:410,icon:'server',name:'Nginx',      role:'Reverse proxy'},
+ {id:'envoy',   x:460,y:410,icon:'switch',name:'Envoy',      role:'API gateway'},
+ {id:'keycloak',x:460,y:670,icon:'server',name:'Keycloak',   role:'OIDC Provider'},
+ {id:'catalog', x:700,y:250,icon:'server',name:'Catalog',    role:'Service'},
+ {id:'cart',    x:700,y:410,icon:'server',name:'Cart',       role:'Service'},
+ {id:'order',   x:700,y:570,icon:'server',name:'Order',      role:'Saga Orchestrator'},
+ {id:'inventory',x:900,y:570,icon:'server',name:'Inventory', role:'Resource Server'},
+ {id:'payment', x:1100,y:410,icon:'server',name:'Payment',   role:'Gateway'},
+ {id:'vault',   x:1250,y:410,icon:'server',name:'Vault',     role:'KMS'},
+ {id:'cloud',   x:1380,y:570,icon:'cloud', name:'Tailscale', role:'VPN'},
+ {id:'postgres',x:1520,y:410,icon:'db',    name:'PostgreSQL',role:'Database'},
+ {id:'kafka',   x:1520,y:570,icon:'server',name:'Kafka',     role:'Event Bus'},
+ {id:'stripe',  x:1100,y:150,icon:'cloud', name:'Stripe',    role:'Stripe API'},
 ];
 const M={};nodes.forEach(n=>M[n.id]=n);
 
 /* =================== EDGES (nhãn = cơ chế bảo mật theo code) =================== */
 const edges=[
- {s:'client',t:'nginx',   k:'tls', l:'HTTPS / TLS 1.3'},
- {s:'nginx', t:'envoy',   k:'tls', l:'reverse proxy'},
- {s:'client',t:'keycloak',k:'oidc',l:'OIDC login → JWT'},
- {s:'envoy', t:'catalog', k:'oidc',l:'Bearer JWT (RS256)'},
- {s:'envoy', t:'cart',    k:'oidc',l:'Bearer JWT (RS256)'},
- {s:'envoy', t:'order',   k:'oidc',l:'Bearer JWT (RS256)'},
- {s:'order', t:'keycloak',k:'oidc',l:'verify JWT (public key)'},
- {s:'order', t:'inventory',k:'hmac',l:'HMAC + Internal-Token'},
- {s:'order', t:'payment', k:'hmac',l:'HMAC + Internal-Token'},
- {s:'payment',t:'vault',  k:'vault',l:'Vault Transit (envelope + ký)'},
- {s:'payment',t:'stripe', k:'tls', l:'Stripe API + webhook HMAC'},
+ {s:'client',t:'nginx',   k:'tls', l:'TLS 1.3'},
+ {s:'nginx', t:'envoy',   k:'tls', l:''},
+ {s:'client',t:'keycloak',k:'oidc',l:'Login'},
+ {s:'envoy', t:'catalog', k:'oidc',l:'JWT'},
+ {s:'envoy', t:'cart',    k:'oidc',l:'JWT'},
+ {s:'envoy', t:'order',   k:'oidc',l:'JWT'},
+ {s:'order', t:'keycloak',k:'oidc',l:'Verify'},
+ {s:'order', t:'inventory',k:'hmac',l:'HMAC'},
+ {s:'order', t:'payment', k:'hmac',l:'HMAC'},
+ {s:'payment',t:'vault',  k:'vault',l:'Sign'},
+ {s:'payment',t:'stripe', k:'tls', l:'TLS'},
  {s:'payment',t:'cloud',  k:'wg',  l:''},
- {s:'cloud', t:'postgres',k:'wg',  l:'WireGuard + TLS'},
- {s:'cloud', t:'kafka',   k:'wg',  l:'WireGuard'},
+ {s:'cloud', t:'postgres',k:'wg',  l:'WG+TLS'},
+ {s:'cloud', t:'kafka',   k:'wg',  l:'WG'},
 ];
 function trimPts(s,e,r1,r2){const dx=e.x-s.x,dy=e.y-s.y,d=Math.hypot(dx,dy)||1;
   return [{x:s.x+dx/d*r1,y:s.y+dy/d*r1},{x:e.x-dx/d*r2,y:e.y-dy/d*r2}];}
@@ -155,7 +155,6 @@ labelJobs.forEach(j=>{const w=j.l.length*7.4+14, bx=j.anchor==='start'?j.x-6:j.x
 nodes.forEach(n=>{
   const g=el('g',{transform:`translate(${n.x},${n.y})`});
   g.appendChild(icon(n.icon));
-  g.appendChild(el('rect',{x:-70,y:28,width:140,height:38,fill:'rgba(255,255,255,0.85)',rx:4}));
   g.appendChild(el('text',{x:0,y:44,'text-anchor':'middle',class:'n-name'},txt(n.name)));
   g.appendChild(el('text',{x:0,y:61,'text-anchor':'middle',class:'n-role'},txt(n.role)));
   add(g);
