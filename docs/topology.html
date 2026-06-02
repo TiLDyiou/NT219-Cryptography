@@ -5,47 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>UIT Store — Kênh giao tiếp & Cơ chế bảo mật</title>
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
-    :root{
-        --bg:#eef2f6; --ink:#22384f; --muted:#64788f;
-        --tls:#0a7d82; --oidc:#1f6fb2; --mtls:#8a2d8f; --vault:#b45309; --wg:#9b2226;
-        --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
-    }
+    :root{ --bg:#eef2f6; --ink:#16314a; --muted:#5d6f82; }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
-    header{padding:16px 28px;border-bottom:1px solid #d3dce4;background:#fff;
-        display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
-    h1{font-family:var(--mono);font-size:17px;font-weight:700;letter-spacing:-.3px;text-transform:uppercase}
-    header p{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
-    .legend{display:flex;gap:15px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;align-items:center}
-    .lg{display:flex;align-items:center;gap:7px}
-    .ll{width:28px;border-top-width:3px;border-top-style:solid}
-    .ll.tls{border-color:var(--tls)} .ll.oidc{border-color:var(--oidc)}
-    .ll.mtls{border-color:var(--mtls)} .ll.vault{border-color:var(--vault)}
-    .ll.wg{border-color:var(--wg)}
-    #wrap{padding:18px;overflow:auto}
-    svg{display:block;background:#fff;border:1px solid #d3dce4;border-radius:8px}
-    .n-name{font-family:var(--sans);font-weight:600;font-size:13px;fill:var(--ink)}
-    .n-role{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
-    .e-label{font-family:var(--mono);font-size:9.5px;font-weight:600}
-    .z-machine{font-family:var(--mono);font-size:12px;font-weight:700}
+    body{background:var(--bg);color:var(--ink);
+        font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    header{padding:18px 30px;border-bottom:1px solid #cfd9e2;background:#fff;
+        display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+    h1{font-size:21px;font-weight:700}
+    header p{font-size:13px;color:var(--muted);margin-top:4px}
+    .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;align-items:center}
+    .lg{display:flex;align-items:center;gap:8px;font-weight:600}
+    .ll{width:30px;border-top-width:4px;border-top-style:solid}
+    .ll.tls{border-color:#0a7d82} .ll.oidc{border-color:#1f6fb2}
+    .ll.mtls{border-color:#8a2d8f} .ll.vault{border-color:#b45309} .ll.wg{border-color:#9b2226}
+    #wrap{padding:20px;overflow:auto}
+    svg{display:block;background:#fff;border:1px solid #cfd9e2;border-radius:8px;
+        font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    .n-name{font-weight:700;font-size:15px;fill:var(--ink)}
+    .n-role{font-size:12.5px;fill:var(--muted)}
+    .e-label{font-size:12.5px;font-weight:700}
+    .z-machine{font-size:14px;font-weight:700}
 </style>
 </head>
 <body>
 <header>
     <div>
         <h1>UIT Store — Kênh giao tiếp & Cơ chế bảo mật</h1>
-        <p>NT219 Cryptography · Mỗi đường nối ghi rõ hình thức bảo mật dùng để giao tiếp</p>
+        <p>NT219 Cryptography — mỗi đường nối ghi rõ hình thức bảo mật dùng để giao tiếp</p>
     </div>
     <div class="legend">
         <div class="lg"><span class="ll tls"></span>TLS / HTTPS</div>
-        <div class="lg"><span class="ll oidc"></span>OAuth2 · OIDC · JWT</div>
-        <div class="lg"><span class="ll mtls"></span>mTLS (service mesh)</div>
-        <div class="lg"><span class="ll vault"></span>Vault Transit · AppRole</div>
+        <div class="lg"><span class="ll oidc"></span>OAuth2 / OIDC / JWT</div>
+        <div class="lg"><span class="ll mtls"></span>mTLS</div>
+        <div class="lg"><span class="ll vault"></span>Vault Transit / AppRole</div>
         <div class="lg"><span class="ll wg"></span>WireGuard (Tailscale)</div>
     </div>
 </header>
-<div id="wrap"><svg id="svg" width="1470" height="760" viewBox="0 0 1470 760"></svg></div>
+<div id="wrap"><svg id="svg" width="1440" height="790" viewBox="0 0 1440 790"></svg></div>
 
 <script>
 const NS="http://www.w3.org/2000/svg";
@@ -54,133 +50,139 @@ function el(t,a,c){const e=document.createElementNS(NS,t);for(const k in a)if(a[
     if(c)[].concat(c).forEach(x=>e.appendChild(x));return e;}
 function add(e){svg.appendChild(e);return e;}
 function txt(s){return document.createTextNode(s);}
+function poly(pts,fill,stroke){return el('polygon',{points:pts.map(p=>p.join(',')).join(' '),fill,stroke:stroke||'#0e3e63','stroke-width':1.1,'stroke-linejoin':'round'});}
+
+/* Cisco blue palette */
+const BL={lite:'#46a6df',mid:'#1f7ec2',dark:'#155a8a',ln:'#0e3e63'};
 
 const defs=el('defs');
 [['m-tls','#0a7d82'],['m-oidc','#1f6fb2'],['m-mtls','#8a2d8f'],['m-vault','#b45309'],['m-wg','#9b2226']].forEach(([id,c])=>
-    defs.appendChild(el('marker',{id,viewBox:'0 -5 10 10',refX:8,refY:0,markerWidth:7,markerHeight:7,orient:'auto'},
-        el('path',{d:'M0,-5L10,0L0,5',fill:c}))));
+    defs.appendChild(el('marker',{id,viewBox:'0 -6 12 12',refX:9,refY:0,markerWidth:8,markerHeight:8,orient:'auto'},
+        el('path',{d:'M0,-6 L12,0 L0,6 Z',fill:c}))));
+const f=el('filter',{id:'sh',x:'-30%',y:'-30%',width:'160%',height:'160%'});
+f.appendChild(el('feDropShadow',{dx:1.5,dy:2.5,stdDeviation:1.6,'flood-color':'#16314a','flood-opacity':0.22}));
+defs.appendChild(f);
 svg.appendChild(defs);
 
 /* =================== ZONES =================== */
 const zones=[
- {label:'MÁY HOST A · 3 VM (libvirt 192.168.122.x)',x:268,y:244,w:812,h:452,col:'#1f6fb2'},
- {label:'MÁY HOST B · Tailscale',x:1288,y:128,w:158,h:346,col:'#9b2226'},
+ {label:'MÁY HOST A  —  3 VM (libvirt 192.168.122.x)',x:250,y:268,w:760,h:424,col:'#1f6fb2'},
+ {label:'MÁY HOST B  —  Tailscale',x:1252,y:158,w:150,h:344,col:'#9b2226'},
 ];
 zones.forEach(z=>{
-    add(el('rect',{x:z.x,y:z.y,width:z.w,height:z.h,rx:12,
+    add(el('rect',{x:z.x,y:z.y,width:z.w,height:z.h,rx:14,
         fill:z.col==='#9b2226'?'rgba(155,34,38,.03)':'rgba(31,111,178,.025)',
-        stroke:z.col,'stroke-width':2,'stroke-dasharray':'8 5'}));
-    add(el('rect',{x:z.x+10,y:z.y-11,width:z.label.length*7.2+14,height:22,rx:5,fill:'#fff',stroke:z.col,'stroke-width':1}));
-    add(el('text',{x:z.x+18,y:z.y+4,class:'z-machine',fill:z.col},txt(z.label)));
+        stroke:z.col,'stroke-width':2.2,'stroke-dasharray':'9 6'}));
+    add(el('rect',{x:z.x+12,y:z.y-13,width:z.label.length*7.6+16,height:26,rx:6,fill:'#fff',stroke:z.col,'stroke-width':1.2}));
+    add(el('text',{x:z.x+22,y:z.y+5,class:'z-machine',fill:z.col},txt(z.label)));
 });
-add(el('line',{x1:1180,y1:150,x2:1180,y2:470,stroke:'#9b2226','stroke-width':1.3,'stroke-dasharray':'7 6'}));
+add(el('line',{x1:1132,y1:185,x2:1132,y2:472,stroke:'#9b2226','stroke-width':1.4,'stroke-dasharray':'8 6'}));
 
-/* =================== ICONS =================== */
-function cog(rO,rI,n){let p=[],N=n*2;for(let i=0;i<N;i++){const a=Math.PI*2*i/N-Math.PI/2,r=i%2?rI:rO;p.push([(r*Math.cos(a)).toFixed(1),(r*Math.sin(a)).toFixed(1)]);}return'M'+p.map(q=>q.join(',')).join(' L')+' Z';}
-function icon(type,c){const g=el('g',{}),S=(t,a)=>g.appendChild(el(t,a));
+/* =================== CISCO-STYLE ICONS =================== */
+function icon(type){const g=el('g',{filter:'url(#sh)'}),A=e=>g.appendChild(e);
   switch(type){
-    case 'client':
-      S('rect',{x:-21,y:-16,width:42,height:29,rx:3,fill:'#fff',stroke:c,'stroke-width':2});
-      S('rect',{x:-17,y:-12,width:34,height:21,rx:1,fill:c,opacity:.12});
-      S('rect',{x:-6,y:13,width:12,height:5,fill:c});S('rect',{x:-13,y:18,width:26,height:3.5,rx:1.5,fill:c});break;
-    case 'server':
-      S('rect',{x:-18,y:-18,width:36,height:36,rx:4,fill:'#fff',stroke:c,'stroke-width':2});
-      for(let i=0;i<3;i++){S('rect',{x:-12,y:-12+i*9,width:24,height:5.5,rx:1.5,fill:'none',stroke:c,'stroke-width':1.4});S('circle',{cx:-8,cy:-9.5+i*9,r:1.5,fill:c});}break;
-    case 'gateway':
-      S('path',{d:'M0,-21 L18,-10.5 L18,10.5 L0,21 L-18,10.5 L-18,-10.5 Z',fill:'#fff',stroke:c,'stroke-width':2});
-      S('path',{d:'M-7,-6 L7,-6 M-7,0 L7,0 M-7,6 L7,6',stroke:c,'stroke-width':2,'stroke-linecap':'round'});break;
-    case 'shield':
-      S('path',{d:'M0,-20 L17,-12 V3 C17,14 9.5,19 0,22 C-9.5,19 -17,14 -17,3 V-12 Z',fill:'#fff',stroke:c,'stroke-width':2});
-      S('circle',{cx:0,cy:-2,r:4.5,fill:'none',stroke:c,'stroke-width':2});S('rect',{x:-1.8,y:0,width:3.6,height:8,fill:c});break;
-    case 'kms':
-      S('rect',{x:-19,y:-18,width:38,height:36,rx:4,fill:'#fff',stroke:c,'stroke-width':2});
-      S('circle',{cx:0,cy:0,r:9,fill:'none',stroke:c,'stroke-width':2});S('circle',{cx:0,cy:0,r:2.6,fill:c});
-      for(let a=0;a<360;a+=45){const r1=9,r2=13,R=Math.PI/180;S('line',{x1:r1*Math.cos(a*R),y1:r1*Math.sin(a*R),x2:r2*Math.cos(a*R),y2:r2*Math.sin(a*R),stroke:c,'stroke-width':2,'stroke-linecap':'round'});}break;
-    case 'service':
-      S('path',{d:cog(14,10.5,8),fill:'#fff',stroke:c,'stroke-width':2,'stroke-linejoin':'round'});
-      S('circle',{cx:0,cy:0,r:4.5,fill:'none',stroke:c,'stroke-width':2});break;
-    case 'db':
-      S('path',{d:'M-15,-14 a15,5.5 0 0 1 30,0 V14 a15,5.5 0 0 1 -30,0 Z',fill:'#fff',stroke:c,'stroke-width':2});
-      S('path',{d:'M-15,-14 a15,5.5 0 0 0 30,0',fill:'none',stroke:c,'stroke-width':2});
-      S('path',{d:'M-15,-2 a15,5.5 0 0 0 30,0 M-15,7 a15,5.5 0 0 0 30,0',fill:'none',stroke:c,'stroke-width':1.3,opacity:.55});break;
-    case 'broker':
-      S('circle',{cx:0,cy:-12,r:5.5,fill:'#fff',stroke:c,'stroke-width':2});
-      S('circle',{cx:-11,cy:8,r:5.5,fill:'#fff',stroke:c,'stroke-width':2});
-      S('circle',{cx:11,cy:8,r:5.5,fill:'#fff',stroke:c,'stroke-width':2});
-      S('line',{x1:0,y1:-12,x2:-11,y2:8,stroke:c,'stroke-width':2});S('line',{x1:0,y1:-12,x2:11,y2:8,stroke:c,'stroke-width':2});S('line',{x1:-11,y1:8,x2:11,y2:8,stroke:c,'stroke-width':2});break;
-    case 'cloud':
-      S('path',{d:'M-20,9 a11,11 0 0 1 1.5,-22 a14,14 0 0 1 25,3 a10,10 0 0 1 2.5,19 Z',fill:'#fff',stroke:c,'stroke-width':2,'stroke-linejoin':'round'});break;
+    case 'laptop':{
+      A(poly([[-22,-16],[22,-16],[18,10],[-18,10]],'#e8f3fb'));        // screen frame
+      A(poly([[-18,-12],[18,-12],[15,6],[-15,6]],BL.mid));             // screen
+      A(poly([[-28,10],[28,10],[24,18],[-24,18]],BL.lite));           // base
+      A(el('rect',{x:-6,y:11,width:12,height:3,rx:1.5,fill:BL.dark}));
+      break;}
+    case 'switch':{ // 3D slab with arrows
+      const FTL=[-28,-4],FTR=[18,-4],FBL=[-28,11],FBR=[18,11],
+            BTL=[-16,-16],BTR=[30,-16],BBR=[30,-1];
+      A(poly([FTL,FTR,FBR,FBL],BL.mid));      // front
+      A(poly([FTR,BTR,BBR,FBR],BL.dark));     // right
+      A(poly([FTL,FTR,BTR,BTL],BL.lite));     // top
+      // white double arrows on top
+      const cx=3,cy=-10;
+      [[ -13,0, 13,0],[ -7,7, 7,-7]].forEach(([x1,y1,x2,y2])=>{
+        A(el('line',{x1:cx+x1,y1:cy+y1,x2:cx+x2,y2:cy+y2,stroke:'#fff','stroke-width':1.8,'stroke-linecap':'round'}));
+        // arrowheads both ends
+        A(el('path',{d:`M${cx+x1},${cy+y1} l4,-2 m-4,2 l4,2`,stroke:'#fff','stroke-width':1.6,fill:'none','stroke-linecap':'round'}));
+        A(el('path',{d:`M${cx+x2},${cy+y2} l-4,-2 m4,2 l-4,2`,stroke:'#fff','stroke-width':1.6,fill:'none','stroke-linecap':'round'}));
+      });
+      break;}
+    case 'server':{ // 3D tower
+      const FTL=[-16,-22],FTR=[16,-22],FBL=[-16,22],FBR=[16,22],
+            BTL=[-8,-30],BTR=[24,-30],BBR=[24,14];
+      A(poly([FTL,FTR,FBR,FBL],BL.mid));    // front
+      A(poly([FTR,BTR,BBR,FBR],BL.dark));   // right
+      A(poly([FTL,FTR,BTR,BTL],BL.lite));   // top
+      for(let i=0;i<3;i++)A(el('line',{x1:-11,y1:-12+i*11,x2:11,y2:-12+i*11,stroke:'#dff0fb','stroke-width':2,'stroke-linecap':'round'}));
+      A(el('circle',{cx:-7,cy:-17,r:2,fill:'#bfe3f7'}));A(el('circle',{cx:0,cy:-17,r:2,fill:'#bfe3f7'}));
+      break;}
+    case 'db':{ // 3D cylinder
+      A(el('path',{d:'M-17,-16 a17,6 0 0 1 34,0 V16 a17,6 0 0 1 -34,0 Z',fill:BL.mid,stroke:BL.ln,'stroke-width':1.1}));
+      A(el('path',{d:'M-17,-16 a17,6 0 0 0 34,0',fill:BL.lite,stroke:BL.ln,'stroke-width':1.1}));
+      A(el('path',{d:'M-17,-3 a17,6 0 0 0 34,0 M-17,8 a17,6 0 0 0 34,0',fill:'none',stroke:'#bfe3f7','stroke-width':1.4}));
+      break;}
+    case 'cloud':{
+      A(el('path',{d:'M-24,11 a13,13 0 0 1 2,-26 a16,16 0 0 1 30,4 a12,12 0 0 1 3,22 Z',
+        fill:'#eaf4fb',stroke:BL.mid,'stroke-width':2.2,'stroke-linejoin':'round'}));
+      break;}
   }return g;}
 
 /* =================== NODES =================== */
 const nodes=[
- {id:'client',  x:120,y:380,icon:'client', c:'#64788f',name:'Client',     role:'Browser'},
- {id:'nginx',   x:360,y:400,icon:'server',  c:'#1f6fb2',name:'Nginx',      role:'TLS termination'},
- {id:'envoy',   x:520,y:400,icon:'gateway', c:'#1f6fb2',name:'Envoy',      role:'Verify JWT · mTLS'},
- {id:'keycloak',x:440,y:610,icon:'shield',  c:'#1f6fb2',name:'Keycloak',   role:'OIDC · JWT issuer (RS256)'},
- {id:'order',   x:720,y:330,icon:'service', c:'#8a2d8f',name:'Order',      role:'Saga · mTLS'},
- {id:'inventory',x:720,y:520,icon:'service',c:'#8a2d8f',name:'Inventory',  role:'mTLS peer'},
- {id:'payment', x:978,y:330,icon:'service', c:'#8a2d8f',name:'Payment',    role:'Envelope encrypt thẻ'},
- {id:'vault',   x:978,y:520,icon:'kms',     c:'#b45309',name:'Vault',      role:'KMS · Transit · AppRole'},
- {id:'cloud',   x:1180,y:330,icon:'cloud',  c:'#9b2226',name:'Tailscale',  role:'WireGuard tunnel'},
- {id:'postgres',x:1367,y:200,icon:'db',     c:'#9b2226',name:'PostgreSQL', role:'TLS + password'},
- {id:'kafka',   x:1367,y:400,icon:'broker', c:'#9b2226',name:'Kafka',      role:'qua WireGuard'},
- {id:'stripe',  x:978,y:140,icon:'cloud',   c:'#64788f',name:'Stripe API', role:'Internet'},
+ {id:'client',  x:110,y:400,icon:'laptop',name:'Client',     role:'Browser'},
+ {id:'nginx',   x:300,y:400,icon:'server',name:'Nginx',      role:'TLS termination'},
+ {id:'envoy',   x:500,y:400,icon:'switch',name:'Envoy',      role:'Kiểm tra JWT + mTLS'},
+ {id:'keycloak',x:470,y:618,icon:'server',name:'Keycloak',   role:'JWT issuer (OIDC, RS256)'},
+ {id:'order',   x:712,y:342,icon:'server',name:'Order',      role:'Saga orchestrator'},
+ {id:'inventory',x:712,y:548,icon:'server',name:'Inventory', role:'mTLS peer'},
+ {id:'payment', x:942,y:342,icon:'server',name:'Payment',    role:'Mã hóa thẻ (envelope)'},
+ {id:'vault',   x:942,y:548,icon:'server',name:'Vault',      role:'KMS (Transit, AppRole)'},
+ {id:'cloud',   x:1132,y:342,icon:'cloud', name:'Tailscale', role:'WireGuard tunnel'},
+ {id:'postgres',x:1327,y:236,icon:'db',    name:'PostgreSQL',role:'TLS + password'},
+ {id:'kafka',   x:1327,y:448,icon:'server',name:'Kafka',     role:'qua WireGuard'},
+ {id:'stripe',  x:942,y:152,icon:'cloud', name:'Stripe API',role:'Internet'},
 ];
 const M={};nodes.forEach(n=>M[n.id]=n);
-const P=id=>([M[id].x,M[id].y]);
 
-/* =================== EDGES — nhãn = cơ chế bảo mật =================== */
-const STYLE={
-  tls  :{c:'#0a7d82',mk:'m-tls'},
-  oidc :{c:'#1f6fb2',mk:'m-oidc'},
-  mtls :{c:'#8a2d8f',mk:'m-mtls'},
-  vault:{c:'#b45309',mk:'m-vault'},
-  wg   :{c:'#9b2226',mk:'m-wg'},
-};
+/* =================== EDGES (straight, Cisco style) =================== */
+const STYLE={tls:{c:'#0a7d82',mk:'m-tls'},oidc:{c:'#1f6fb2',mk:'m-oidc'},
+  mtls:{c:'#8a2d8f',mk:'m-mtls'},vault:{c:'#b45309',mk:'m-vault'},wg:{c:'#9b2226',mk:'m-wg'}};
 const edges=[
- {pts:['client','nginx'],k:'tls',l:'HTTPS · TLS 1.3',lp:[240,388]},
- {pts:['nginx','envoy'],k:'mtls',l:'mTLS',lp:[440,388]},
- // bảo vệ tài khoản
- {pts:['nginx',[360,610],'keycloak'],k:'oidc',l:'OAuth2 / OIDC login',lp:[388,602]},
- {pts:['envoy',[520,610],'keycloak'],k:'oidc',l:'JWKS · verify JWT (RS256)',lp:[520,500]},
- {pts:['envoy',[600,400],[600,330],'order'],k:'oidc',l:'JWT Bearer',lp:[600,300]},
- // service mesh
- {pts:['order','inventory'],k:'mtls',l:'mTLS',lp:[720,430]},
- {pts:['order','payment'],k:'mtls',l:'mTLS',lp:[849,330]},
- // secrets / crypto
- {pts:['payment','vault'],k:'vault',l:'Vault Transit + AppRole',lp:[978,432]},
- // ra internet
- {pts:['payment','stripe'],k:'tls',l:'TLS + API key',lp:[978,238]},
- // cross-host
- {pts:['payment','cloud'],k:'wg',l:''},
- {pts:['cloud',[1180,200],'postgres'],k:'wg',l:'WireGuard + TLS',lp:[1272,192]},
- {pts:['cloud',[1180,400],'kafka'],k:'wg',l:'WireGuard',lp:[1262,408]},
+ {s:'client',t:'nginx',k:'tls',l:'HTTPS / TLS 1.3'},
+ {s:'nginx',t:'envoy',k:'mtls',l:'mTLS'},
+ {s:'nginx',t:'keycloak',k:'oidc',l:'OAuth2 / OIDC'},
+ {s:'envoy',t:'keycloak',k:'oidc',l:'JWKS (kiểm tra JWT)'},
+ {s:'envoy',t:'order',k:'oidc',l:'JWT Bearer'},
+ {s:'order',t:'inventory',k:'mtls',l:'mTLS'},
+ {s:'order',t:'payment',k:'mtls',l:'mTLS'},
+ {s:'payment',t:'vault',k:'vault',l:'Vault Transit + AppRole'},
+ {s:'payment',t:'stripe',k:'tls',l:'TLS + API key'},
+ {s:'payment',t:'cloud',k:'wg',l:''},
+ {s:'cloud',t:'postgres',k:'wg',l:'WireGuard + TLS'},
+ {s:'cloud',t:'kafka',k:'wg',l:'WireGuard'},
 ];
+function trimPts(s,e,r1,r2){const dx=e.x-s.x,dy=e.y-s.y,d=Math.hypot(dx,dy)||1;
+  return [{x:s.x+dx/d*r1,y:s.y+dy/d*r1},{x:e.x-dx/d*r2,y:e.y-dy/d*r2}];}
 
-function trim(pts,r){
-  const p=pts.map(q=>q.slice());
-  const mv=(a,b)=>{const dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1;return [a[0]+dx/d*r,a[1]+dy/d*r];};
-  p[0]=mv(p[0],p[1]); p[p.length-1]=mv(p[p.length-1],p[p.length-2]);
-  return p;
-}
+// draw lines first
+const labelJobs=[];
 edges.forEach(ed=>{
-  const st=STYLE[ed.k];
-  const raw=ed.pts.map(q=>typeof q==='string'?P(q):q);
-  const p=trim(raw,27);
-  add(el('path',{d:'M '+p.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join(' L '),
-     fill:'none',stroke:st.c,'stroke-width':2.4,'marker-end':`url(#${st.mk})`,'stroke-linejoin':'round',opacity:.95}));
-  if(ed.l){const lp=ed.lp,w=ed.l.length*6.0+12;
-    add(el('rect',{x:lp[0]-w/2,y:lp[1]-9,width:w,height:16,rx:4,fill:'#fff',stroke:st.c,'stroke-width':.8,opacity:.97}));
-    add(el('text',{x:lp[0],y:lp[1]+3,'text-anchor':'middle',class:'e-label',fill:st.c},txt(ed.l)));}
+  const st=STYLE[ed.k],s=M[ed.s],e=M[ed.t];
+  const [a,b]=trimPts(s,e,32,30);
+  add(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:st.c,'stroke-width':2.6,'marker-end':`url(#${st.mk})`}));
+  if(ed.l){ // label offset perpendicular so it never sits on the line/arrow
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1;
+    let nx=-dy/d,ny=dx/d; if(ny>0){nx=-nx;ny=-ny;}      // point upward
+    labelJobs.push({x:mx+nx*17,y:my+ny*17,l:ed.l,c:st.c});
+  }
+});
+// labels on top
+labelJobs.forEach(j=>{const w=j.l.length*7.0+14;
+  add(el('rect',{x:j.x-w/2,y:j.y-11,width:w,height:21,rx:5,fill:'#fff',stroke:j.c,'stroke-width':1}));
+  add(el('text',{x:j.x,y:j.y+4,'text-anchor':'middle',class:'e-label',fill:j.c},txt(j.l)));
 });
 
-/* =================== NODES on top =================== */
+/* =================== NODE ICONS + LABELS on top =================== */
 nodes.forEach(n=>{
   const g=el('g',{transform:`translate(${n.x},${n.y})`});
-  const ic=icon(n.icon,n.c);ic.setAttribute('transform','translate(0,-2)');g.appendChild(ic);
-  g.appendChild(el('text',{x:0,y:31,'text-anchor':'middle',class:'n-name'},txt(n.name)));
-  g.appendChild(el('text',{x:0,y:44,'text-anchor':'middle',class:'n-role'},txt(n.role)));
+  g.appendChild(icon(n.icon));
+  g.appendChild(el('text',{x:0,y:42,'text-anchor':'middle',class:'n-name'},txt(n.name)));
+  g.appendChild(el('text',{x:0,y:58,'text-anchor':'middle',class:'n-role'},txt(n.role)));
   add(g);
 });
 </script>
