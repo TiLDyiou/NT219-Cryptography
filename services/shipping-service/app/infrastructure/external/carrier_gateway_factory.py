@@ -13,7 +13,11 @@ class CarrierGatewayFactory:
 
     async def get(self, provider_code: str | None = None) -> CarrierGateway:
         code = provider_code or self._settings.CARRIER_PROVIDER
-        if self._settings.CARRIER_FORCE_MOCK or code == "mock":
+        # M-01: ở production KHÔNG ép dùng mock (label/tracking sẽ không bao giờ chạm
+        # GHN thật nếu quên tắt cờ). Chỉ tôn trọng CARRIER_FORCE_MOCK ở dev/test, hoặc
+        # khi caller chỉ định rõ provider "mock".
+        force_mock = self._settings.CARRIER_FORCE_MOCK and not self._settings.is_production
+        if force_mock or code == "mock":
             return MockCarrierAdapter()
 
         cached = self._cache.get(code)

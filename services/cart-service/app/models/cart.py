@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from sqlalchemy import Column, String, Integer, Numeric, Text, DateTime, JSON, Index, CheckConstraint
+from sqlalchemy import Column, String, Integer, Numeric, Text, DateTime, JSON, Index, CheckConstraint, text
 from sqlalchemy.orm import relationship
 
 from app.core.config import settings
@@ -38,4 +38,14 @@ class Cart(Base):
         CheckConstraint("status IN ('active','converted','expired')", name="ck_carts_status"),
         Index("idx_carts_user", "user_id", "merchant_id", "status"),
         Index("idx_carts_expires", "expires_at"),
+        # H-16: chỉ cho phép DUY NHẤT 1 giỏ 'active' cho mỗi (user, merchant) — partial
+        # unique index (cho phép nhiều giỏ converted/expired). Chống đua tạo giỏ trùng.
+        Index(
+            "uq_cart_active_per_merchant",
+            "user_id",
+            "merchant_id",
+            unique=True,
+            sqlite_where=text("status = 'active'"),
+            postgresql_where=text("status = 'active'"),
+        ),
     )

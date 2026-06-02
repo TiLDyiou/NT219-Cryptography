@@ -9,8 +9,9 @@ class CartItemAddRequest(BaseModel):
     product_id: str = Field(..., min_length=1, max_length=36)
     variant_id: Optional[str] = Field(None, max_length=36)
     quantity: int = Field(..., ge=1, le=999)
-    unit_price_snapshot: Decimal = Field(..., ge=0)
-    product_name_snapshot: str = Field(..., min_length=1, max_length=500)
+    # C-11: giá & tên do server lấy từ catalog; các trường client gửi (nếu có) bị BỎ QUA.
+    unit_price_snapshot: Optional[Decimal] = Field(default=None, ge=0)
+    product_name_snapshot: Optional[str] = Field(default=None, max_length=500)
     variant_label_snapshot: Optional[str] = Field(None, max_length=255)
     image_url_snapshot: Optional[str] = None
     metadata_json: Dict[str, Any] = Field(default_factory=dict)

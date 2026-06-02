@@ -105,6 +105,9 @@ class PaymentHttpClient(PaymentGateway):
             "X-Nonce": signature.nonce,
             "X-Key-Version": str(signature.key_version),
         }
+        # H-02: kèm internal token (lớp 2 cạnh HMAC) cho endpoint internal của payment.
+        if getattr(self._config, "internal_token", ""):
+            headers["X-Internal-Token"] = self._config.internal_token
         if user_id:
             headers["X-User-Id"] = user_id
         if idempotency_key:

@@ -29,9 +29,9 @@ async def system_convert_cart(
     _authorized: None = Depends(verify_internal_token),
     db: AsyncSession = Depends(get_db),
 ):
-    cart = await crud_cart.get_active_cart_for_user(db, cart_id=cart_id, user_id=user_id)
-    cart.status = "converted"
-    await db.commit()
+    # M-11: chuyển trạng thái qua crud để bump version + updated_at (optimistic lock),
+    # thay vì set status="converted" inline bỏ qua version.
+    cart = await crud_cart.system_convert(db, cart_id=cart_id, user_id=user_id)
     return APIResponse(success=True, data=CartResponse.model_validate(cart))
 
 

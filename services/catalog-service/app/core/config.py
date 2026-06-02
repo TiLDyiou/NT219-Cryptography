@@ -32,12 +32,21 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/1")
 
+    # M-14: CORS — danh sách origin được phép (KHÔNG dùng regex .* + credentials).
+    CORS_ALLOWED_ORIGINS: str = os.getenv(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
+    )
+
     # Product image uploads (filesystem; production → object storage)
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")
     PUBLIC_MEDIA_PREFIX: str = "/api/v1/catalog/public/media"
     MAX_UPLOAD_BYTES: int = 5 * 1024 * 1024
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
 
 
 settings = Settings()

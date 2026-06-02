@@ -1,3 +1,5 @@
+import time
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -32,6 +34,20 @@ class HmacVerificationMiddleware(BaseHTTPMiddleware):
                         "message": "X-Signature, X-Timestamp, and X-Nonce are required.",
                     },
                 },
+            )
+
+        # M-09: kiểm timestamp tại tầng HMAC, độc lập với nonce guard.
+        try:
+            ts = int(timestamp)
+        except ValueError:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": {"code": "INVALID_TIMESTAMP", "message": "X-Timestamp must be epoch seconds."}},
+            )
+        if abs(int(time.time()) - ts) > settings.TIMESTAMP_TOLERANCE_SECONDS:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "error": {"code": "STALE_TIMESTAMP", "message": "Request timestamp outside acceptable window."}},
             )
 
         body = await request.body()

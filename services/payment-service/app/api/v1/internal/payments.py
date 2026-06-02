@@ -2,12 +2,20 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_db, get_idempotency_key, get_correlation_id, get_current_user_id
+from app.api.dependencies import (
+    get_db,
+    get_idempotency_key,
+    get_correlation_id,
+    get_current_user_id,
+    verify_internal_token,
+)
 from app.schemas.payment import ChargeRequest, RefundRequest
 from app.schemas.response import APIResponse
 from app.infrastructure.container import get_container
 
-router = APIRouter()
+# H-02: endpoint internal (order→payment) phải kèm X-Internal-Token hợp lệ — lớp bảo
+# vệ thứ 2 cạnh HMAC, để không hở khi REQUIRE_INBOUND_HMAC bị tắt/cấu hình sai.
+router = APIRouter(dependencies=[Depends(verify_internal_token)])
 
 
 @router.post("/charge", response_model=APIResponse[dict[str, Any]])

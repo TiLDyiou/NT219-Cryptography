@@ -41,6 +41,7 @@ class PaymentServiceConfig(BaseModel):
     client_key_path: str | None = None
     ca_cert_path: str | None = None
     dev_stub_on_failure: bool = False
+    internal_token: str = ""
 
 
 class InventoryServiceConfig(BaseModel):
@@ -51,6 +52,7 @@ class InventoryServiceConfig(BaseModel):
     client_key_path: str | None = None
     ca_cert_path: str | None = None
     dev_stub_on_failure: bool = False
+    internal_token: str = ""
 
 
 class Settings(BaseSettings):
@@ -123,6 +125,10 @@ class Settings(BaseSettings):
     KAFKA_ENABLED: bool = os.getenv("KAFKA_ENABLED", "true").lower() == "true"
 
     PAYMENT_SERVICE_URL: str = os.getenv("PAYMENT_SERVICE_URL", "http://localhost:8004")
+    # H-02: token nội bộ order gửi sang payment (phải khớp INTERNAL_API_TOKEN của payment).
+    PAYMENT_INTERNAL_API_TOKEN: str = os.getenv(
+        "PAYMENT_INTERNAL_API_TOKEN", "payment_internal_dev_token"
+    )
     PAYMENT_MTLS_ENABLED: bool = (
         os.getenv("PAYMENT_MTLS_ENABLED", "false").lower() == "true"
     )
@@ -135,6 +141,10 @@ class Settings(BaseSettings):
 
     INVENTORY_SERVICE_URL: str = os.getenv(
         "INVENTORY_SERVICE_URL", "http://localhost:8005"
+    )
+    # H-03: token nội bộ order gửi sang inventory (phải khớp INTERNAL_API_TOKEN của inventory).
+    INVENTORY_INTERNAL_API_TOKEN: str = os.getenv(
+        "INVENTORY_INTERNAL_API_TOKEN", "inventory_internal_dev_token"
     )
     CART_SERVICE_URL: str = os.getenv("CART_SERVICE_URL", "http://localhost:8002")
     CART_INTERNAL_API_TOKEN: str = os.getenv(
@@ -204,6 +214,7 @@ class Settings(BaseSettings):
             client_key_path=self.PAYMENT_CLIENT_KEY,
             ca_cert_path=self.PAYMENT_CA_CERT,
             dev_stub_on_failure=self.PAYMENT_DEV_STUB_ON_FAILURE,
+            internal_token=self.PAYMENT_INTERNAL_API_TOKEN,
         )
 
     @property
@@ -216,6 +227,7 @@ class Settings(BaseSettings):
             client_key_path=self.INVENTORY_CLIENT_KEY,
             ca_cert_path=self.INVENTORY_CA_CERT,
             dev_stub_on_failure=self.INVENTORY_DEV_STUB_ON_FAILURE,
+            internal_token=self.INVENTORY_INTERNAL_API_TOKEN,
         )
 
 

@@ -89,6 +89,10 @@ class CheckoutUseCase:
 
                 raise IdempotencyConflictException()
             children = await self._orders.find_children_by_parent(existing.id)
+            # H-10 (một phần): _to_output đã trả lại trạng thái thực (suy ra từ children)
+            # và checkout_url lưu trong metadata, nên client thấy đúng tình trạng và có thể
+            # tiếp tục thanh toán. Việc RESUME toàn bộ saga (vd đã giữ kho nhưng chưa thu
+            # tiền) là hạng mục thiết kế lớn hơn — xem ghi chú trong báo cáo.
             return self._to_output(existing, children)
 
         parent, children, sagas = await self._build_orders(ctx, fingerprint)

@@ -97,6 +97,9 @@ class InventoryHttpClient(InventoryGateway):
             "X-Nonce": signature.nonce,
             "X-Key-Version": str(signature.key_version),
         }
+        # H-03: kèm internal token (lớp 2 cạnh HMAC) cho endpoint internal của inventory.
+        if getattr(self._config, "internal_token", ""):
+            headers["X-Internal-Token"] = self._config.internal_token
         if extra_headers:
             headers.update(extra_headers)
         try:

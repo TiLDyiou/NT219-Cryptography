@@ -24,6 +24,19 @@ _ALLOWED_IMAGE_TYPES = {
     "image/gif": ".gif",
 }
 
+
+def _sniff_image_ext(data: bytes) -> str | None:
+    """M-15: nhận diện ảnh bằng magic bytes thay vì tin Content-Type của client."""
+    if data[:3] == b"\xff\xd8\xff":
+        return ".jpg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return ".png"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return ".gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return ".webp"
+    return None
+
 def _merchant_name(merchant: Merchant | None) -> str:
     if merchant:
         shop_name = (merchant.metadata_json or {}).get("shop_name")
@@ -104,8 +117,7 @@ async def upload_product_image(
         )
 
     content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
-    ext = _ALLOWED_IMAGE_TYPES.get(content_type)
-    if not ext:
+    if content_type not in _ALLOWED_IMAGE_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Chỉ chấp nhận JPEG, PNG, WebP hoặc GIF.",
@@ -118,6 +130,24 @@ async def upload_product_image(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Ảnh vượt quá {settings.MAX_UPLOAD_BYTES // (1024 * 1024)}MB.",
+        )
+
+    # M-15: xác thực bằng magic bytes (không tin Content-Type) và phải khớp loại khai báo.
+    ext = _sniff_image_ext(data)
+    if not ext or ext != _ALLOWED_IMAGE_TYPES[content_type]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nội dung file không phải ảnh hợp lệ hoặc không khớp Content-Type.",
+        )
+
+    # M-15: chống path traversal — merchant_id (sub của JWT) phải là UUID hợp lệ
+    # trước khi dùng làm tên thư mục.
+    try:
+        uuid.UUID(str(merchant_id))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Định danh merchant không hợp lệ.",
         )
 
     filename = f"{uuid.uuid4().hex}{ext}"

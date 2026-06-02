@@ -17,6 +17,12 @@ class NonceGuardMiddleware(BaseHTTPMiddleware):
         if request.url.path in {"/health", "/ready", "/metrics"}:
             return await call_next(request)
 
+        # H-13: webhook của hãng vận chuyển (GHN) không gửi X-Timestamp/X-Nonce mà dùng
+        # cơ chế chữ ký riêng (X-GHN-Signature + X-GHN-Timestamp, verify trong
+        # ghn_webhook_verifier). Loại đường webhook khỏi nonce guard để không chặn nhầm.
+        if "/public/webhooks/" in request.url.path:
+            return await call_next(request)
+
         timestamp_header = request.headers.get("X-Timestamp")
         nonce = request.headers.get("X-Nonce")
 

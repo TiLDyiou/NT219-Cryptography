@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -70,6 +71,16 @@ class Order(Base):
 
     __table_args__ = (
         UniqueConstraint("idempotency_key", "merchant_id", name="uq_orders_idempotency_merchant"),
+        # H-11: đơn cha có merchant_id = NULL; theo luật NULL của Postgres, UNIQUE phía
+        # trên cho phép nhiều bản ghi cha cùng idempotency_key → đua tạo checkout trùng.
+        # Partial unique index riêng cho đơn cha (merchant_id IS NULL) đóng lỗ hổng này.
+        Index(
+            "uq_orders_parent_idempotency",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("merchant_id IS NULL"),
+            sqlite_where=text("merchant_id IS NULL"),
+        ),
         Index("idx_ord_group", "order_group_id"),
         Index("idx_ord_user_created", "user_id", "created_at"),
         Index("idx_ord_merchant_status", "merchant_id", "status"),

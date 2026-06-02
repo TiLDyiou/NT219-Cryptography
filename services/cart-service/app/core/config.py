@@ -24,11 +24,20 @@ class Settings(BaseSettings):
         os.getenv("CATALOG_REQUEST_TIMEOUT_SECONDS", "10")
     )
 
+    # M-14: CORS — danh sách origin được phép (KHÔNG dùng regex .* + credentials).
+    CORS_ALLOWED_ORIGINS: str = os.getenv(
+        "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080"
+    )
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.strip().lower() in ("production", "prod", "staging")
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
 
 
 settings = Settings()

@@ -122,6 +122,15 @@ class ReserveStockUseCase:
                     }
                 )
 
+            # H-09: nếu có dòng hàng yêu cầu nhưng KHÔNG giữ được dòng nào (tất cả bị
+            # bỏ qua vì không có tồn kho theo dõi), KHÔNG được coi là "đã giữ hàng".
+            # Trước đây vẫn commit + phát reserved → saga tưởng đã giữ trong khi chưa giữ gì.
+            if items and not reservations:
+                inventory_reserve_total.labels(status="out_of_stock").inc()
+                raise OutOfStockException(
+                    items[0].get("product_id", "unknown"), items[0].get("sku")
+                )
+
             event = InventoryReserved(order_id=order_id, reservations=reservations)
             await self._outbox.save_event(
                 aggregate_type="inventory",

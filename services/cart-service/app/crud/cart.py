@@ -3,9 +3,11 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.clients.catalog_client import fetch_product
 from app.core.config import settings
 from app.core.exceptions import BusinessRuleException, EntityNotFoundException, OptimisticLockException
 from app.models.cart import Cart
@@ -74,7 +76,19 @@ class CRUDCart:
             expires_at=self._new_expiry(),
         )
         db.add(cart)
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            # H-16: một request song song vừa tạo giỏ active (đụng partial unique index).
+            # Rollback và dùng lại giỏ đã có thay vì tạo trùng.
+            await db.rollback()
+            existing = await self._load_active_cart(
+                db, user_id=user_id, merchant_id=merchant_id
+            )
+            if existing:
+                fresh = await self._get_cart_by_id(db, cart_id=existing.id)
+                return fresh if fresh else existing
+            raise
         await db.refresh(cart)
         fresh = await self._get_cart_by_id(db, cart_id=cart.id)
         return fresh if fresh else cart
@@ -133,6 +147,14 @@ class CRUDCart:
         merchant_id: str,
         item_in: CartItemAddRequest,
     ) -> Cart:
+        # C-11/M-12: KHÔNG tin giá/tên/merchant do client gửi. Lấy giá chuẩn từ catalog
+        # và đối chiếu product thuộc đúng merchant của URL.
+        product = await fetch_product(item_in.product_id)
+        if product.merchant_id != merchant_id:
+            raise BusinessRuleException("Sản phẩm không thuộc merchant này.")
+        authoritative_price = product.base_price
+        authoritative_name = product.name
+
         cart = await self.get_or_create_active_cart(db, user_id=user_id, merchant_id=merchant_id)
         await self._assert_version(cart, item_in.cart_version)
 
@@ -163,8 +185,9 @@ class CRUDCart:
                 variant_id=item_in.variant_id,
                 merchant_id=merchant_id,
                 quantity=item_in.quantity,
-                unit_price_snapshot=item_in.unit_price_snapshot,
-                product_name_snapshot=item_in.product_name_snapshot,
+                # Giá & tên lấy từ catalog (server-side), bỏ qua giá trị client gửi.
+                unit_price_snapshot=authoritative_price,
+                product_name_snapshot=authoritative_name,
                 variant_label_snapshot=item_in.variant_label_snapshot,
                 image_url_snapshot=item_in.image_url_snapshot,
                 metadata_json=item_in.metadata_json,
@@ -249,6 +272,17 @@ class CRUDCart:
         if cart.item_count <= 0:
             raise BusinessRuleException("Cannot convert an empty cart.")
 
+        cart.status = "converted"
+        cart.updated_at = datetime.utcnow()
+        cart.version += 1
+        db.add(cart)
+        await db.commit()
+        await db.refresh(cart)
+        return cart
+
+    async def system_convert(self, db: AsyncSession, *, cart_id: str, user_id: str) -> Cart:
+        """Đánh dấu giỏ đã chuyển đơn (gọi nội bộ sau checkout). Bump version + updated_at."""
+        cart = await self.get_active_cart_for_user(db, cart_id=cart_id, user_id=user_id)
         cart.status = "converted"
         cart.updated_at = datetime.utcnow()
         cart.version += 1

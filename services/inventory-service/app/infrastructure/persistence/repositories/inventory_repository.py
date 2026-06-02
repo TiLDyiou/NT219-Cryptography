@@ -285,6 +285,19 @@ class InventoryRepository:
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
+    async def _get_item_for_update(
+        self, session: AsyncSession, item_id: str
+    ) -> InventoryItemModel | None:
+        """M-17: khoá hàng tồn (FOR UPDATE) trước khi read-modify-write quantity,
+        tránh đua confirm/release/expire làm mất cập nhật (Postgres; no-op trên SQLite)."""
+        stmt = (
+            select(InventoryItemModel)
+            .where(InventoryItemModel.id == item_id)
+            .with_for_update()
+        )
+        result = await session.execute(stmt)
+        return result.scalars().first()
+
     async def release_reservation(
         self,
         session: AsyncSession,
@@ -294,7 +307,7 @@ class InventoryRepository:
         if reservation.status != ReservationStatus.HELD.value:
             return
 
-        item = await session.get(InventoryItemModel, reservation.inventory_item_id)
+        item = await self._get_item_for_update(session, reservation.inventory_item_id)
         if item:
             item.quantity_reserved = max(0, item.quantity_reserved - reservation.quantity)
             item.version += 1
@@ -311,7 +324,7 @@ class InventoryRepository:
         if reservation.status != ReservationStatus.HELD.value:
             return None
 
-        item = await session.get(InventoryItemModel, reservation.inventory_item_id)
+        item = await self._get_item_for_update(session, reservation.inventory_item_id)
         if not item:
             return None
 
@@ -333,7 +346,7 @@ class InventoryRepository:
         if reservation.status != ReservationStatus.HELD.value:
             return
 
-        item = await session.get(InventoryItemModel, reservation.inventory_item_id)
+        item = await self._get_item_for_update(session, reservation.inventory_item_id)
         if item:
             item.quantity_reserved = max(0, item.quantity_reserved - reservation.quantity)
             item.version += 1

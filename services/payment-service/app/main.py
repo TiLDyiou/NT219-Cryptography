@@ -43,9 +43,38 @@ def check_alembic_head() -> None:
     logger.info("Alembic schema check verified successfully.")
 
 
+# H-17/H-18: ở production, từ chối khởi động nếu còn dùng giá trị secret mặc định dev.
+# Nguy hiểm nhất là STRIPE_WEBHOOK_SECRET=whsec_mock — ai biết default này đều giả mạo
+# được event payment_intent.succeeded để đánh dấu đơn "đã trả tiền".
+_DEV_DEFAULT_SECRETS = {
+    "STRIPE_WEBHOOK_SECRET": "whsec_mock",
+    "STRIPE_API_KEY": "sk_test_mock",
+    "INTERNAL_API_TOKEN": "payment_internal_dev_token",
+    "ORDER_SERVICE_INTERNAL_TOKEN": "payment_to_order_dev_token",
+    "LOCAL_CRYPTO_SECRET": "local-dev-payment-crypto-key-32b!",
+}
+
+
+def validate_production_secrets() -> None:
+    if not settings.is_production:
+        return
+    offenders = [
+        name
+        for name, dev_default in _DEV_DEFAULT_SECRETS.items()
+        if getattr(settings, name, None) == dev_default
+    ]
+    if offenders:
+        raise RuntimeError(
+            "Refusing to start in production with dev-default secrets: "
+            + ", ".join(offenders)
+            + ". Set real values via environment variables."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global outbox_task
+    validate_production_secrets()
     logger.info("Initializing payment-service database...")
     await init_db()
     

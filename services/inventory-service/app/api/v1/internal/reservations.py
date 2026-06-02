@@ -3,12 +3,18 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_correlation_id, get_db, get_idempotency_key
+from app.api.dependencies import (
+    get_correlation_id,
+    get_db,
+    get_idempotency_key,
+    verify_internal_token,
+)
 from app.infrastructure.container import get_container
 from app.schemas.inventory import ConfirmRequest, ReleaseRequest, ReserveRequest
 from app.schemas.response import APIResponse
 
-router = APIRouter()
+# H-03: reserve/release/confirm tồn kho phải kèm X-Internal-Token hợp lệ (lớp 2 cạnh HMAC).
+router = APIRouter(dependencies=[Depends(verify_internal_token)])
 
 
 @router.post("/reservations/reserve", response_model=APIResponse[dict[str, Any]])

@@ -61,7 +61,14 @@ async def list_public_products(
 async def get_public_product(product_id: str, db: AsyncSession = Depends(get_db)):
     """Lấy chi tiết sản phẩm dành cho Public Read."""
     product = await crud_product.get(db, id=product_id)
-    if not product or product.deleted_at is not None or not product.is_active:
+    # M-13: chặn truy cập sản phẩm chưa publish (draft/pending/inactive/archived) qua ID.
+    # Trước đây chỉ kiểm is_active nên hàng 'draft' (ẩn khỏi list) vẫn xem được qua ID.
+    if (
+        not product
+        or product.deleted_at is not None
+        or not product.is_active
+        or product.status != "active"
+    ):
         raise EntityNotFoundException(entity="Product", id=product_id)
         
     data = (await _attach_merchant_names(db, [product]))[0]
