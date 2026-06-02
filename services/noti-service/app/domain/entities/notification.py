@@ -11,11 +11,12 @@ class NotificationEntity:
     user_id: str
     channel_id: str
     category: str
-    subject: str
+    subject: str | None
     content_hash: str
     recipient_masked: str
     recipient_email_encrypted: bytes | None = None
     render_variables_encrypted: bytes | None = None
+    subject_encrypted: bytes | None = None
     reference_type: str | None = None
     reference_id: str | None = None
     template_id: str | None = None

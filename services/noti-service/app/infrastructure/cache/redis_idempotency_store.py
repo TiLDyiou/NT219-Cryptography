@@ -15,6 +15,9 @@ class InMemoryIdempotencyStore(IdempotencyStore):
         self._items[key] = now + ttl_seconds
         return True
 
+    async def remove(self, key: str) -> None:
+        self._items.pop(key, None)
+
 
 class RedisIdempotencyStore(IdempotencyStore):
     def __init__(self, redis, key_prefix: str = "notification:idemp:"):
@@ -23,3 +26,6 @@ class RedisIdempotencyStore(IdempotencyStore):
 
     async def mark_processed(self, key: str, ttl_seconds: int) -> bool:
         return bool(await self._redis.set(f"{self._key_prefix}{key}", b"1", nx=True, ex=ttl_seconds))
+
+    async def remove(self, key: str) -> None:
+        await self._redis.delete(f"{self._key_prefix}{key}")

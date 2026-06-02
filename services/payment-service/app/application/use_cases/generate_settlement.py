@@ -39,29 +39,31 @@ class GenerateSettlementUseCase:
             logger.info("No unsettled transactions found for merchant %s", merchant_id)
             return None
 
-        total_sales = 0.0
-        total_psp_fee = 0.0
+        # M-04: dùng Decimal thay vì float để tránh sai số làm tròn khi chi trả merchant.
+        rate = Decimal(str(commission_rate))
+        total_sales = Decimal("0")
+        total_psp_fee = Decimal("0")
         items_payload = []
 
         for tx in txs:
-            amount_val = float(tx["amount"])
-            psp_fee_val = float(tx["psp_fee"])
-            commission_val = amount_val * commission_rate
+            amount_val = Decimal(str(tx["amount"]))
+            psp_fee_val = Decimal(str(tx["psp_fee"]))
+            commission_val = amount_val * rate
             net_val = amount_val - commission_val - psp_fee_val
 
             total_sales += amount_val
             total_psp_fee += psp_fee_val
-            
+
             items_payload.append({
                 "order_id": tx["order_id"],
                 "transaction_id": tx["transaction_id"],
-                "amount": amount_val,
-                "psp_fee": psp_fee_val,
-                "commission": commission_val,
-                "net": net_val,
+                "amount": str(amount_val),
+                "psp_fee": str(psp_fee_val),
+                "commission": str(commission_val),
+                "net": str(net_val),
             })
 
-        commission_amount = total_sales * commission_rate
+        commission_amount = total_sales * rate
         net_amount = total_sales - commission_amount - total_psp_fee
 
         settlement_id = await self._settle_repo.create_settlement(

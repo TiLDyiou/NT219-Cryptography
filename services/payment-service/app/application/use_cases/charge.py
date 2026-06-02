@@ -14,7 +14,6 @@ from app.domain.ports.outbox_repository import OutboxRepository
 from app.domain.ports.stripe_gateway import StripeGateway
 from app.domain.ports.crypto_service import CryptoService
 from app.infrastructure.audit.kafka_audit_logger import KafkaAuditLogger
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +28,7 @@ class ChargeUseCase:
         crypto_service: CryptoService,
         audit_logger: KafkaAuditLogger,
         session: AsyncSession,
+        order_client: Any = None,
     ):
         self._repo = payment_repository
         self._idemp = idempotency_store
@@ -37,6 +37,46 @@ class ChargeUseCase:
         self._crypto = crypto_service
         self._audit = audit_logger
         self._session = session
+        self._order_client = order_client
+
+    async def _acquire_order_lock(self, order_id: str) -> None:
+        """Khóa tư vấn theo order_id (Postgres, transaction-scoped). No-op trên SQLite."""
+        bind = getattr(self._session, "bind", None)
+        if bind is not None and getattr(bind, "dialect", None) is not None and bind.dialect.name == "postgresql":
+            from sqlalchemy import text
+            await self._session.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": order_id}
+            )
+
+    async def _validate_order(self, order_id: str, user_id: str, amount: Decimal) -> None:
+        """M-05: đối chiếu đơn hàng với order-service thay vì tin order_id/amount của caller.
+
+        Chặn dứt khoát khi đơn KHÔNG tồn tại (chống order_id giả). Nếu order-service
+        lỗi/timeout/cấu hình token chưa khớp thì chỉ cảnh báo rồi tiếp tục — tầng bảo vệ
+        chính của /charge vẫn là HMAC + internal token (chỉ order gọi được).
+        """
+        from app.core.exceptions import (
+            EntityNotFoundException,
+            ForbiddenException,
+            BusinessRuleException,
+        )
+
+        if self._order_client is None:
+            return
+        try:
+            order = await self._order_client.get_order(order_id)
+        except EntityNotFoundException:
+            raise BusinessRuleException("Order does not exist.")
+        except (ForbiddenException, BusinessRuleException) as exc:
+            logger.warning("Bỏ qua đối chiếu đơn (order-service không phản hồi hợp lệ): %s", exc)
+            return
+
+        order_user = order.get("user_id")
+        if order_user and user_id and order_user != user_id:
+            raise ForbiddenException("Order does not belong to this user.")
+        order_total = order.get("total_amount")
+        if order_total is not None and Decimal(str(order_total)) != amount:
+            raise BusinessRuleException("Charge amount does not match order total.")
 
     async def execute(self, payload: dict[str, Any]) -> dict[str, Any]:
         user_id = payload["user_id"]
@@ -59,14 +99,31 @@ class ChargeUseCase:
             logger.info("Idempotency key hit. Replaying cached response.")
             return cached_res
 
+        # C-05: chống đua lệnh charge gây tính tiền 2 lần. Idempotency-Key chỉ khóa
+        # theo (user_id, key); hai request CÙNG order_id nhưng KHÁC key vẫn lọt.
+        # Khóa tư vấn theo order_id (transaction-scoped) để các charge cùng đơn
+        # bị tuần tự hóa; request sau sẽ thấy giao dịch đã tồn tại và trả về nó.
+        await self._acquire_order_lock(order_id)
+
+        # M-05: đối chiếu đơn với order-service (tồn tại, đúng chủ, đúng số tiền).
+        await self._validate_order(order_id, user_id, amount)
+
         existing = await self._repo.get_transaction_by_order_id(order_id, session=self._session)
-        if existing and existing.client_secret:
+        if existing and existing.status not in (
+            PaymentStatus.FAILED,
+            PaymentStatus.CANCELLED,
+        ):
             response = {
                 "payment_id": existing.id,
                 "status": existing.status.value,
-                "checkout_url": existing.client_secret,
                 "transaction_ref": existing.psp_intent_id,
             }
+            # client_secret chứa checkout_url (card) hoặc client_secret (intent).
+            if existing.client_secret:
+                if str(existing.psp_intent_id or "").startswith("cs_"):
+                    response["checkout_url"] = existing.client_secret
+                else:
+                    response["client_secret"] = existing.client_secret
             await self._idemp.save_response(
                 user_id=user_id, key=idempotency_key, request_hash=payload_hash, response=response
             )

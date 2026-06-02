@@ -122,6 +122,11 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             payment_event_verifier = EventSigner(transit, cfg.vault.payment_sign_key_name)  # type: ignore[assignment]
             logger.info("Vault crypto initialized")
         except Exception:
+            # C-03: ở production KHÔNG tụt xuống crypto dev hard-code (phá vỡ niềm tin
+            # liên service). Fail-fast để buộc sửa Vault thay vì chạy mù.
+            if cfg.is_production:
+                logger.error("Vault required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Vault unavailable; using local dev crypto", exc_info=True)
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
             payment_event_verifier = crypto_service
@@ -136,6 +141,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             nonce_store: NonceStore = RedisNonceStore(redis_client)
             logger.info("Redis nonce store initialized")
         except Exception:
+            # H-06: nhiều pod mỗi pod một bộ nonce trong RAM → mất chống replay đa node.
+            if cfg.is_production:
+                logger.error("Redis required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Redis unavailable; using in-memory nonce store", exc_info=True)
             nonce_store = InMemoryNonceStore()
     else:
@@ -147,6 +156,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             event_publisher = KafkaEventPublisher(kafka_producer, crypto_service, cfg.kafka)
             logger.info("Kafka producer initialized")
         except Exception:
+            # H-07: NullEventPublisher âm thầm nuốt event (mất audit/outbox publish).
+            if cfg.is_production:
+                logger.error("Kafka required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Kafka unavailable; using null event publisher", exc_info=True)
             event_publisher = NullEventPublisher()
     else:

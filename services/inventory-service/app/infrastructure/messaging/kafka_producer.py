@@ -71,7 +71,8 @@ class NullEventPublisher(EventPublisher):
         logger.debug("Event publish skipped (Kafka disabled): %s", event_type)
 
     async def verify_inbound(self, envelope: dict[str, Any]) -> bool:
-        return True
+        # H-07: fail-closed — không có crypto thật thì KHÔNG coi event là hợp lệ.
+        return False
 
 
 async def create_kafka_producer(config: KafkaConfig) -> AIOKafkaProducer:

@@ -1,11 +1,13 @@
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.api.dependencies import get_db, get_correlation_id
+from app.api.dependencies import get_db, get_correlation_id, verify_internal_token
 from app.schemas.response import APIResponse
 from app.infrastructure.container import get_container
 
-router = APIRouter()
+# C-08: API đối soát/chi trả merchant trước đây KHÔNG có xác thực — ai qua được
+# tầng HMAC cũng tạo/đánh dấu "đã chi" được. Bắt buộc internal token cho cả router.
+router = APIRouter(dependencies=[Depends(verify_internal_token)])
 
 
 @router.post("/generate", response_model=APIResponse[dict[str, Any]])

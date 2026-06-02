@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PORT: int = 8008
 
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    # Token bảo vệ API admin template (C-09). Bắt buộc set thật khi deploy.
+    ADMIN_API_TOKEN: str = os.getenv("ADMIN_API_TOKEN", "noti_admin_dev_token")
+
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://notification_user:notification_dev_pass@localhost:5432/notification_db",
@@ -117,6 +121,10 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod", "staging")
 
     @property
     def vault(self) -> VaultConfig:

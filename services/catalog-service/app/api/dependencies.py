@@ -62,11 +62,14 @@ async def get_current_merchant_id(
 
     try:
         public_key = await _get_public_key()
+        issuer = f"{settings.KEYCLOAK_URL.rstrip('/')}/realms/{settings.KEYCLOAK_REALM}"
         payload = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
             audience="account",
+            # H-05: ràng buộc issuer để token từ realm/issuer khác không dùng được.
+            issuer=issuer,
         )
     except JWTError as exc:
         logger.warning("JWT validation failed: %s", exc)
