@@ -120,6 +120,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
                 EventSigner(transit, cfg.vault.sign_key_name),
             )
         except Exception:
+            # C-03: production phải fail-fast thay vì dùng crypto dev hard-code.
+            if cfg.is_production:
+                logger.error("Vault required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Vault connection failed; using local dev crypto", exc_info=True)
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
     else:
@@ -132,6 +136,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             nonce_store: NonceStore = RedisNonceStore(redis_client, key_prefix="shipping-svc:nonce:")
             idempotency_store: IdempotencyStore = RedisIdempotencyStore(redis_client, key_prefix="shipping:idemp:")
         except Exception:
+            # H-06: in-memory nonce/idempotency mất tác dụng chống replay/khử trùng đa pod.
+            if cfg.is_production:
+                logger.error("Redis required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Redis connection failed; using in-memory fallbacks", exc_info=True)
             nonce_store = InMemoryNonceStore()
             idempotency_store = InMemoryIdempotencyStore()
@@ -144,6 +152,11 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             kafka_producer = await create_kafka_producer(cfg.kafka)
             event_publisher: EventPublisher = KafkaEventPublisher(kafka_producer, crypto_service, cfg.kafka)
         except Exception:
+            # H-07: NullEventPublisher âm thầm bỏ event; consumer order.confirmed cũng
+            # không nên chạy ở chế độ verify-luôn-True (xem kafka_producer).
+            if cfg.is_production:
+                logger.error("Kafka required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Kafka initialization failed; using null publisher", exc_info=True)
             event_publisher = NullEventPublisher()
     else:

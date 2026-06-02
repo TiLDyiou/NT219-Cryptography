@@ -51,9 +51,13 @@ class HandleWebhookUseCase:
             logger.info("Duplicate Stripe webhook event detected (ID: %s). Skipping silently.", event_id)
             return {"success": True, "reason": "duplicate"}
 
-        # Commit insert log immediately to ensure locking/deduplication works between parallel threads
-        await self._session.commit()
-
+        # C-04: KHÔNG commit log ngay tại đây. Trước đây log được commit trước khi
+        # xử lý nghiệp vụ; nếu xử lý lỗi và rollback thì lần Stripe gửi lại sẽ bị
+        # coi là "duplicate" và không bao giờ được xử lý → đơn kẹt trạng thái.
+        # Giờ insert-log + cập nhật giao dịch + mark_as_processed nằm CHUNG một
+        # transaction, chỉ commit khi xử lý thành công. Việc khử trùng giữa các
+        # request song song vẫn đảm bảo nhờ UNIQUE(psp_provider, event_id):
+        # request thứ hai sẽ chờ rồi nhận ON CONFLICT DO NOTHING → "duplicate".
         data_object = event["data"]["object"]
         is_checkout_event = event_type.startswith("checkout.session.")
         order_id = None

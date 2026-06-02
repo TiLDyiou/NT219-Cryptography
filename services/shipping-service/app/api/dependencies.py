@@ -1,11 +1,10 @@
-import json
-import base64
 from typing import Optional
 
 from fastapi import Header
 
 from app.core.config import settings
 from app.core.exceptions import ForbiddenException, UnauthorizedException
+from app.core.jwt_auth import extract_bearer, realm_roles, verify_token
 from app.infrastructure.persistence.database import get_db
 
 __all__ = [
@@ -16,24 +15,6 @@ __all__ = [
     "get_admin_user",
     "verify_internal_token",
 ]
-
-
-def _decode_jwt_sub(token: str) -> str:
-    """Decode JWT payload (không verify signature vì gateway đã verify)
-    và trả về claim 'sub' — ID cố định của merchant trong Keycloak."""
-    try:
-        payload_b64 = token.split(".")[1]
-        # Thêm padding cho base64
-        padding = 4 - len(payload_b64) % 4
-        if padding != 4:
-            payload_b64 += "=" * padding
-        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
-        sub = payload.get("sub")
-        if sub:
-            return sub
-    except Exception:
-        pass
-    raise UnauthorizedException("Invalid token: cannot extract merchant identity.")
 
 
 async def get_idempotency_key(
@@ -51,27 +32,38 @@ async def get_correlation_id(
 
 
 async def get_current_merchant_id(
-    x_merchant_id: Optional[str] = Header(None, alias="X-Merchant-Id"),
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> str:
-    if x_merchant_id:
-        return x_merchant_id
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ", 1)[1].strip()
-        if token:
-            return _decode_jwt_sub(token)
-    raise UnauthorizedException("Could not validate merchant identity.")
+    """Verify Bearer JWT (RS256, Keycloak) và trả về 'sub' = merchant_id.
+
+    Không còn tin header X-Merchant-Id thô (C-01/C-02).
+    """
+    token = extract_bearer(authorization)
+    claims = await verify_token(token)
+    sub = claims.get("sub")
+    if not sub:
+        raise UnauthorizedException("Token missing 'sub' claim.")
+    return sub
 
 
 async def get_admin_user(
-    x_admin_id: Optional[str] = Header(None, alias="X-Admin-Id"),
-    x_admin_scope: Optional[str] = Header(None, alias="X-Admin-Scope"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> str:
-    if not x_admin_id:
-        raise UnauthorizedException("Could not validate admin identity.")
-    if x_admin_scope not in ("admin", "shipping:admin"):
-        raise ForbiddenException("Admin scope is required.")
-    return x_admin_id
+    """Verify JWT + yêu cầu role admin từ chính token (không tin X-Admin-Id/X-Admin-Scope).
+
+    Trước đây admin được nhận diện qua header thô X-Admin-Id + X-Admin-Scope
+    nên ai cũng tự xưng admin được (C-01/H-04). Giờ vai trò admin lấy từ
+    realm/client roles của JWT đã verify chữ ký.
+    """
+    token = extract_bearer(authorization)
+    claims = await verify_token(token)
+    sub = claims.get("sub")
+    if not sub:
+        raise UnauthorizedException("Token missing 'sub' claim.")
+    allowed = {r.strip() for r in settings.SHIPPING_ADMIN_ROLES.split(",") if r.strip()}
+    if not (realm_roles(claims) & allowed):
+        raise ForbiddenException("Admin role is required.")
+    return sub
 
 
 async def verify_internal_token(

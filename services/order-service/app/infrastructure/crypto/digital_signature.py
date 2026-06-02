@@ -33,13 +33,16 @@ class EventSigner:
         )
 
     async def verify_event(self, event_envelope: dict[str, Any]) -> bool:
-        signature_block = event_envelope.get("signature") or {}
+        # H-08: sign_event ký TOÀN BỘ event_data (event_id, type, payload, ...), và
+        # build_envelope = {**event_data, signature}. Vì vậy verify phải canonical hoá
+        # envelope-trừ-signature, KHÔNG phải chỉ payload. Đây cũng đúng scheme mà
+        # payment/inventory/shipping/noti dùng → order verify được event của payment.
+        envelope = dict(event_envelope)
+        signature_block = envelope.pop("signature", None) or {}
         signature_value = signature_block.get("value")
         if not signature_value:
             return False
-        # Bên phát ký trên payload (sign_event nhận event_data == payload), nên
-        # verify cũng phải canonical hoá đúng payload, không phải cả envelope.
-        canonical = self._canonical_json(event_envelope.get("payload", {}))
+        canonical = self._canonical_json(envelope)
         digest = hashlib.sha256(canonical.encode("utf-8")).digest()
         return await self._transit.verify(
             key_name=self._key_name,

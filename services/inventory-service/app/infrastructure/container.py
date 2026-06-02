@@ -133,6 +133,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             crypto_service = VaultCryptoService(envelope, hmac_signer, event_signer)
             logger.info("Vault crypto service initialized")
         except Exception:
+            # C-03: production phải fail-fast thay vì dùng crypto dev hard-code.
+            if cfg.is_production:
+                logger.error("Vault required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Vault connection failed; using local dev crypto", exc_info=True)
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
     else:
@@ -146,6 +150,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             idempotency_store: IdempotencyStore = RedisIdempotencyStore(redis_client)
             logger.info("Redis cache adapters initialized")
         except Exception:
+            # H-06: in-memory nonce/idempotency mất tác dụng chống replay/khử trùng đa pod.
+            if cfg.is_production:
+                logger.error("Redis required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Redis connection failed; using in-memory fallbacks", exc_info=True)
             nonce_store = InMemoryNonceStore()
             idempotency_store = InMemoryIdempotencyStore()
@@ -159,6 +167,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             event_publisher = KafkaEventPublisher(kafka_producer, crypto_service, cfg.kafka)
             logger.info("Kafka messaging adapter initialized")
         except Exception:
+            # H-07: NullEventPublisher âm thầm bỏ event outbox/audit.
+            if cfg.is_production:
+                logger.error("Kafka required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Kafka initialization failed; using null publisher", exc_info=True)
             event_publisher = NullEventPublisher()
     else:

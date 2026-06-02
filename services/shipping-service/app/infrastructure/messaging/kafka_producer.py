@@ -60,7 +60,8 @@ class NullEventPublisher(EventPublisher):
         logger.debug("Event publish skipped (Kafka disabled): %s", event_type)
 
     async def verify_inbound(self, envelope: dict[str, Any]) -> bool:
-        return True
+        # H-07: fail-closed — consumer order.confirmed KHÔNG được tin event chưa ký.
+        return False
 
 
 async def create_kafka_producer(config: KafkaConfig) -> AIOKafkaProducer:

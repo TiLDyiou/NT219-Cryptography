@@ -18,6 +18,7 @@ class PgNotificationRepository(NotificationRepository):
             template_id=notification.template_id,
             category=notification.category,
             subject=notification.subject,
+            subject_encrypted=notification.subject_encrypted,
             content_hash=notification.content_hash,
             recipient_masked=notification.recipient_masked,
             recipient_email_encrypted=notification.recipient_email_encrypted,

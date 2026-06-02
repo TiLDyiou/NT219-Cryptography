@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PORT: int = 8007
 
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+
+    # Keycloak — service tự verify JWT RS256 (không còn tin header X-Merchant-Id/X-Admin-Id).
+    KEYCLOAK_URL: str = os.getenv("KEYCLOAK_URL", "http://localhost:8080")
+    KEYCLOAK_REALM: str = os.getenv("KEYCLOAK_REALM", "nt219")
+    # Realm/client role được coi là admin vận chuyển.
+    SHIPPING_ADMIN_ROLES: str = os.getenv("SHIPPING_ADMIN_ROLES", "admin,shipping-admin")
+
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://shipping_user:shipping_dev_pass@localhost:5432/shipping_db",
@@ -90,6 +98,10 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod", "staging")
 
     @property
     def vault(self) -> VaultConfig:

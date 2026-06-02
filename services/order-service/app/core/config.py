@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Order Service"
     API_V1_STR: str = "/api/v1"
 
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+
+    # Keycloak — service tự verify JWT RS256 (không còn tin header X-User-Id).
+    KEYCLOAK_URL: str = os.getenv("KEYCLOAK_URL", "http://localhost:8080")
+    KEYCLOAK_REALM: str = os.getenv("KEYCLOAK_REALM", "nt219")
+
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
         "postgresql+asyncpg://uitstore:uitstore_dev@localhost:5432/order_db",
@@ -149,6 +155,10 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT.strip().lower() in ("production", "prod", "staging")
 
     @property
     def vault(self) -> VaultConfig:

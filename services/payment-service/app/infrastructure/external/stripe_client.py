@@ -192,20 +192,35 @@ class StripeClient(StripeGateway):
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
+    async def retrieve_checkout_session(self, session_id: str) -> dict[str, Any]:
+        logger.info("Calling Stripe checkout.Session.retrieve (session_id=%s)", session_id)
+        res = await asyncio.to_thread(stripe.checkout.Session.retrieve, session_id)
+        return mask_psp_response(res.to_dict())
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
     async def create_refund(
         self,
         intent_id: str,
         amount: Decimal,
+        currency: str = "vnd",
         reason: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        amount_cents = int(amount * 100)
+        # C-06: dùng to_minor_units để xử lý đúng tiền tệ 0 chữ số thập phân (VND/JPY/KRW);
+        # int(amount*100) trước đây làm hoàn dư gấp 100 lần với VND.
+        amount_minor = to_minor_units(amount, currency)
+        # C-07: Stripe yêu cầu payment_intent dạng pi_. Nếu đây là Checkout Session (cs_),
+        # phải tra cứu payment_intent thật trước khi gọi (xử lý ở RefundUseCase).
         params = {
             "payment_intent": intent_id,
-            "amount": amount_cents,
-            "reason": reason
+            "amount": amount_minor,
+            "reason": reason,
         }
-        logger.info("Calling Stripe Refund.create (intent_id=%s, amount_cents=%s)", intent_id, amount_cents)
+        logger.info("Calling Stripe Refund.create (intent_id=%s, amount_minor=%s)", intent_id, amount_minor)
         res = await asyncio.to_thread(
             stripe.Refund.create,
             idempotency_key=idempotency_key,

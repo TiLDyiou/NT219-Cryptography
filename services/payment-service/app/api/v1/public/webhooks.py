@@ -41,8 +41,10 @@ async def stripe_webhook(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"success": False, "error": str(e)},
             )
+        # M-06: không trả str(e) ra ngoài (rò rỉ chi tiết nội bộ). Chi tiết đã được
+        # ghi log phía server; client chỉ nhận thông báo chung.
         logger.exception("Failed to process Stripe webhook")
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={"success": False, "error": str(e)},
+            content={"success": False, "error": "Internal error processing webhook"},
         )

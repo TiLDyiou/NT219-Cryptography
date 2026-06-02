@@ -104,15 +104,21 @@ class SendNotificationUseCase:
         recipient = Recipient(command.recipient_email)
         encrypted_recipient = None
         encrypted_variables = None
+        encrypted_subject = None
+        # M-16: khi có crypto, lưu subject ở dạng mã hoá và KHÔNG lưu plaintext.
+        stored_subject = rendered.subject
         if self._crypto is not None:
             encrypted_recipient = await self._crypto.encrypt_field(recipient.email)
             encrypted_variables = await self._crypto.encrypt_field(json.dumps(command.variables, default=str))
+            encrypted_subject = await self._crypto.encrypt_field(rendered.subject)
+            stored_subject = None
         notification = NotificationEntity(
             user_id=command.user_id,
             channel_id=template.channel_id,
             template_id=template.id,
             category=command.category,
-            subject=rendered.subject,
+            subject=stored_subject,
+            subject_encrypted=encrypted_subject,
             content_hash=content_hash(rendered.html_body),
             recipient_masked=recipient.masked,
             recipient_email_encrypted=encrypted_recipient,

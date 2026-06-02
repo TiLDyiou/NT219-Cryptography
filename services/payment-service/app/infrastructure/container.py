@@ -50,6 +50,8 @@ class AppContainer:
         from app.infrastructure.persistence.repositories.payment_repository import PgPaymentRepository
         from app.infrastructure.persistence.repositories.outbox_repository import PgOutboxRepository
         
+        from app.infrastructure.external.order_client import OrderHttpClient
+
         return ChargeUseCase(
             payment_repository=PgPaymentRepository(),
             idempotency_store=self.idempotency_store,
@@ -57,7 +59,11 @@ class AppContainer:
             stripe_gateway=self.stripe_gateway,
             crypto_service=self.crypto_service,
             audit_logger=self.audit_logger,
-            session=session
+            session=session,
+            order_client=OrderHttpClient(
+                self.settings.ORDER_SERVICE_URL,
+                self.settings.ORDER_SERVICE_INTERNAL_TOKEN,
+            ),
         )
 
     def handle_webhook_use_case(self, session: AsyncSession):
@@ -146,6 +152,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             crypto_service = VaultCryptoService(envelope, hmac_signer, event_signer)
             logger.info("Vault crypto service initialized successfully")
         except Exception:
+            # C-03: production phải fail-fast thay vì dùng crypto dev hard-code.
+            if cfg.is_production:
+                logger.error("Vault required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Vault connection failed; falling back to local dev crypto", exc_info=True)
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
     else:
@@ -160,6 +170,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             idempotency_store: IdempotencyStore = RedisIdempotencyStore(redis_client)
             logger.info("Redis cache adapters initialized successfully")
         except Exception:
+            # H-06: in-memory nonce/idempotency mất tác dụng chống replay/khử trùng đa pod.
+            if cfg.is_production:
+                logger.error("Redis required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Redis connection failed; using in-memory cache fallbacks", exc_info=True)
             nonce_store = InMemoryNonceStore()
             idempotency_store = InMemoryIdempotencyStore()
@@ -174,6 +188,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             event_publisher = KafkaEventPublisher(kafka_producer, crypto_service, cfg.kafka)
             logger.info("Kafka messaging adapter initialized successfully")
         except Exception:
+            # H-07: NullEventPublisher âm thầm bỏ event outbox/audit (PaymentCompleted...).
+            if cfg.is_production:
+                logger.error("Kafka required in production but unavailable", exc_info=True)
+                raise
             logger.warning("Kafka initialization failed; using null event publisher", exc_info=True)
             event_publisher = NullEventPublisher()
     else:
@@ -204,7 +222,16 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
     stripe_gateway = StripeClient(stripe_config)
 
     # 5. Payout Gateway
-    bank_payout_gateway = BankPayoutStub()
+    # M-02: trước đây luôn dùng BankPayoutStub bất kể config → settlement đánh dấu
+    # "đã chi" mà không chuyển khoản thật. Giờ chỉ dùng stub khi BANK_PAYOUT_STUB=true;
+    # nếu tắt stub mà chưa có cổng chi trả thật → fail-fast thay vì giả vờ thành công.
+    if cfg.BANK_PAYOUT_STUB:
+        bank_payout_gateway = BankPayoutStub()
+    else:
+        raise RuntimeError(
+            "BANK_PAYOUT_STUB=false nhưng chưa cấu hình cổng chi trả ngân hàng thật. "
+            "Đặt BANK_PAYOUT_STUB=true cho môi trường dev/test."
+        )
 
     # 6. Audit Logger
     audit_logger = KafkaAuditLogger(crypto_service=crypto_service, publisher=event_publisher)

@@ -35,15 +35,22 @@ class NotificationEventConsumer:
                 if not valid:
                     logger.warning("Rejected event with invalid signature: topic=%s", msg.topic)
                     continue
-                processed = await self._container.idempotency_store.mark_processed(
-                    envelope["event_id"],
+                event_id = envelope["event_id"]
+                claimed = await self._container.idempotency_store.mark_processed(
+                    event_id,
                     self._container.settings.redis.idempotency_ttl_seconds,
                 )
-                if not processed:
+                if not claimed:
                     await self._consumer.commit()
                     continue
-                async with self._session_factory() as session:
-                    await self.dispatch(msg.topic, envelope, session)
+                # H-14: chỉ GIỮ claim khi gửi thành công. Nếu dispatch lỗi → nhả claim
+                # và KHÔNG commit offset để Kafka redeliver xử lý lại (không mất thông báo).
+                try:
+                    async with self._session_factory() as session:
+                        await self.dispatch(msg.topic, envelope, session)
+                except Exception:
+                    await self._container.idempotency_store.remove(event_id)
+                    raise
                 await self._consumer.commit()
                 if self._stopped.is_set():
                     break

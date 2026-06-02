@@ -9,7 +9,12 @@ from app.domain.ports.payment_repository import PaymentRepository
 from app.domain.ports.outbox_repository import OutboxRepository
 from app.domain.ports.stripe_gateway import StripeGateway
 from app.infrastructure.audit.kafka_audit_logger import KafkaAuditLogger
-from app.core.exceptions import EntityNotFoundException, BusinessRuleException
+from app.infrastructure.external.stripe_client import to_minor_units
+from app.core.exceptions import (
+    EntityNotFoundException,
+    BusinessRuleException,
+    ForbiddenException,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +38,15 @@ class RefundUseCase:
         payment_id = payload["payment_id"]
         amount = Decimal(str(payload["amount"]))
         reason = payload.get("reason", "Customer request")
+        requesting_user_id = payload.get("requesting_user_id")
 
         tx = await self._repo.get_transaction_by_id(payment_id, session=self._session)
         if not tx:
             raise EntityNotFoundException("PaymentTransaction", payment_id)
+
+        # H-01: kiểm tra quyền sở hữu — caller phải là chủ giao dịch.
+        if requesting_user_id and tx.user_id and requesting_user_id != tx.user_id:
+            raise ForbiddenException("Not allowed to refund this payment.")
 
         # Validate status allows refund
         if not PaymentStatus.can_transition(tx.status, PaymentStatus.REFUND_PENDING):
@@ -44,6 +54,9 @@ class RefundUseCase:
 
         if amount > tx.amount:
             raise BusinessRuleException("Refund amount cannot exceed original transaction amount.")
+
+        is_partial = amount < tx.amount
+        prev_status = tx.status.value
 
         try:
             # 1. Update state to refund_pending
@@ -55,31 +68,41 @@ class RefundUseCase:
                 table_name="payment_transactions",
                 record_id=tx.id,
                 action="UPDATE",
-                old_data={"id": tx.id, "status": "succeeded"},
+                old_data={"id": tx.id, "status": prev_status},
                 new_data={"id": tx.id, "status": "refund_pending"},
             )
 
-            # 2. Trigger Stripe Refund
-            import uuid
-            refund_idemp_key = f"ref-{tx.id}-{uuid.uuid4().hex[:8]}"
+            # 2. C-07: refund cần PaymentIntent (pi_). Nếu lưu Checkout Session (cs_),
+            # tra cứu payment_intent thật trước khi gọi Stripe.
+            refund_target = tx.psp_intent_id
+            if refund_target and str(refund_target).startswith("cs_"):
+                sess = await self._stripe.retrieve_checkout_session(refund_target)
+                refund_target = sess.get("payment_intent") or refund_target
+
+            # H-01: idempotency key TIỀN ĐỊNH theo (payment_id, số tiền minor-units)
+            # để retry không tạo refund trùng. Trước đây dùng uuid ngẫu nhiên mỗi lần.
+            refund_idemp_key = f"ref-{tx.id}-{to_minor_units(amount, tx.currency)}"
             stripe_ref = await self._stripe.create_refund(
-                intent_id=tx.psp_intent_id,
+                intent_id=refund_target,
                 amount=amount,
+                currency=tx.currency,
                 reason=reason,
                 idempotency_key=refund_idemp_key,
             )
 
-            # Stripe refund succeeds immediately in sandbox
-            tx.status = PaymentStatus.REFUNDED
+            # M-07: refund một phần → PARTIALLY_REFUNDED (cho phép hoàn tiếp),
+            # chỉ đánh dấu REFUNDED khi hoàn toàn bộ.
+            new_status = PaymentStatus.PARTIALLY_REFUNDED if is_partial else PaymentStatus.REFUNDED
+            tx.status = new_status
             tx = await self._repo.save_transaction(tx, session=self._session)
-            
+
             await self._audit.log_change(
                 session=self._session,
                 table_name="payment_transactions",
                 record_id=tx.id,
                 action="UPDATE",
                 old_data={"id": tx.id, "status": "refund_pending"},
-                new_data={"id": tx.id, "status": "refunded"},
+                new_data={"id": tx.id, "status": new_status.value},
             )
 
             # 3. Save RefundCompleted Event in Outbox
@@ -100,7 +123,7 @@ class RefundUseCase:
             )
 
             await self._session.commit()
-            return {"refund_id": event.refund_id, "status": "refunded"}
+            return {"refund_id": event.refund_id, "status": new_status.value}
 
         except Exception:
             logger.exception("Refund execution failed")

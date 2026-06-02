@@ -40,10 +40,15 @@ class StripeGateway(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def retrieve_checkout_session(self, session_id: str) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
     async def create_refund(
         self,
         intent_id: str,
         amount: Decimal,
+        currency: str = "vnd",
         reason: str | None = None,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:

@@ -62,6 +62,9 @@ class NotificationLogModel(Base):
     template_id = Column(String(36), ForeignKey("notification_templates.id"), nullable=True)
     category = Column(String(50), nullable=False)
     subject = Column(String(500), nullable=True)
+    # M-16: subject có thể chứa PII (vd "Đơn hàng của Nguyễn Văn A"). Lưu bản mã hoá;
+    # cột subject plaintext để None khi có crypto.
+    subject_encrypted = Column(LargeBinary, nullable=True)
     content_hash = Column(String(64), nullable=True)
     recipient_masked = Column(String(255), nullable=True)
     recipient_email_encrypted = Column(LargeBinary, nullable=True)
