@@ -1,0 +1,109 @@
+<mxfile host="Electron" modified="2024-06-02T15:00:00.000Z" agent="Mozilla/5.0" version="22.1.2" type="device">
+  <diagram id="NT219_Deployment" name="Deployment Architecture">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="800" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Internet -->
+        <mxCell id="100" value="🌐 Internet" style="shape=cloud;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="380" y="20" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- VPN Bus -->
+        <mxCell id="500" value="Tailscale WireGuard — mạng nội bộ đã mã hóa" style="shape=rect;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#000000;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="40" y="280" width="800" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Node 1 -->
+        <mxCell id="200" value="[Node 1 · Ingress] (DMZ)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;align=left;verticalAlign=top;spacingLeft=10;spacingTop=10;arcSize=5;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="250" y="140" width="400" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="201" value="Envoy Gateway&#xa;:10000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="200" vertex="1">
+          <mxGeometry x="50" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="202" value="Keycloak&#xa;:8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="200" vertex="1">
+          <mxGeometry x="230" y="40" width="120" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Node 2 -->
+        <mxCell id="300" value="[Node 2 · Services]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;align=left;verticalAlign=top;spacingLeft=10;spacingTop=10;arcSize=5;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="40" y="360" width="260" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="301" value="catalog&#xa;:8001" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="300" vertex="1">
+          <mxGeometry x="20" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="302" value="cart&#xa;:8002" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="300" vertex="1">
+          <mxGeometry x="140" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="303" value="order&#xa;:8003" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="300" vertex="1">
+          <mxGeometry x="20" y="110" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="304" value="inventory&#xa;:8005" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="300" vertex="1">
+          <mxGeometry x="140" y="110" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="305" value="shipping&#xa;:8006" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="300" vertex="1">
+          <mxGeometry x="20" y="180" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="306" value="noti&#xa;:8007" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="300" vertex="1">
+          <mxGeometry x="140" y="180" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Node 3 -->
+        <mxCell id="400" value="[Node 3 · Payment]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;align=left;verticalAlign=top;spacingLeft=10;spacingTop=10;arcSize=5;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="330" y="360" width="220" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="401" value="payment-service&#xa;:8004" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="400" vertex="1">
+          <mxGeometry x="20" y="40" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="402" value="HashiCorp Vault&#xa;:8200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="400" vertex="1">
+          <mxGeometry x="20" y="110" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Node 4 -->
+        <mxCell id="600" value="[Node 4 · Data]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;align=left;verticalAlign=top;spacingLeft=10;spacingTop=10;arcSize=5;fontStyle=1" parent="1" vertex="1">
+          <mxGeometry x="580" y="360" width="260" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="601" value="PostgreSQL&#xa;:5432" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="600" vertex="1">
+          <mxGeometry x="20" y="35" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="602" value="Kafka&#xa;:9092" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="600" vertex="1">
+          <mxGeometry x="140" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="603" value="ELK · Prometheus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="600" vertex="1">
+          <mxGeometry x="20" y="110" width="100" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="604" value="Grafana&#xa;:3000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#000000;fontColor=#000000;" parent="600" vertex="1">
+          <mxGeometry x="140" y="110" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- EDGES -->
+        <!-- Internet to Ingress -->
+        <mxCell id="1001" value="HTTPS" style="endArrow=classic;html=1;strokeColor=#000000;fontColor=#000000;fontSize=12;fontStyle=1" parent="1" source="100" target="200" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Ingress to VPN -->
+        <mxCell id="1002" style="endArrow=classic;html=1;strokeColor=#000000;fontColor=#000000;edgeStyle=orthogonalEdgeStyle;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="200" target="500" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- VPN to Node 2 -->
+        <mxCell id="1003" style="endArrow=classic;html=1;strokeColor=#000000;fontColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.16;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="500" target="300" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- VPN to Node 3 -->
+        <mxCell id="1004" style="endArrow=classic;html=1;strokeColor=#000000;fontColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="500" target="400" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- VPN to Node 4 -->
+        <mxCell id="1005" style="endArrow=classic;html=1;strokeColor=#000000;fontColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.83;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="500" target="600" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
