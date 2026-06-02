@@ -1,496 +1,291 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Topology | UIT Store - 4 Node Deployment</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap');
-
-        :root {
-            --bg-color: #f7f9fb;
-            --primary: #2d5986;
-            --primary-light: rgba(45, 89, 134, 0.10);
-            --primary-hover: rgba(45, 89, 134, 0.16);
-            --text-main: #1f3a57;
-            --text-muted: rgba(45, 89, 134, 0.65);
-            --line-color: rgba(45, 89, 134, 0.30);
-            --line-active: #2d5986;
-
-            --wan: #0a9396;          /* cross-host Tailscale */
-            --wan-soft: rgba(10, 147, 150, 0.35);
-            --machine-a: #2d5986;
-            --machine-b: #9b2226;
-
-            --font-mono: 'JetBrains Mono', monospace;
-            --font-sans: 'Inter', sans-serif;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: var(--font-sans);
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        header {
-            padding: 16px 32px;
-            border-bottom: 1px solid var(--primary-light);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #ffffff;
-            z-index: 30;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .title-block h1 {
-            font-family: var(--font-mono);
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
-            text-transform: uppercase;
-        }
-        .title-block p {
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 3px;
-        }
-
-        .legend { display: flex; gap: 18px; font-family: var(--font-mono); font-size: 11px; flex-wrap: wrap; }
-        .legend-item { display: flex; align-items: center; gap: 7px; }
-        .legend-line { width: 26px; height: 2px; background: var(--primary); }
-        .legend-line.dashed { background: repeating-linear-gradient(90deg, var(--primary) 0, var(--primary) 4px, transparent 4px, transparent 8px); }
-        .legend-line.wan { height: 3px; background: var(--wan); }
-        .legend-swatch { width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--machine-a); }
-        .legend-swatch.b { border-color: var(--machine-b); }
-
-        #topology-container {
-            flex: 1;
-            position: relative;
-            overflow: auto;
-            background-image:
-                linear-gradient(var(--primary-light) 1px, transparent 1px),
-                linear-gradient(90deg, var(--primary-light) 1px, transparent 1px);
-            background-size: 40px 40px;
-        }
-
-        #stage { position: relative; width: 1560px; height: 1000px; }
-
-        #svg-canvas { position: absolute; top: 0; left: 0; width: 1560px; height: 1000px; pointer-events: none; z-index: 5; }
-
-        /* ---- Zone containers (host machines + nodes) ---- */
-        .zone {
-            position: absolute;
-            border-radius: 10px;
-            z-index: 1;
-        }
-        .machine {
-            border: 2px dashed var(--machine-a);
-            background: rgba(45, 89, 134, 0.025);
-        }
-        .machine.b { border-color: var(--machine-b); background: rgba(155, 34, 38, 0.03); }
-        .machine-label {
-            position: absolute; top: -11px; left: 18px;
-            background: var(--bg-color); padding: 0 10px;
-            font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-            color: var(--machine-a); letter-spacing: 0.5px;
-        }
-        .machine.b .machine-label { color: var(--machine-b); }
-
-        .subzone {
-            border: 1.5px solid var(--line-color);
-            background: rgba(255,255,255,0.55);
-        }
-        .subzone-label {
-            position: absolute; top: -10px; left: 14px;
-            background: var(--bg-color); padding: 0 8px;
-            font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
-            color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase;
-        }
-        .subzone.ext { border-style: dashed; }
-
-        /* ---- Service nodes ---- */
-        .node {
-            position: absolute;
-            background: #ffffff;
-            border: 1.5px solid var(--primary);
-            padding: 11px 13px;
-            border-radius: 5px;
-            min-width: 150px;
-            z-index: 10;
-            cursor: pointer;
-            transition: box-shadow 0.25s, transform 0.25s, opacity 0.25s, background 0.25s;
-            box-shadow: 3px 3px 0 var(--primary-light);
-            display: flex; flex-direction: column; gap: 3px;
-            transform: translate(-50%, -50%);
-        }
-        .node .node-name { font-weight: 600; font-size: 13px; }
-        .node .node-type { font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
-        .node .node-meta { font-family: var(--font-mono); font-size: 9.5px; color: var(--wan); }
-
-        .node.infra { border-color: var(--machine-b); }
-        .node.infra .node-meta { color: var(--machine-b); }
-        .node.external { border-style: dashed; border-color: var(--text-muted); background: #fbfbfb; }
-
-        .node:hover, .node.active {
-            box-shadow: 5px 5px 0 var(--primary);
-            transform: translate(-50%, -53%);
-            background: var(--primary-hover);
-        }
-        .node.dimmed { opacity: 0.25; box-shadow: none; }
-
-        /* ---- Edges ---- */
-        path.edge { fill: none; stroke: var(--line-color); stroke-width: 1.5px; transition: stroke 0.25s, stroke-width 0.25s, opacity 0.25s; }
-        path.edge.dashed { stroke-dasharray: 6 6; }
-        path.edge.wan { stroke: var(--wan-soft); }
-        path.edge.active { stroke: var(--line-active); stroke-width: 2.5px; opacity: 1; }
-        path.edge.wan.active { stroke: var(--wan); }
-        path.edge.dimmed { opacity: 0.06; }
-
-        circle.packet { fill: var(--primary); r: 4; opacity: 0; }
-        circle.packet.wan { fill: var(--wan); }
-
-        /* ---- Detail panel ---- */
-        #detail-panel {
-            position: fixed; bottom: 24px; right: 24px; width: 330px;
-            background: #ffffff; border: 1px solid var(--primary);
-            padding: 18px; box-shadow: 8px 8px 0 var(--primary-light);
-            z-index: 40; font-family: var(--font-mono);
-            transform: translateY(160%); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        #detail-panel.visible { transform: translateY(0); }
-        #dp-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-        #dp-sub { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--primary-light); }
-        #dp-content { font-size: 10.5px; color: var(--text-muted); line-height: 1.6; max-height: 40vh; overflow:auto; }
-        .dp-tag { display: inline-block; padding: 1px 5px; border-radius: 2px; margin-right: 4px; font-size: 9px; }
-        .dp-tag.out { background: rgba(45,89,134,0.12); color: var(--primary); }
-        .dp-tag.in  { background: rgba(10,147,150,0.14); color: var(--wan); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UIT Store — Network Topology (4-Node Static Overview)</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+    :root{
+        --bg:#f4f6f9; --ink:#1f3a57; --muted:#64788f;
+        --lan:#2d5986; --wan:#0a7d82; --kafka:#0a7d82; --net:#7a8595;
+        --a:#2d5986; --b:#9b2226;
+        --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--ink);font-family:var(--sans)}
+    header{
+        padding:18px 30px;border-bottom:1px solid #dce3ea;background:#fff;
+        display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+    }
+    h1{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:-.4px;text-transform:uppercase}
+    header p{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:3px}
+    .legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;align-items:center}
+    .lg{display:flex;align-items:center;gap:7px}
+    .ll{width:30px;height:0;border-top-width:3px;border-top-style:solid}
+    .ll.lan{border-color:var(--lan)} .ll.wan{border-color:var(--wan)}
+    .ll.kafka{border-color:var(--kafka);border-top-style:dashed} .ll.net{border-color:var(--net)}
+    .sw{width:13px;height:13px;border-radius:3px;border:2px solid var(--a)} .sw.b{border-color:var(--b)}
+    #wrap{padding:20px;overflow:auto}
+    svg{display:block;background:#fff;border:1px solid #dce3ea;border-radius:8px;
+        background-image:linear-gradient(rgba(45,89,134,.05) 1px,transparent 1px),
+                         linear-gradient(90deg,rgba(45,89,134,.05) 1px,transparent 1px);
+        background-size:36px 36px}
+    text{font-family:var(--sans)}
+    .n-name{font-family:var(--sans);font-weight:600;font-size:13px;fill:var(--ink)}
+    .n-role{font-family:var(--mono);font-size:9.5px;fill:var(--muted)}
+    .n-meta{font-family:var(--mono);font-size:9px;font-weight:600}
+    .e-label{font-family:var(--mono);font-size:9.5px;font-weight:500}
+    .z-machine{font-family:var(--mono);font-size:13px;font-weight:700}
+    .z-node{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1px}
+</style>
 </head>
 <body>
-
-    <header>
-        <div class="title-block">
-            <h1>Network Topology — UIT Store</h1>
-            <p>NT219 Cryptography · 4-Node Deployment (3 VM trên Máy A + 1 VM trên Máy B qua Tailscale)</p>
-        </div>
-        <div class="legend">
-            <div class="legend-item"><div class="legend-line"></div><span>HTTP đồng bộ (LAN)</span></div>
-            <div class="legend-item"><div class="legend-line dashed"></div><span>Kafka bất đồng bộ</span></div>
-            <div class="legend-item"><div class="legend-line wan"></div><span>Cross-host (Tailscale/WireGuard)</span></div>
-            <div class="legend-item"><div class="legend-swatch"></div><span>Máy A</span></div>
-            <div class="legend-item"><div class="legend-swatch b"></div><span>Máy B</span></div>
-        </div>
-    </header>
-
-    <div id="topology-container">
-        <div id="stage">
-            <svg id="svg-canvas">
-                <defs>
-                    <marker id="arrow" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                        <path d="M0,-5L10,0L0,5" fill="rgba(45, 89, 134, 0.3)"></path>
-                    </marker>
-                    <marker id="arrow-active" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                        <path d="M0,-5L10,0L0,5" fill="#2d5986"></path>
-                    </marker>
-                    <marker id="arrow-wan" viewBox="0 -5 10 10" refX="8" refY="0" markerWidth="6" markerHeight="6" orient="auto">
-                        <path d="M0,-5L10,0L0,5" fill="#0a9396"></path>
-                    </marker>
-                </defs>
-            </svg>
-            <div id="zones-layer"></div>
-            <div id="nodes-layer"></div>
-        </div>
+<header>
+    <div>
+        <h1>UIT Store — Network Topology</h1>
+        <p>NT219 Cryptography · Triển khai 4 node — 3 VM trên Máy A (libvirt) + 1 VM trên Máy B (Tailscale)</p>
     </div>
-
-    <div id="detail-panel">
-        <div id="dp-title">Chi tiết Node</div>
-        <div id="dp-sub"></div>
-        <div id="dp-content">Di chuột vào một node để xem vị trí và các luồng dữ liệu.</div>
+    <div class="legend">
+        <div class="lg"><span class="ll lan"></span>HTTP sync (LAN Máy A)</div>
+        <div class="lg"><span class="ll wan"></span>Cross-host (Tailscale/WireGuard)</div>
+        <div class="lg"><span class="ll kafka"></span>Kafka async</div>
+        <div class="lg"><span class="ll net"></span>Internet (API ngoài)</div>
+        <div class="lg"><span class="sw"></span>Máy A</div>
+        <div class="lg"><span class="sw b"></span>Máy B</div>
     </div>
+</header>
+<div id="wrap"><svg id="svg" width="1620" height="1015" viewBox="0 0 1620 1015"></svg></div>
 
-    <script>
-        /* =========================================================
-           ZONES — ranh giới máy host + node mạng
-           ========================================================= */
-        const zones = [
-            // Host machines
-            { kind: 'machine', label: 'MÁY HOST A · 3 VM (libvirt — mạng nội bộ 192.168.122.x)', x: 250, y: 70, w: 910, h: 800 },
-            { kind: 'machine', cls: 'b', label: 'MÁY HOST B · kết nối qua Tailscale (WireGuard)', x: 1240, y: 70, w: 230, h: 800 },
-            // Sub-zones (nodes)
-            { kind: 'sub', label: 'Internet / Client', cls: 'ext', x: 60,   y: 210, w: 180, h: 190 },
-            { kind: 'sub', label: 'NODE-1 · Ingress',          x: 285,  y: 100, w: 210, h: 560 },
-            { kind: 'sub', label: 'NODE-2 · Core Services',    x: 560,  y: 90,  w: 220, h: 740 },
-            { kind: 'sub', label: 'NODE-3 · Payment + Vault',  x: 860,  y: 300, w: 250, h: 400 },
-            { kind: 'sub', label: 'NODE-4 · Data + Observability', x: 1255, y: 90, w: 200, h: 760 },
-            { kind: 'sub', label: 'External APIs (Internet)', cls: 'ext', x: 560, y: 850, w: 550, h: 120 }
-        ];
+<script>
+const NS="http://www.w3.org/2000/svg";
+const svg=document.getElementById('svg');
+function el(tag,attrs,children){const e=document.createElementNS(NS,tag);
+    for(const k in attrs)e.setAttribute(k,attrs[k]);
+    if(children)([].concat(children)).forEach(c=>e.appendChild(c));return e;}
+function add(e){svg.appendChild(e);return e;}
 
-        /* =========================================================
-           NODES
-           ========================================================= */
-        const nodes = [
-            // Internet / client
-            { id:'client', node:'EXT', cls:'external', type:'External', name:'Trình duyệt / Client', meta:'HTTPS', x:150, y:305,
-              desc:'Người dùng cuối truy cập hệ thống qua trình duyệt. Vào điểm ingress NODE-1.' },
+/* ---------- defs: arrow markers ---------- */
+const defs=el('defs');
+[['arr-lan','#2d5986'],['arr-wan','#0a7d82'],['arr-net','#7a8595']].forEach(([id,c])=>{
+    defs.appendChild(el('marker',{id,viewBox:'0 -5 10 10',refX:9,refY:0,markerWidth:7,markerHeight:7,orient:'auto'},
+        el('path',{d:'M0,-5L10,0L0,5',fill:c})));
+});
+svg.appendChild(defs);
 
-            // NODE-1 — Ingress (Máy A)
-            { id:'nginx',   node:'NODE-1', type:'Web Server / Proxy', name:'Nginx', meta:':80 / :443', x:390, y:170,
-              desc:'Phục vụ frontend tĩnh và reverse-proxy: /api → Envoy, /auth → Keycloak.' },
-            { id:'envoy',   node:'NODE-1', type:'API Gateway', name:'Envoy Gateway', meta:':10000 · admin :9901', x:390, y:380,
-              desc:'API Gateway: validate JWT (JWKS từ Keycloak), rate-limit, route theo prefix tới các service NODE-2/NODE-3.' },
-            { id:'keycloak',node:'NODE-1', type:'Identity Provider', name:'Keycloak', meta:':8080', x:390, y:600,
-              desc:'OAuth2 / OIDC. Phát hành & ký JWT, MFA. Lưu realm trong keycloak_db (PostgreSQL trên NODE-4).' },
+/* =========================================================
+   ZONES
+   ========================================================= */
+const zones=[
+ {t:'machine',label:'MÁY HOST A  ·  3 VM — mạng nội bộ libvirt 192.168.122.x',x:222,y:96,w:880,h:806,col:'#2d5986'},
+ {t:'machine',label:'MÁY HOST B  ·  Tailscale (WireGuard)',x:1232,y:96,w:200,h:806,col:'#9b2226'},
+ {t:'node',label:'INTERNET / CLIENT',x:40,y:308,w:150,h:160,dash:1},
+ {t:'node',label:'NODE-1 · INGRESS',x:242,y:170,w:180,h:560},
+ {t:'node',label:'NODE-2 · CORE SERVICES',x:560,y:110,w:200,h:782},
+ {t:'node',label:'NODE-3 · PAYMENT + VAULT',x:866,y:330,w:200,h:400},
+ {t:'node',label:'NODE-4 · DATA + OBSERVABILITY',x:1248,y:130,w:170,h:740},
+ {t:'node',label:'EXTERNAL APIs · INTERNET',x:560,y:912,w:506,h:90,dash:1},
+];
+zones.forEach(z=>{
+    const isM=z.t==='machine';
+    add(el('rect',{x:z.x,y:z.y,width:z.w,height:z.h,rx:12,fill:isM?(z.col==='#9b2226'?'rgba(155,34,38,.03)':'rgba(45,89,134,.025)'):'rgba(255,255,255,.6)',
+        stroke:isM?z.col:'#9fb2c4','stroke-width':isM?2:1.4,'stroke-dasharray':isM?'8 5':(z.dash?'5 4':'none')}));
+    // label chip
+    const tx=z.x+16,ty=z.y;
+    add(el('rect',{x:tx-6,y:ty-11,width:z.label.length*(isM?7.6:6.6)+16,height:22,rx:5,fill:'#fff',stroke:isM?z.col:'#9fb2c4','stroke-width':1}));
+    add(el('text',{x:tx+2,y:ty+4,class:isM?'z-machine':'z-node',fill:isM?z.col:'#5b6b7d'},document.createTextNode(z.label)));
+});
 
-            // NODE-2 — Core services (Máy A)
-            { id:'catalog',  node:'NODE-2', type:'Microservice', name:'Catalog Service', meta:':8001', x:670, y:150,
-              desc:'Quản lý sản phẩm & danh mục. DB: catalog_db.' },
-            { id:'cart',     node:'NODE-2', type:'Microservice', name:'Cart Service', meta:':8002', x:670, y:270,
-              desc:'Giỏ hàng người dùng. Gọi Catalog để lấy thông tin sản phẩm. DB: cart_db.' },
-            { id:'order',    node:'NODE-2', type:'Microservice · Saga', name:'Order Service', meta:':8003', x:670, y:390,
-              desc:'Orchestrator checkout (Saga). Điều phối Inventory + Payment qua Kafka, ghi order_db.' },
-            { id:'inventory',node:'NODE-2', type:'Microservice', name:'Inventory Service', meta:':8005', x:670, y:510,
-              desc:'Giữ chỗ & quản lý tồn kho. DB: inventory_db. Phát/nhận lệnh qua Kafka.' },
-            { id:'shipping', node:'NODE-2', type:'Microservice', name:'Shipping Service', meta:':8007', x:670, y:630,
-              desc:'Tạo vận đơn (tích hợp GHN), theo dõi giao hàng. DB: shipping_db.' },
-            { id:'noti',     node:'NODE-2', type:'Microservice', name:'Notification Service', meta:':8008', x:670, y:750,
-              desc:'Consume notification-events từ Kafka để gửi email/cảnh báo. DB: notification_db.' },
+/* Tailscale boundary + lock badge */
+add(el('line',{x1:1167,y1:120,x2:1167,y2:888,stroke:'#0a7d82','stroke-width':1.4,'stroke-dasharray':'7 6'}));
+(function(){
+    const cx=1167,cy=108,w=176;
+    add(el('rect',{x:cx-w/2,y:cy-14,width:w,height:28,rx:14,fill:'#e6f4f4',stroke:'#0a7d82','stroke-width':1.4}));
+    // lock
+    add(el('rect',{x:cx-66,y:cy-5,width:12,height:9,rx:1.5,fill:'#0a7d82'}));
+    add(el('path',{d:`M${cx-63},${cy-5} v-3 a3 3 0 0 1 6 0 v3`,fill:'none',stroke:'#0a7d82','stroke-width':1.4}));
+    add(el('text',{x:cx-46,y:cy+4,class:'e-label',fill:'#0a7d82'},document.createTextNode('Tailscale · WireGuard (mã hóa)')));
+})();
 
-            // NODE-3 — Payment + Vault (Máy A)
-            { id:'payment', node:'NODE-3', type:'Microservice', name:'Payment Service', meta:':8004', x:980, y:400,
-              desc:'Xử lý thanh toán (Stripe). Dùng Vault Transit để mã hóa envelope. DB: payment_db.' },
-            { id:'vault',   node:'NODE-3', type:'Secrets / KMS', name:'HashiCorp Vault', meta:':8200', x:980, y:620,
-              desc:'KMS & secrets. Transit engine cho envelope encryption; AppRole cấp credential cho order/shipping.' },
+/* =========================================================
+   ICONS  (centered at 0,0; caller translates)
+   ========================================================= */
+function cog(rO,rI,teeth){let n=teeth*2,p=[];for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2,r=i%2?rI:rO;p.push([(r*Math.cos(a)).toFixed(1),(r*Math.sin(a)).toFixed(1)]);}return'M'+p.map(q=>q.join(',')).join(' L')+' Z';}
+function icon(type,c){
+    const g=el('g',{});
+    const S=(t,a)=>g.appendChild(el(t,a));
+    switch(type){
+      case 'client': // monitor
+        S('rect',{x:-22,y:-17,width:44,height:30,rx:3,fill:'#fff',stroke:c,'stroke-width':2});
+        S('rect',{x:-18,y:-13,width:36,height:22,rx:1,fill:c,opacity:.12});
+        S('rect',{x:-7,y:13,width:14,height:5,fill:c});
+        S('rect',{x:-14,y:18,width:28,height:3.5,rx:1.5,fill:c}); break;
+      case 'server': // nginx (rack)
+        S('rect',{x:-19,y:-19,width:38,height:38,rx:4,fill:'#fff',stroke:c,'stroke-width':2});
+        for(let i=0;i<3;i++){S('rect',{x:-13,y:-13+i*10,width:26,height:6,rx:1.5,fill:'none',stroke:c,'stroke-width':1.5});
+            S('circle',{cx:-9,cy:-10+i*10,r:1.6,fill:c});} break;
+      case 'gateway': // hexagon
+        S('path',{d:'M0,-22 L19,-11 L19,11 L0,22 L-19,11 L-19,-11 Z',fill:'#fff',stroke:c,'stroke-width':2});
+        S('path',{d:'M-8,-6 L8,-6 M-8,0 L8,0 M-8,6 L8,6',stroke:c,'stroke-width':2,'stroke-linecap':'round'}); break;
+      case 'shield': // keycloak
+        S('path',{d:'M0,-21 L18,-13 V3 C18,15 10,20 0,23 C-10,20 -18,15 -18,3 V-13 Z',fill:'#fff',stroke:c,'stroke-width':2});
+        S('circle',{cx:0,cy:-2,r:5,fill:'none',stroke:c,'stroke-width':2});
+        S('rect',{x:-2,y:0,width:4,height:9,fill:c}); break;
+      case 'kms': // vault safe
+        S('rect',{x:-20,y:-19,width:40,height:38,rx:4,fill:'#fff',stroke:c,'stroke-width':2});
+        S('circle',{cx:0,cy:0,r:10,fill:'none',stroke:c,'stroke-width':2});
+        S('circle',{cx:0,cy:0,r:3,fill:c});
+        for(let a=0;a<360;a+=45){const r1=10,r2=14,x1=r1*Math.cos(a*Math.PI/180),y1=r1*Math.sin(a*Math.PI/180),x2=r2*Math.cos(a*Math.PI/180),y2=r2*Math.sin(a*Math.PI/180);S('line',{x1,y1,x2,y2,stroke:c,'stroke-width':2,'stroke-linecap':'round'});} break;
+      case 'service': // microservice cog
+        S('path',{d:cog(15,11,8),fill:'#fff',stroke:c,'stroke-width':2,'stroke-linejoin':'round'});
+        S('circle',{cx:0,cy:0,r:5,fill:'none',stroke:c,'stroke-width':2}); break;
+      case 'db': // cylinder
+        S('path',{d:'M-16,-15 a16,6 0 0 1 32,0 V15 a16,6 0 0 1 -32,0 Z',fill:'#fff',stroke:c,'stroke-width':2});
+        S('path',{d:'M-16,-15 a16,6 0 0 0 32,0',fill:'none',stroke:c,'stroke-width':2});
+        S('path',{d:'M-16,-3 a16,6 0 0 0 32,0 M-16,7 a16,6 0 0 0 32,0',fill:'none',stroke:c,'stroke-width':1.4,opacity:.6}); break;
+      case 'broker': // kafka nodes
+        S('circle',{cx:0,cy:-13,r:6,fill:'#fff',stroke:c,'stroke-width':2});
+        S('circle',{cx:-12,cy:9,r:6,fill:'#fff',stroke:c,'stroke-width':2});
+        S('circle',{cx:12,cy:9,r:6,fill:'#fff',stroke:c,'stroke-width':2});
+        S('line',{x1:0,y1:-13,x2:-12,y2:9,stroke:c,'stroke-width':2});
+        S('line',{x1:0,y1:-13,x2:12,y2:9,stroke:c,'stroke-width':2});
+        S('line',{x1:-12,y1:9,x2:12,y2:9,stroke:c,'stroke-width':2}); break;
+      case 'logs': // ELK stacked docs
+        for(let i=2;i>=0;i--){S('rect',{x:-14+i*4,y:-16+i*5,width:24,height:30,rx:2,fill:'#fff',stroke:c,'stroke-width':2});}
+        S('path',{d:'M-9,-9 L3,-9 M-9,-3 L3,-3 M-9,3 L3,3',stroke:c,'stroke-width':1.6,'stroke-linecap':'round'}); break;
+      case 'gauge': // monitoring
+        S('path',{d:'M-18,8 A18,18 0 0 1 18,8',fill:'none',stroke:c,'stroke-width':2.5,'stroke-linecap':'round'});
+        S('line',{x1:0,y1:8,x2:9,y2:-7,stroke:c,'stroke-width':2.5,'stroke-linecap':'round'});
+        S('circle',{cx:0,cy:8,r:3,fill:c}); break;
+      case 'cloud': // external api
+        S('path',{d:'M-15,8 a9,9 0 0 1 1,-18 a11,11 0 0 1 20,3 a8,8 0 0 1 2,15 Z',fill:'#fff',stroke:c,'stroke-width':2,'stroke-linejoin':'round'}); break;
+    }
+    return g;
+}
 
-            // NODE-4 — Data + Observability (Máy B, Tailscale)
-            { id:'postgres', node:'NODE-4', cls:'infra', type:'Database', name:'PostgreSQL', meta:':5432 (Tailscale)', x:1350, y:180,
-              desc:'Database-per-service: catalog/cart/order/payment/inventory/shipping/notification/keycloak_db.' },
-            { id:'kafka',    node:'NODE-4', cls:'infra', type:'Message Broker', name:'Kafka + Zookeeper', meta:':9092 (Tailscale)', x:1350, y:370,
-              desc:'Event bus. Topics: order-commands, order-events, inventory-commands, payment-commands, notification-events.' },
-            { id:'audit',    node:'NODE-4', cls:'infra', type:'Logging (ELK)', name:'Logstash + Elasticsearch + Kibana', meta:':5044 / :9200 / :5601', x:1350, y:560,
-              desc:'Audit log pipeline: service → Logstash → Elasticsearch → Kibana. Lưu HMAC-signed audit events.' },
-            { id:'monitor',  node:'NODE-4', cls:'infra', type:'Monitoring', name:'Prometheus + Grafana', meta:':9090 / :3000', x:1350, y:760,
-              desc:'Prometheus scrape /metrics của các service; Grafana hiển thị dashboard hiệu năng.' },
+/* =========================================================
+   NODES
+   ========================================================= */
+const nodes=[
+ {id:'client',x:115,y:355,icon:'client',c:'#64788f',name:'Trình duyệt',role:'End-user client',meta:'',mc:'#64788f'},
 
-            // External APIs
-            { id:'ghn',    node:'EXT', cls:'external', type:'External API', name:'GHN API', meta:'Internet', x:670, y:910,
-              desc:'Giao Hàng Nhanh — tạo & tra cứu vận đơn. Được Shipping Service gọi.' },
-            { id:'stripe', node:'EXT', cls:'external', type:'External API', name:'Stripe API', meta:'Internet', x:980, y:910,
-              desc:'Cổng thanh toán. Được Payment Service gọi để charge.' }
-        ];
+ {id:'nginx',x:332,y:255,icon:'server',c:'#2d5986',name:'Nginx',role:'Static + reverse proxy',meta:':80/:443',mc:'#2d5986'},
+ {id:'envoy',x:332,y:430,icon:'gateway',c:'#1d4ed8',name:'Envoy Gateway',role:'JWT · route · rate-limit',meta:':10000',mc:'#1d4ed8'},
+ {id:'keycloak',x:332,y:625,icon:'shield',c:'#7c3aed',name:'Keycloak',role:'OAuth2/OIDC · JWT issuer',meta:':8080',mc:'#7c3aed'},
 
-        /* =========================================================
-           EDGES — link: 'lan' (cùng máy) | 'wan' (cross-host Tailscale) | 'net' (internet)
-           ========================================================= */
-        const edges = [
-            // Ingress / Auth
-            { s:'client',   t:'nginx',    label:'HTTPS (browse/checkout)', type:'sync', link:'net' },
-            { s:'client',   t:'keycloak', label:'Login OIDC',              type:'sync', link:'net' },
-            { s:'nginx',    t:'envoy',    label:'proxy /api/v1',           type:'sync', link:'lan' },
-            { s:'nginx',    t:'keycloak', label:'proxy /auth',             type:'sync', link:'lan' },
-            { s:'envoy',    t:'keycloak', label:'JWKS — validate JWT',     type:'sync', link:'lan' },
-            { s:'envoy',    t:'catalog',  label:'route /catalog',          type:'sync', link:'lan' },
-            { s:'envoy',    t:'cart',     label:'route /cart',             type:'sync', link:'lan' },
-            { s:'envoy',    t:'order',    label:'route /orders',           type:'sync', link:'lan' },
-            { s:'envoy',    t:'payment',  label:'route /payment',          type:'sync', link:'lan' },
+ {id:'catalog',x:660,y:175,icon:'service',c:'#2f6690',name:'Catalog',role:'Sản phẩm & danh mục',meta:':8001',mc:'#2f6690'},
+ {id:'cart',x:660,y:300,icon:'service',c:'#2f6690',name:'Cart',role:'Giỏ hàng',meta:':8002',mc:'#2f6690'},
+ {id:'order',x:660,y:425,icon:'service',c:'#2f6690',name:'Order',role:'Checkout Saga orchestrator',meta:':8003',mc:'#2f6690'},
+ {id:'inventory',x:660,y:550,icon:'service',c:'#2f6690',name:'Inventory',role:'Giữ chỗ tồn kho',meta:':8005',mc:'#2f6690'},
+ {id:'shipping',x:660,y:675,icon:'service',c:'#2f6690',name:'Shipping',role:'Vận đơn · GHN',meta:':8007',mc:'#2f6690'},
+ {id:'noti',x:660,y:800,icon:'service',c:'#2f6690',name:'Notification',role:'Email/alert consumer',meta:':8008',mc:'#2f6690'},
 
-            // Core service-to-service (LAN, Máy A)
-            { s:'cart',     t:'catalog',  label:'fetch product',           type:'sync', link:'lan' },
-            { s:'order',    t:'cart',     label:'get cart',                type:'sync', link:'lan' },
-            { s:'order',    t:'inventory',label:'check stock',             type:'sync', link:'lan' },
-            { s:'order',    t:'payment',  label:'init payment',            type:'sync', link:'lan' },
+ {id:'payment',x:966,y:435,icon:'service',c:'#7c2d92',name:'Payment',role:'Stripe · envelope crypto',meta:':8004',mc:'#7c2d92'},
+ {id:'vault',x:966,y:635,icon:'kms',c:'#b45309',name:'HashiCorp Vault',role:'KMS · Transit · AppRole',meta:':8200',mc:'#b45309'},
 
-            // Vault (LAN, Máy A: NODE-2/NODE-3 → NODE-3 Vault)
-            { s:'payment',  t:'vault',    label:'Transit encrypt/decrypt', type:'sync', link:'lan' },
-            { s:'order',    t:'vault',    label:'AppRole secret',          type:'sync', link:'lan' },
-            { s:'shipping', t:'vault',    label:'AppRole secret',          type:'sync', link:'lan' },
+ {id:'postgres',x:1333,y:215,icon:'db',c:'#9b2226',name:'PostgreSQL',role:'DB-per-service (8 DB)',meta:':5432',mc:'#9b2226'},
+ {id:'kafka',x:1333,y:415,icon:'broker',c:'#9b2226',name:'Kafka + ZK',role:'Event bus',meta:':9092',mc:'#9b2226'},
+ {id:'audit',x:1333,y:615,icon:'logs',c:'#9b2226',name:'ELK Stack',role:'Logstash→ES→Kibana',meta:':9200',mc:'#9b2226'},
+ {id:'monitor',x:1333,y:805,icon:'gauge',c:'#9b2226',name:'Prometheus+Grafana',role:'Metrics & dashboard',meta:':9090/:3000',mc:'#9b2226'},
 
-            // External APIs (Internet)
-            { s:'payment',  t:'stripe',   label:'charge',                  type:'sync', link:'net' },
-            { s:'shipping', t:'ghn',      label:'create shipment',         type:'sync', link:'net' },
+ {id:'ghn',x:660,y:953,icon:'cloud',c:'#64788f',name:'GHN API',role:'Logistics',meta:'Internet',mc:'#64788f'},
+ {id:'stripe',x:966,y:953,icon:'cloud',c:'#64788f',name:'Stripe API',role:'Payment gateway',meta:'Internet',mc:'#64788f'},
+];
+const M={};nodes.forEach(n=>M[n.id]=n);
 
-            // Kafka async (cross-host → NODE-4 trên Máy B)
-            { s:'order',    t:'kafka',    label:'order-commands / order-events', type:'async', link:'wan' },
-            { s:'payment',  t:'kafka',    label:'payment-commands',        type:'async', link:'wan' },
-            { s:'inventory',t:'kafka',    label:'inventory-commands',      type:'async', link:'wan' },
-            { s:'shipping', t:'kafka',    label:'shipping events',         type:'async', link:'wan' },
-            { s:'kafka',    t:'noti',     label:'notification-events',     type:'async', link:'wan' },
-            { s:'kafka',    t:'shipping', label:'order.confirmed',         type:'async', link:'wan' },
+/* anchors on zone edges for trunk lines */
+const A2={x:760,y:470}, A3={x:1066,y:560};
 
-            // Database (cross-host → PostgreSQL trên NODE-4)
-            { s:'catalog',  t:'postgres', label:'catalog_db',              type:'sync', link:'wan' },
-            { s:'cart',     t:'postgres', label:'cart_db',                 type:'sync', link:'wan' },
-            { s:'order',    t:'postgres', label:'order_db',                type:'sync', link:'wan' },
-            { s:'inventory',t:'postgres', label:'inventory_db',            type:'sync', link:'wan' },
-            { s:'shipping', t:'postgres', label:'shipping_db',             type:'sync', link:'wan' },
-            { s:'noti',     t:'postgres', label:'notification_db',         type:'sync', link:'wan' },
-            { s:'payment',  t:'postgres', label:'payment_db',              type:'sync', link:'wan' },
-            { s:'keycloak', t:'postgres', label:'keycloak_db',             type:'sync', link:'wan' },
+/* =========================================================
+   EDGES (drawn first, under nodes)
+   style: kind = lan | wan | kafka | net
+   ========================================================= */
+function pt(o){return M[o]?{x:M[o].x,y:M[o].y}:o;}
+const STYLE={
+  lan:{stroke:'#2d5986',dash:'none',mk:'arr-lan'},
+  wan:{stroke:'#0a7d82',dash:'none',mk:'arr-wan'},
+  kafka:{stroke:'#0a7d82',dash:'7 5',mk:'arr-wan'},
+  net:{stroke:'#7a8595',dash:'4 4',mk:'arr-net'},
+};
+const edges=[
+ // ingress / auth
+ {s:'client',t:'nginx',k:'net',l:'HTTPS'},
+ {s:'client',t:'keycloak',k:'net',l:'OIDC login'},
+ {s:'nginx',t:'envoy',k:'lan',l:'/api/v1'},
+ {s:'nginx',t:'keycloak',k:'lan',l:'/auth'},
+ {s:'envoy',t:'keycloak',k:'lan',l:'JWKS'},
+ {s:'envoy',t:'catalog',k:'lan'},
+ {s:'envoy',t:'cart',k:'lan'},
+ {s:'envoy',t:'order',k:'lan',l:'REST /api/v1'},
+ {s:'envoy',t:'payment',k:'lan'},
+ // core sync
+ {s:'cart',t:'catalog',k:'lan',l:'get product'},
+ {s:'order',t:'cart',k:'lan',l:'get cart'},
+ {s:'order',t:'inventory',k:'lan',l:'reserve stock'},
+ {s:'order',t:'payment',k:'lan',l:'init payment'},
+ // vault
+ {s:'payment',t:'vault',k:'lan',l:'Transit'},
+ {s:'order',t:'vault',k:'lan',l:'AppRole'},
+ {s:'shipping',t:'vault',k:'lan',l:'AppRole'},
+ // external
+ {s:'payment',t:'stripe',k:'net',l:'charge'},
+ {s:'shipping',t:'ghn',k:'net',l:'create order'},
+ // cross-host trunks (zone anchored)
+ {s:A2,t:'postgres',k:'wan',l:'asyncpg · DB-per-service',bend:-40},
+ {s:A3,t:'postgres',k:'wan',l:'payment_db',bend:-20},
+ {s:'keycloak',t:'postgres',k:'wan',l:'keycloak_db',bend:-120,thin:1},
+ {s:A2,t:'kafka',k:'kafka',l:'events (pub/sub)',bi:1},
+ {s:A3,t:'kafka',k:'kafka',l:'payment-commands',bend:10},
+ {s:A2,t:'audit',k:'kafka',l:'audit → Logstash',bend:30},
+ {s:'monitor',t:A2,k:'wan',l:'scrape /metrics',bend:40},
+];
 
-            // Observability (cross-host)
-            { s:'order',    t:'audit',    label:'audit log → Logstash',    type:'async', link:'wan' },
-            { s:'payment',  t:'audit',    label:'audit log → Logstash',    type:'async', link:'wan' },
-            { s:'monitor',  t:'order',    label:'scrape /metrics',         type:'sync', link:'wan' },
-            { s:'monitor',  t:'payment',  label:'scrape /metrics',         type:'sync', link:'wan' }
-        ];
+function edgePath(s,e,bend){
+  const dx=e.x-s.x, dy=e.y-s.y;
+  // horizontal-biased cubic; optional vertical bend for long trunks
+  const c1x=s.x+dx*0.45, c1y=s.y+(bend||0);
+  const c2x=e.x-dx*0.45, c2y=e.y+(bend||0);
+  return `M ${s.x},${s.y} C ${c1x},${c1y} ${c2x},${c2y} ${e.x},${e.y}`;
+}
+function shrink(s,e,r){ // pull endpoint back by r px toward source so arrow sits at icon edge
+  const dx=e.x-s.x,dy=e.y-s.y,d=Math.hypot(dx,dy)||1;
+  return {x:e.x-dx/d*r,y:e.y-dy/d*r};
+}
 
-        /* =========================================================
-           RENDER
-           ========================================================= */
-        const stage = document.getElementById('stage');
-        const zonesLayer = document.getElementById('zones-layer');
-        const nodesLayer = document.getElementById('nodes-layer');
-        const svg = document.getElementById('svg-canvas');
-        const detailPanel = document.getElementById('detail-panel');
-        const dpTitle = document.getElementById('dp-title');
-        const dpSub = document.getElementById('dp-sub');
-        const dpContent = document.getElementById('dp-content');
+edges.forEach(ed=>{
+  const st=STYLE[ed.k];
+  let s=pt(ed.s), e=pt(ed.t);
+  const isNodeT=!!M[ed.t], isNodeS=!!M[ed.s];
+  const e2=isNodeT?shrink(s,e,24):e;
+  const s2=isNodeS?shrink(e,s,24):s;
+  add(el('path',{d:edgePath(s2,e2,ed.bend),fill:'none',stroke:st.stroke,
+     'stroke-width':ed.thin?1.4:2.2,'stroke-dasharray':st.dash,
+     'marker-end':`url(#${st.mk})`,'marker-start':ed.bi?`url(#${st.mk})`:'',opacity:ed.thin?.5:.9}));
+  if(ed.l){
+     const mx=(s2.x+e2.x)/2, my=(s2.y+e2.y)/2+(ed.bend?ed.bend*0.75:0);
+     const w=ed.l.length*6.0+10;
+     add(el('rect',{x:mx-w/2,y:my-9,width:w,height:16,rx:4,fill:'#fff',opacity:.92}));
+     add(el('text',{x:mx,y:my+3,'text-anchor':'middle',class:'e-label',fill:st.stroke},document.createTextNode(ed.l)));
+  }
+});
 
-        // Zones
-        zones.forEach(z => {
-            const el = document.createElement('div');
-            el.className = 'zone ' + (z.kind === 'machine' ? 'machine' : 'subzone') + (z.cls ? ' ' + z.cls : '');
-            el.style.left = z.x + 'px'; el.style.top = z.y + 'px';
-            el.style.width = z.w + 'px'; el.style.height = z.h + 'px';
-            const lbl = document.createElement('div');
-            lbl.className = z.kind === 'machine' ? 'machine-label' : 'subzone-label';
-            lbl.textContent = z.label;
-            el.appendChild(lbl);
-            zonesLayer.appendChild(el);
-        });
-
-        // Nodes
-        const nodeMap = {};
-        nodes.forEach(n => {
-            nodeMap[n.id] = n;
-            const el = document.createElement('div');
-            el.className = 'node' + (n.cls ? ' ' + n.cls : '');
-            el.id = `node-${n.id}`;
-            el.style.left = n.x + 'px';
-            el.style.top = n.y + 'px';
-            el.innerHTML = `
-                <div class="node-type">${n.type}</div>
-                <div class="node-name">${n.name}</div>
-                <div class="node-meta">${n.meta || ''}</div>`;
-            el.addEventListener('mouseenter', () => activateNode(n.id));
-            el.addEventListener('mouseleave', deactivateAll);
-            nodesLayer.appendChild(el);
-        });
-
-        // Edges
-        let pathElements = [];
-        let packetElements = [];
-
-        function drawEdges() {
-            svg.querySelectorAll('path.edge, circle.packet').forEach(p => p.remove());
-            pathElements = []; packetElements = [];
-
-            edges.forEach(edge => {
-                if (!nodeMap[edge.s] || !nodeMap[edge.t]) return;
-                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                path.classList.add('edge');
-                if (edge.type === 'async') path.classList.add('dashed');
-                if (edge.link === 'wan') path.classList.add('wan');
-                path.dataset.source = edge.s;
-                path.dataset.target = edge.t;
-                path.dataset.label = edge.label;
-                path.setAttribute('marker-end', 'url(#arrow)');
-                svg.appendChild(path);
-                pathElements.push(path);
-
-                const packet = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                packet.classList.add('packet');
-                if (edge.link === 'wan') packet.classList.add('wan');
-                packet.dataset.source = edge.s;
-                packet.dataset.target = edge.t;
-                svg.appendChild(packet);
-                packetElements.push(packet);
-            });
-            updateEdgePositions();
-        }
-
-        function updateEdgePositions() {
-            pathElements.forEach(path => {
-                const s = nodeMap[path.dataset.source];
-                const t = nodeMap[path.dataset.target];
-                const sx = s.x, sy = s.y, tx = t.x, ty = t.y;
-                const dx = tx - sx;
-                // Horizontal-biased bezier for a clean, untangled look
-                const c1x = sx + dx * 0.45, c1y = sy;
-                const c2x = tx - dx * 0.45, c2y = ty;
-                path.setAttribute('d', `M ${sx},${sy} C ${c1x},${c1y} ${c2x},${c2y} ${tx},${ty}`);
-            });
-        }
-
-        // Packet animation
-        let animationFrame;
-        function animatePackets(timestamp) {
-            packetElements.forEach(packet => {
-                const path = svg.querySelector(`path[data-source="${packet.dataset.source}"][data-target="${packet.dataset.target}"]`);
-                if (path && path.classList.contains('active')) {
-                    const len = path.getTotalLength();
-                    const progress = (timestamp % 2000) / 2000;
-                    const pt = path.getPointAtLength(progress * len);
-                    packet.setAttribute('cx', pt.x);
-                    packet.setAttribute('cy', pt.y);
-                    packet.style.opacity = 1;
-                } else {
-                    packet.style.opacity = 0;
-                }
-            });
-            animationFrame = requestAnimationFrame(animatePackets);
-        }
-
-        /* =========================================================
-           INTERACTION
-           ========================================================= */
-        function activateNode(nodeId) {
-            const data = nodeMap[nodeId];
-
-            document.querySelectorAll('.node').forEach(el => el.classList.add('dimmed'));
-            pathElements.forEach(p => { p.classList.add('dimmed'); p.classList.remove('active'); p.setAttribute('marker-end', 'url(#arrow)'); });
-
-            const activeEl = document.getElementById(`node-${nodeId}`);
-            activeEl.classList.remove('dimmed');
-            activeEl.classList.add('active');
-
-            const connected = edges.filter(e => e.s === nodeId || e.t === nodeId);
-            let html = '';
-            connected.forEach(e => {
-                const peer = e.s === nodeId ? e.t : e.s;
-                document.getElementById(`node-${peer}`).classList.remove('dimmed');
-                const path = svg.querySelector(`path[data-source="${e.s}"][data-target="${e.t}"]`);
-                if (path) { path.classList.remove('dimmed'); path.classList.add('active'); path.setAttribute('marker-end', e.link === 'wan' ? 'url(#arrow-wan)' : 'url(#arrow-active)'); }
-                const dir = e.s === nodeId ? 'OUT' : 'IN';
-                const linkTag = e.link === 'wan' ? ' · Tailscale' : (e.link === 'net' ? ' · Internet' : '');
-                html += `<div style="margin-bottom:5px"><span class="dp-tag ${dir==='OUT'?'out':'in'}">${dir}</span>${e.label} ${dir==='OUT'?'→':'←'} <strong>${nodeMap[peer].name}</strong><span style="opacity:.7">${linkTag}</span></div>`;
-            });
-
-            dpTitle.innerText = data.name;
-            dpSub.innerText = `${data.node} · ${data.type}${data.meta ? ' · ' + data.meta : ''}`;
-            dpContent.innerHTML = `
-                <p style="margin-bottom:10px;color:var(--text-main)">${data.desc}</p>
-                <div style="border-top:1px dashed var(--primary-light);padding-top:8px"><strong>Luồng dữ liệu:</strong><br><br>${html || 'Không có luồng trong phạm vi sơ đồ.'}</div>`;
-            detailPanel.classList.add('visible');
-        }
-
-        function deactivateAll() {
-            document.querySelectorAll('.node').forEach(el => el.classList.remove('dimmed', 'active'));
-            pathElements.forEach(p => { p.classList.remove('dimmed', 'active'); p.setAttribute('marker-end', 'url(#arrow)'); });
-            detailPanel.classList.remove('visible');
-        }
-
-        // Init
-        drawEdges();
-        animationFrame = requestAnimationFrame(animatePackets);
-    </script>
+/* =========================================================
+   NODES (on top)
+   ========================================================= */
+nodes.forEach(n=>{
+  const g=el('g',{transform:`translate(${n.x},${n.y})`});
+  // subtle disc behind icon
+  g.appendChild(el('circle',{cx:0,cy:0,r:27,fill:'#fff',stroke:n.c,'stroke-width':0,opacity:0}));
+  const ic=icon(n.icon,n.c); ic.setAttribute('transform','translate(0,-4)'); g.appendChild(ic);
+  g.appendChild(el('text',{x:0,y:30,'text-anchor':'middle',class:'n-name'},document.createTextNode(n.name)));
+  g.appendChild(el('text',{x:0,y:43,'text-anchor':'middle',class:'n-role'},document.createTextNode(n.role)));
+  if(n.meta){
+     const tw=n.meta.length*6+10;
+     g.appendChild(el('rect',{x:-tw/2,y:50,width:tw,height:14,rx:7,fill:n.mc,opacity:.10}));
+     g.appendChild(el('text',{x:0,y:60,'text-anchor':'middle',class:'n-meta',fill:n.mc},document.createTextNode(n.meta)));
+  }
+  add(g);
+});
+</script>
 </body>
 </html>
