@@ -180,7 +180,28 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
         event_publisher = NullEventPublisher()
 
     # 4. Stripe Client
-    stripe_gateway = StripeClient(cfg.stripe)
+    stripe_config = cfg.stripe
+    if vault_client is not None:
+        try:
+            vault_res = await vault_client.call(
+                vault_client.client.secrets.kv.v2.read_secret_version,
+                path='payment/stripe'
+            )
+            secrets = vault_res['data']['data']
+            update_data = {}
+            if 'api_key' in secrets:
+                update_data['api_key'] = secrets['api_key']
+            if 'webhook_secret' in secrets:
+                update_data['webhook_secret'] = secrets['webhook_secret']
+            if 'publishable_key' in secrets:
+                update_data['publishable_key'] = secrets['publishable_key']
+            
+            stripe_config = stripe_config.model_copy(update=update_data)
+            logger.info("Stripe credentials loaded from Vault")
+        except Exception as e:
+            logger.warning("Failed to load Stripe credentials from Vault, using env vars", exc_info=True)
+
+    stripe_gateway = StripeClient(stripe_config)
 
     # 5. Payout Gateway
     bank_payout_gateway = BankPayoutStub()

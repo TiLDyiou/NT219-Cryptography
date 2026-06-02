@@ -34,18 +34,18 @@ class VaultTransit:
         response = await self._vault.call(
             self._vault.client.secrets.transit.generate_hmac,
             name=key_name,
-            input=input_data,
+            hash_input=input_data,
             algorithm="sha2-256",
         )
         return response["data"]
 
     async def verify_hmac(self, key_name: str, input_data: str, hmac_value: str) -> bool:
         response = await self._vault.call(
-            self._vault.client.secrets.transit.verify_signed,
+            self._vault.client.secrets.transit.verify_signed_data,
             name=key_name,
-            input=input_data,
+            hash_input=input_data,
             hmac=hmac_value,
-            algorithm="sha2-256",
+            hash_algorithm="sha2-256",
         )
         return bool(response["data"]["valid"])
 

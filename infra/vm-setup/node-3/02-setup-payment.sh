@@ -205,7 +205,7 @@ ufw allow 22/tcp
 ufw allow from "${VM2_IP}" to any port 8004
 
 # Vault UI: chỉ local + admin (demo)
-ufw allow 8200/tcp
+ufw allow from "${VM2_IP}" to any port 8200
 
 ufw reload
 echo "  Firewall - OK (payment :8004 chỉ mở cho VM2: ${VM2_IP})"
