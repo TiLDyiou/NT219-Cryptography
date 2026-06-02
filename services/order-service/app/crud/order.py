@@ -57,7 +57,8 @@ def _new_order_number() -> str:
 
 
 def _status_for_method(payment_method_type: str) -> str:
-    return "payment_processing" if payment_method_type != "cod" else "confirmed"
+    # COD chờ người bán xác nhận (pending_payment) — không tự động confirmed.
+    return "pending_payment" if payment_method_type == "cod" else "payment_processing"
 
 
 class CRUDOrder:

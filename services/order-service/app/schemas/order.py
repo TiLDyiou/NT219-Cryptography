@@ -77,6 +77,7 @@ class OrderItemResponse(BaseModel):
     merchant_id: str
     sku: str
     product_name: str
+    image_url: Optional[str] = None
     quantity: int
     unit_price: Decimal
     line_total: Decimal

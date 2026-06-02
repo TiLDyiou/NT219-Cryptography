@@ -1,31 +1,58 @@
-// UIT Store — Merchant Orders Section (Industrial Aesthetic)
-// DFII Score: 14 (High impact, fits merchant context, highly feasible)
-// Aesthetic: Industrial Utilitarian - stark contrast, monospace accents, data-dense.
+// UIT Store — Merchant Orders Section
+// Đồng bộ với design system chung (card, badge, var(--ink-*), Icon).
 
 const _ORDER_STATUS = {
-  pending_payment:    { label: 'CHỜ XÁC NHẬN', fg: '#000', bg: '#FFEB3B', br: '#000' },
-  payment_processing: { label: 'CHỜ THANH TOÁN', fg: '#000', bg: '#FFEB3B', br: '#000' },
-  confirmed:          { label: 'ĐÃ XÁC NHẬN',  fg: '#FFF', bg: '#000',    br: '#000' },
-  shipped:            { label: 'ĐANG GIAO',    fg: '#000', bg: '#00E5FF', br: '#000' },
-  delivered:          { label: 'ĐÃ GIAO',      fg: '#FFF', bg: '#00C853', br: '#000' },
-  cancelled:          { label: 'ĐÃ HUỶ',       fg: '#FFF', bg: '#D50000', br: '#000' },
+  pending_payment:    { label: 'Chờ xác nhận',   cls: 'badge-warn' },
+  payment_processing: { label: 'Chờ thanh toán', cls: 'badge-warn' },
+  payment_failed:     { label: 'Thanh toán lỗi', cls: 'badge-price' },
+  confirmed:          { label: 'Đã xác nhận',    cls: 'badge-primary' },
+  processing:         { label: 'Đang xử lý',     cls: 'badge-primary' },
+  ready_to_ship:      { label: 'Chờ lấy hàng',   cls: 'badge-primary' },
+  shipped:            { label: 'Đang giao',      cls: 'badge-primary' },
+  delivered:          { label: 'Đã giao',        cls: 'badge-success' },
+  completed:          { label: 'Hoàn tất',       cls: 'badge-success' },
+  cancelled:          { label: 'Đã huỷ',         cls: 'badge-ink' },
 };
-const _PAYMENT_LABEL = { cod: 'COD', credit_card: 'CARD' };
+const _PAYMENT_LABEL = { cod: 'COD', credit_card: 'Thẻ' };
 
-// Đơn cũ có thể không lưu product_name -> tra tên từ catalog đã nạp, tránh hiện ID thô.
+const _resolveImg = (url) =>
+  (window.UitAPI && window.UitAPI.resolveMediaUrl) ? window.UitAPI.resolveMediaUrl(url) : url;
+
+// Tra sản phẩm từ catalog đã nạp để có tên / ảnh khi đơn cũ không lưu snapshot.
+const _catProduct = (item) => (window.PRODUCTS || []).find(p => p.id === item.product_id);
+
 const _itemName = (item) => {
   if (item.product_name || item.name) return item.product_name || item.name;
-  const p = (window.PRODUCTS || []).find(pp => pp.id === item.product_id);
+  const p = _catProduct(item);
   return (p && p.name) || ('SP ' + String(item.product_id || '').substring(0, 8));
 };
 
+const _itemImg = (item) => {
+  if (item.image_url) return _resolveImg(item.image_url);
+  const p = _catProduct(item);
+  if (p && window.UitAPI && window.UitAPI.productImageUrl) return window.UitAPI.productImageUrl(p);
+  return null;
+};
+
+const _Thumb = ({ item, size = 36 }) => {
+  const img = _itemImg(item);
+  return img
+    ? <img
+        src={img}
+        alt={_itemName(item)}
+        style={{ width: size, height: size, borderRadius: 6, objectFit: 'cover', border: '1px solid var(--ink-200)', flexShrink: 0 }}
+        onError={(e) => { e.target.style.visibility = 'hidden'; }}
+      />
+    : <div className="ph-img" style={{ width: size, height: size, borderRadius: 6, flexShrink: 0 }} />;
+};
+
 const MerchantOrdersSection = ({ merchantId, user }) => {
-  const [orders, setOrders]   = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [tab, setTab]         = React.useState('all');
+  const [orders, setOrders]     = React.useState([]);
+  const [loading, setLoading]   = React.useState(true);
+  const [tab, setTab]           = React.useState('all');
   const [expanded, setExpanded] = React.useState(null);
-  const [busy, setBusy]       = React.useState(null);
-  const [notice, setNotice]   = React.useState(null);
+  const [busy, setBusy]         = React.useState(null);
+  const [notice, setNotice]     = React.useState(null);
 
   const showNotice = (msg, ok) => {
     setNotice({ msg, ok: ok !== false });
@@ -44,98 +71,71 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
 
   const updateStatus = (orderId, status) => {
     if (status !== 'confirmed') {
-      alert('Chức năng đánh dấu này hiện cần thao tác thông qua API giao vận.');
+      showNotice('Thao tác này cần xử lý qua API giao vận.', false);
       return;
     }
     setBusy(orderId);
     window.UitAPI.merchantOrders.confirm(orderId)
-    .then(() => {
-      load();
-      const lbl = _ORDER_STATUS[status] && _ORDER_STATUS[status].label;
-      showNotice(`[SYS_ACK] Đơn ${orderId.substring(0, 8)} -> ${lbl}`, true);
-      setBusy(null);
-    })
-    .catch((err) => {
-      alert(err.message || 'Lỗi hệ thống');
-      setBusy(null);
-    });
+      .then(() => {
+        load();
+        showNotice(`Đã xác nhận đơn ${orderId.substring(0, 8)}`, true);
+        setBusy(null);
+      })
+      .catch((err) => {
+        showNotice(err.message || 'Lỗi hệ thống', false);
+        setBusy(null);
+      });
   };
 
   const filtered = tab === 'all' ? orders : orders.filter(o => o.status === tab);
-  
+
   const TABS = [
-    { id: 'all',                label: 'TẤT CẢ' },
-    { id: 'pending_payment',    label: 'CHỜ XÁC NHẬN' },
-    { id: 'payment_processing', label: 'CHỜ TT' },
-    { id: 'confirmed',          label: 'ĐÃ XÁC NHẬN' },
-    { id: 'shipped',            label: 'ĐANG GIAO' },
-    { id: 'delivered',          label: 'ĐÃ GIAO' },
+    { id: 'all',                label: 'Tất cả' },
+    { id: 'pending_payment',    label: 'Chờ xác nhận' },
+    { id: 'payment_processing', label: 'Chờ thanh toán' },
+    { id: 'confirmed',          label: 'Đã xác nhận' },
+    { id: 'shipped',            label: 'Đang giao' },
+    { id: 'delivered',          label: 'Đã giao' },
   ];
 
   return (
-    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: '#000', maxWidth: 1200, margin: '0 auto' }}>
-      
-      {/* Header section */}
-      <div style={{ 
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', 
-        borderBottom: '3px solid #000', paddingBottom: 16, marginBottom: 24 
-      }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.02em' }}>
-            Workstation
-          </h2>
-          <div style={{ fontFamily: '"IBM Plex Mono", "Courier New", monospace', fontSize: 13, marginTop: 4, fontWeight: 600 }}>
-            > ORDER_MANAGEMENT_PROTOCOL
-          </div>
-        </div>
-        <button 
-          onClick={load} 
-          style={{ 
-            padding: '8px 16px', fontSize: 13, fontWeight: 700, 
-            border: '2px solid #000', background: '#fff', color: '#000',
-            cursor: 'pointer', fontFamily: '"IBM Plex Mono", "Courier New", monospace'
-          }}
-          onMouseOver={e => { e.target.style.background = '#000'; e.target.style.color = '#fff'; }}
-          onMouseOut={e => { e.target.style.background = '#fff'; e.target.style.color = '#000'; }}
-        >
-          [SYNC_DATA]
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Quản lý đơn hàng</h2>
+        <button onClick={load} className="btn btn-ghost" style={{ padding: '6px 14px', fontSize: 12, border: '1px solid var(--ink-200)' }}>
+          <Icon name="package" size={13} /> Làm mới
         </button>
       </div>
 
       {notice && (
-        <div style={{
-          padding: '12px 16px', marginBottom: 24, fontSize: 14, fontWeight: 600,
-          background: notice.ok ? '#000' : '#D50000', color: '#fff',
-          fontFamily: '"IBM Plex Mono", "Courier New", monospace'
-        }}>
-          > {notice.msg}
+        <div style={{ padding: '10px 14px', marginBottom: 12, borderRadius: 6, fontSize: 12, background: notice.ok ? '#ECFDF5' : '#FEF2F2', color: notice.ok ? '#059669' : '#DC2626', border: `1px solid ${notice.ok ? '#A7F3D0' : '#FCA5A5'}` }}>
+          {notice.msg}
         </div>
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         {TABS.map(t => {
           const count = t.id === 'all' ? orders.length : orders.filter(o => o.status === t.id).length;
           const active = tab === t.id;
           return (
-            <button 
-              key={t.id} 
-              onClick={() => setTab(t.id)} 
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
               style={{
-                padding: '8px 16px', fontSize: 12, fontWeight: 700,
-                background: active ? '#000' : '#fff',
-                color: active ? '#fff' : '#000',
-                border: '2px solid #000',
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 8,
-                fontFamily: '"IBM Plex Mono", "Courier New", monospace'
+                padding: '6px 12px', fontSize: 12, fontWeight: 500, borderRadius: 20,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                border: active ? '1px solid var(--primary)' : '1px solid var(--ink-200)',
+                background: active ? 'var(--primary-soft)' : 'white',
+                color: active ? 'var(--primary)' : 'var(--ink-600)',
               }}
             >
               {t.label}
               <span style={{
-                background: active ? '#fff' : '#000',
-                color: active ? '#000' : '#fff',
-                padding: '2px 6px', fontSize: 11
+                background: active ? 'var(--primary)' : 'var(--ink-200)',
+                color: active ? 'white' : 'var(--ink-600)',
+                borderRadius: 10, padding: '0 6px', fontSize: 11, fontWeight: 600,
               }}>
                 {count}
               </span>
@@ -146,130 +146,144 @@ const MerchantOrdersSection = ({ merchantId, user }) => {
 
       {/* Content */}
       {loading ? (
-        <div style={{ padding: 48, textAlign: 'center', border: '2px dashed #000', fontWeight: 600, fontFamily: 'monospace' }}>
-          FETCHING_RECORDS...
+        <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink-400)' }}>
+          <div className="spinner" style={{ width: 28, height: 28, margin: '0 auto 10px', borderWidth: 3 }} />
+          Đang tải đơn hàng...
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: 64, textAlign: 'center', border: '2px dashed #000' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
-          <div style={{ fontSize: 16, fontWeight: 700, textTransform: 'uppercase' }}>No records found</div>
+        <div className="card" style={{ padding: 48, textAlign: 'center', color: 'var(--ink-500)' }}>
+          <div style={{ color: 'var(--ink-300)', marginBottom: 10 }}><Icon name="package" size={40} /></div>
+          <div style={{ fontSize: 14, fontWeight: 500 }}>Chưa có đơn hàng nào</div>
         </div>
       ) : (
-        <div style={{ border: '2px solid #000', borderBottom: 0 }}>
+        <div className="card" style={{ overflow: 'hidden', padding: 0 }}>
           {filtered.map(order => {
             const st = _ORDER_STATUS[order.status] || _ORDER_STATUS.pending_payment;
             const bsy = busy === order.id;
             const exp = expanded === order.id;
+            const items = order.items || [];
             const phone = (order.shipping_address && order.shipping_address.phone) || '';
-            const maskedPhone = phone ? phone.slice(0, 3) + '****' + phone.slice(-3) : 'N/A';
+            const maskedPhone = phone ? phone.slice(0, 3) + '****' + phone.slice(-3) : '—';
+            const custName = (order.shipping_address && order.shipping_address.name) || ('KH ' + String(order.user_id || '').substring(0, 8));
             const canConfirm = order.status === 'pending_payment';
 
             return (
-              <div key={order.id} style={{ borderBottom: '2px solid #000' }}>
-                <div 
+              <div key={order.id} style={{ borderBottom: '1px solid var(--ink-100)' }}>
+                {/* Summary row */}
+                <div
                   onClick={() => setExpanded(exp ? null : order.id)}
                   style={{
-                    display: 'grid', gridTemplateColumns: '1fr 140px 140px 150px',
-                    background: exp ? '#F4F4F0' : '#fff',
-                    cursor: 'pointer', transition: 'background 0.2s'
+                    display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 150px 180px',
+                    gap: 12, padding: 16, cursor: 'pointer', alignItems: 'center',
+                    background: exp ? 'var(--primary-tint)' : 'white',
                   }}
                 >
-                  {/* Col 1: Order Info */}
-                  <div style={{ padding: 16, borderRight: '2px solid #000' }}>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 14, fontWeight: 800 }}>{order.order_number}</span>
-                      <span style={{ 
-                        fontSize: 10, fontWeight: 700, padding: '2px 6px', 
-                        background: st.bg, color: st.fg, border: `1px solid ${st.br}`,
-                        fontFamily: '"IBM Plex Mono", monospace'
-                      }}>
-                        {st.label}
-                      </span>
+                  {/* Col 1: order + items */}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600, fontSize: 13 }}>{order.order_number}</span>
+                      <span className={'badge ' + st.cls}>{st.label}</span>
+                      <span className="badge badge-ink">{_PAYMENT_LABEL[order.payment_method_type] || order.payment_method_type}</span>
                     </div>
-                    
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: '#000', fontWeight: 500 }}>
-                      {(order.items || []).map((item, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: 8 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {items.slice(0, 2).map((item, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <_Thumb item={item} size={34} />
+                          <span style={{ fontSize: 12, color: 'var(--ink-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                             {_itemName(item)}
                           </span>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>x{item.quantity}</span>
+                          <span style={{ fontSize: 11, color: 'var(--ink-500)', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>
+                            ×{item.quantity}
+                          </span>
                         </div>
                       ))}
+                      {items.length > 2 && (
+                        <div style={{ fontSize: 11, color: 'var(--ink-500)', paddingLeft: 42 }}>
+                          +{items.length - 2} sản phẩm khác
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Col 2: Customer */}
-                  <div style={{ padding: 16, borderRight: '2px solid #000', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: '#666', marginBottom: 4 }}>
-                      Customer
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      {(order.shipping_address && order.shipping_address.name) || order.user_id.substring(0,8)}
-                    </div>
-                    <div style={{ fontSize: 12, fontFamily: 'monospace', marginTop: 4 }}>
-                      {maskedPhone}
-                    </div>
+                  {/* Col 2: customer */}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink-500)', marginBottom: 2 }}>Khách hàng</div>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{custName}</div>
+                    <div style={{ fontSize: 11, color: 'var(--ink-500)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>{maskedPhone}</div>
                   </div>
 
-                  {/* Col 3: Amount */}
-                  <div style={{ padding: 16, borderRight: '2px solid #000', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
-                    <div style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: '#666', marginBottom: 4 }}>
-                      {_PAYMENT_LABEL[order.payment_method_type] || order.payment_method_type}
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 800 }}>
-                      {window.formatVND(order.total_amount || 0)}
-                    </div>
-                  </div>
-
-                  {/* Col 4: Quick Actions */}
-                  <div style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', background: canConfirm ? '#FF3E00' : 'transparent' }}>
+                  {/* Col 3: amount + action */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--price)' }}>{window.formatVND(order.total_amount || 0)}</div>
                     {canConfirm ? (
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); updateStatus(order.id, 'confirmed'); }}
                         disabled={bsy}
-                        style={{
-                          width: '100%', padding: '12px 0',
-                          background: '#000', color: '#fff',
-                          border: 'none', fontWeight: 800, cursor: 'pointer',
-                          fontFamily: '"IBM Plex Mono", monospace'
-                        }}
+                        className="btn btn-primary"
+                        style={{ padding: '6px 14px', fontSize: 12 }}
                       >
-                        {bsy ? 'WAIT...' : 'XÁC NHẬN'}
+                        <Icon name="check" size={13} /> {bsy ? 'Đang xử lý...' : 'Xác nhận đơn'}
                       </button>
                     ) : (
-                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: '#666' }}>
-                        NO_ACTION
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--ink-400)' }}>
+                        <span style={{ display: 'inline-flex', transform: exp ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                          <Icon name="chevron-down" size={14} />
+                        </span>
+                        Chi tiết
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Expanded Detail Tray */}
+                {/* Expanded detail */}
                 {exp && (
-                  <div style={{ 
-                    background: '#000', color: '#fff', padding: 24, 
-                    borderTop: '2px solid #000', fontFamily: '"IBM Plex Mono", monospace'
-                  }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                      <div>
-                        <div style={{ color: '#aaa', fontSize: 11, marginBottom: 8 }}>[SYS_META]</div>
-                        <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                          <div>ID: {order.id}</div>
-                          <div>DATE: {new Date(order.created_at).toISOString()}</div>
-                          <div>PARENT_REF: {order.parent_order_id}</div>
+                  <div style={{ background: 'var(--ink-100)', padding: 16, borderTop: '1px solid var(--ink-200)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      {/* Items detail */}
+                      <div style={{ background: 'white', borderRadius: 8, padding: 14 }}>
+                        <div style={{ fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink-500)', marginBottom: 10 }}>Sản phẩm</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {items.map((item, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <_Thumb item={item} size={44} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-800)' }}>{_itemName(item)}</div>
+                                <div style={{ fontSize: 11, color: 'var(--ink-500)', fontFamily: 'JetBrains Mono, monospace' }}>{item.sku}</div>
+                              </div>
+                              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <div style={{ fontSize: 12, color: 'var(--ink-700)' }}>{window.formatVND(item.unit_price || 0)} × {item.quantity}</div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--price)' }}>{window.formatVND(item.line_total || 0)}</div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                      <div>
-                        <div style={{ color: '#aaa', fontSize: 11, marginBottom: 8 }}>[SHIPPING_LOGISTICS]</div>
-                        <div style={{ fontSize: 13, lineHeight: 1.6 }}>
-                          {order.shipping_address ? (
-                            <>
-                              <div>DEST: {order.shipping_address.address_line1 || 'N/A'}</div>
-                              <div>CITY: {order.shipping_address.city || 'N/A'}</div>
-                            </>
-                          ) : (
-                            <div>DATA_UNAVAILABLE</div>
+
+                      {/* Meta + shipping */}
+                      <div style={{ background: 'white', borderRadius: 8, padding: 14 }}>
+                        <div style={{ fontSize: 11, textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink-500)', marginBottom: 10 }}>Thông tin đơn</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, color: 'var(--ink-700)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ color: 'var(--ink-500)' }}>Mã đơn</span>
+                            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>{order.id}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ color: 'var(--ink-500)' }}>Ngày đặt</span>
+                            <span>{order.created_at ? new Date(order.created_at).toLocaleString('vi-VN') : '—'}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ color: 'var(--ink-500)' }}>Tạm tính</span>
+                            <span>{window.formatVND(order.subtotal || 0)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                            <span style={{ color: 'var(--ink-500)' }}>Phí vận chuyển</span>
+                            <span>{window.formatVND(order.shipping_fee || 0)}</span>
+                          </div>
+                          {order.shipping_address && (
+                            <div style={{ borderTop: '1px solid var(--ink-100)', paddingTop: 8, marginTop: 2 }}>
+                              <div style={{ color: 'var(--ink-500)', marginBottom: 2 }}>Địa chỉ giao</div>
+                              <div>{order.shipping_address.address_line1 || '—'}{order.shipping_address.city ? ', ' + order.shipping_address.city : ''}</div>
+                            </div>
                           )}
                         </div>
                       </div>
