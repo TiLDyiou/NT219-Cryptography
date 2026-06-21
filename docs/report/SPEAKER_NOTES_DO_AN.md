@@ -1,6 +1,6 @@
 # KỊCH BẢN THUYẾT TRÌNH BẢO VỆ ĐỒ ÁN NT219 (BẢN TRỰC DIỆN)
 
-**Nhóm B1.12 · NT219.Q22.ANTT_2026 · UIT Store**
+**NT219.Q22.ANTT_2026 · UIT Store**
 
 > LƯU Ý: Văn phong kịch bản này đi thẳng vào vấn đề kỹ thuật, phân tích trực diện CƠ CHẾ và TẠI SAO. Bỏ qua các từ ngữ rườm rà. Lời nói là phần in thường, thao tác là chữ in nghiêng.
 
@@ -8,9 +8,13 @@
 
 ## SLIDE 1 — TRANG BÌA (30s)
 
-"Kính chào hội đồng. Nhóm em xin trình bày đồ án: **Thiết kế và Đánh giá An toàn Mật mã cho Nền tảng Thương mại Điện tử**.
+"Em chào thầy/cô và tất cả các bạn.
 
-Thay vì chỉ cấu hình các công cụ có sẵn, đồ án này tự xây dựng kiến trúc **Phòng thủ theo chiều sâu (Defense in Depth)** trên môi trường vi dịch vụ (microservices - chia nhỏ hệ thống thành các phần độc lập để dễ bảo vệ từng lớp). Chúng em trực tiếp ứng dụng mật mã vào mã nguồn để giải quyết 3 bài toán lõi: bảo vệ dữ liệu nhạy cảm (data at rest - dữ liệu lưu tĩnh trong cơ sở dữ liệu), chống mạo danh (authentication), và đảm bảo an toàn giao tiếp nội bộ (data in transit - dữ liệu đang truyền trên mạng)."
+chúng em xin được trình bày đồ án môn NT219 — Mật mã học ứng dụng. Đề tài của nhóm là **Thiết kế và Đánh giá An toàn Mật mã cho một Nền tảng Thương mại Điện tử**.
+
+Điểm đặc biệt của đồ án này là: thay vì chỉ trình bày lý thuyết các thuật toán mật mã, nhóm em đã **xây dựng hẳn một sàn thương mại điện tử chạy thật**, rồi áp dụng và **đo lường** xem các cơ chế mật mã hoạt động hiệu quả tới đâu trên hệ thống thật đó.
+
+Sau đây em xin đi vào phần giới thiệu đề tài."
 
 _(Chuyển slide)_
 
@@ -18,104 +22,220 @@ _(Chuyển slide)_
 
 ## SLIDE 2 — BỐI CẢNH VÀ LÝ DO CHỌN ĐỀ TÀI (1 phút)
 
-"Tại sao lại là hệ thống Thương mại điện tử?
-Vì đây là môi trường hội tụ 4 loại tài sản mang rủi ro bảo mật khắt khe nhất:
+"Đầu tiên, vì sao nhóm em chọn thương mại điện tử làm bối cảnh?
 
-1. **Dữ liệu thẻ thanh toán:** Bắt buộc tuân thủ PCI-DSS (tiêu chuẩn bảo mật thẻ thanh toán quốc tế). Nếu lưu trữ sai cách, doanh nghiệp đối mặt rủi ro pháp lý và phạt tài chính nặng nề.
-2. **Phiên đăng nhập:** Chìa khóa vào hệ thống, mục tiêu hàng đầu của các cuộc tấn công chiếm đoạt tài khoản (Account Takeover - hacker dùng token trộm được để đăng nhập trái phép).
-3. **Dữ liệu cá nhân (PII):** Quyền riêng tư của khách hàng, đích nhắm của tấn công rò rỉ dữ liệu (Data Breach - tin tặc lấy cắp hàng loạt thông tin DB).
-4. **Độ tin cậy nội bộ (Internal Trust):** Rủi ro kẻ tấn công leo thang đặc quyền từ một service phụ sang service trọng yếu (như Payment).
+Bởi vì thương mại điện tử là một trong số ít hệ thống chứa **đồng thời cả bốn loại tài sản nhạy cảm nhất** đối với mật mã học. Thứ nhất là **thông tin thẻ thanh toán** của khách. Thứ hai là **token xác thực** — tức phiên đăng nhập của người dùng. Thứ ba là **dữ liệu cá nhân**, hay PII, như tên, địa chỉ, số điện thoại. Và thứ tư, thường bị bỏ quên, là **niềm tin giữa các service nội bộ** với nhau.
 
-Để có môi trường đo lường thực tế, nhóm tự phát triển hệ thống e-commerce gồm 7 microservices chạy trên 4 node mạng ảo, thay vì chỉ mô phỏng trên kiến trúc nguyên khối (monolith - gom chung mọi code vào một chỗ, hỏng 1 nơi dễ sập toàn bộ)."
+Đề tài cụ thể của nhóm là *Online Shopping Service Platform*, tham khảo mô hình của Amazon và Shopee.
 
-_(Chuyển slide)_
+*(Chỉ vào bảng)* Và đây là lý do đề tài này rất hợp với môn NT219: mỗi loại tài sản em vừa kể đều ánh xạ trực tiếp tới một cơ chế mật mã. Số thẻ khách hàng thì nhóm dùng **tokenization** — tức là không bao giờ lưu số thẻ thật. Phiên đăng nhập dùng **OAuth2, OpenID Connect, JWT ký bằng ES256 (ECDSA), kèm xác thực hai lớp MFA**. Các lời gọi API nội bộ giữa service với nhau dùng **HMAC-SHA256, với khóa được quản lý bởi Vault**. Dữ liệu cá nhân thì mã hóa bằng **AES-256-GCM** theo từng trường. Còn toàn bộ khóa và bí mật thì giao cho **HashiCorp Vault** quản lý.
 
----
+Về quy mô: hệ thống gồm **7 microservices, chạy trên 4 máy ảo**, tích hợp hạ tầng thật là Stripe, Keycloak, Vault, Kafka và bộ ELK. Em xin nhấn mạnh: tất cả **chạy thật, không phải mô phỏng**.
 
-## SLIDE 3 — MỤC TIÊU CỐT LÕI VÀ GIẢI PHÁP (1 phút 30s)
-
-"Mục tiêu là: **Bảo mật toàn diện hệ thống phân cấu mà không làm suy giảm hiệu năng trải nghiệm**.
-Nhóm áp dụng triết lý **Zero Trust** (mô hình không tin tưởng bất kỳ ai, bắt buộc xác thực mọi yêu cầu kể cả gọi từ nội bộ).
-
-Từng tài sản được bảo vệ bằng các cơ chế mật mã riêng biệt:
-
-- **Số thẻ ngân hàng:** Áp dụng Tokenization (thay thẻ thật bằng chuỗi ký tự vô nghĩa). Dịch vụ Payment không chạm vào thẻ thật, chuyển hoàn toàn rủi ro lưu trữ sang cổng thanh toán Stripe.
-- **Phiên đăng nhập:** Dùng JWT ký số bằng thuật toán phi đối xứng **RS256** (RSA 256-bit). Keycloak giữ Private Key để ký, các service dùng Public Key để tự xác minh độc lập. Cấp Access Token ngắn hạn kết hợp Refresh Token Rotation (cơ chế thu hồi ngay token cũ khi cấp mới để chặn dùng trộm).
-- **Dữ liệu cá nhân (PII):** Mã hóa ở tầng ứng dụng (Field-level encryption - mã hóa riêng từng cột dữ liệu trước khi gửi xuống DB) bằng **AES-256-GCM**. Dữ liệu được bảo vệ tận gốc, ngăn chặn cả quản trị viên CSDL (DBA) đọc trộm.
-- **Giao tiếp nội bộ:** Yêu cầu xác thực mọi API call bằng chữ ký **HMAC-SHA256** (sinh mã băm để kiểm tra xem ai đang gọi).
-- **Quản lý khóa:** Sử dụng **HashiCorp Vault**. Mã nguồn tuyệt đối không chứa khóa (Zero Hardcode). Khóa được cấp phát động qua cơ chế AppRole."
+Nhưng xây xong chưa phải là xong. Trước khi bàn tới giải pháp, nhóm em tự đặt câu hỏi: **một hệ thống như vậy đang đối mặt với những rủi ro bảo mật nào?** Bởi chỉ khi nhận diện rõ rủi ro, mục tiêu bảo vệ mới có cơ sở. Em xin sang phần nhận diện rủi ro."
 
 _(Chuyển slide)_
 
 ---
 
-## SLIDE 4 — NHẬN DIỆN RỦI RO (1 phút)
+## SLIDE 3 — SECURITY RISKS (1. Authentication Failures & 2. Broken Access Control) (1 phút 30s)
 
-"Kiến trúc trên giải quyết trực tiếp các lỗ hổng theo chuẩn OWASP API Security Top 10:
+"Sau khi xây dựng hệ thống, nhóm em không cho rằng nó đã an toàn ngay. Chúng em **chủ động rà soát theo chuẩn OWASP** — bộ tiêu chuẩn liệt kê các lỗ hổng web nguy hiểm nhất — và thực sự phát hiện nhiều nhóm rủi ro thực tế. Em xin trình bày lần lượt năm nhóm trong ba slide. Đây là hai nhóm đầu.
 
-1. **Broken Object Level Authorization - BOLA** (lỗi phân quyền cho phép xem/sửa data người khác): Kẻ tấn công sửa ID để xem đơn hàng người khác. _(Phòng thủ: Verify Role và UserID trực tiếp từ payload JWT, không tin tham số client truyền lên)_.
-2. **Replay Attack** (tấn công phát lại, bắt 1 gói tin hợp lệ rồi gửi lặp lại để trục lợi): Hacker bắt gói tin API thanh toán và gửi lặp lại. _(Phòng thủ: HMAC kết hợp Timestamp và Nonce, request trễ quá 30s sẽ bị từ chối)_.
-3. **Data Tampering** (hành vi chỉnh sửa dữ liệu trên đường truyền): Sửa giá tiền trước khi thanh toán. _(Phòng thủ: Chữ ký số nội bộ đảm bảo tính toàn vẹn payload)_.
-4. **Credential Stuffing** (dùng tool tự động thử hàng loạt mật khẩu lộ lọt): _(Phòng thủ: Cấu hình Rate Limiting tại Envoy Gateway, chặn IP vượt 100 req/phút)_.
-5. **Lỗ hổng `alg: none`:** Sửa header JWT thành `none` để xóa chữ ký bypass xác thực. _(Phòng thủ: Middleware xác minh JWT ép cứng `algorithms=["RS256"]`)_."
+**Nhóm 1 — Lỗi xác thực (Authentication Failures).** Đây là nhóm liên quan đến việc hệ thống nhận diện 'bạn là ai'. Có hai vấn đề.
 
-_(Chuyển slide)_
+Thứ nhất, **tin tưởng mù quáng vào Header mà không có Gateway kiểm soát**. Trong kiến trúc microservices, các service hay truyền danh tính người dùng qua một header, ví dụ `X-User-Id`. Nếu không có một cổng kiểm soát ở giữa, thì bất kỳ ai lọt được vào mạng nội bộ chỉ cần **tự đặt header `X-User-Id` thành ID của nạn nhân** là lập tức giả được danh tính người đó — đặt hàng, xem đơn, thao tác thay họ.
 
----
+Thứ hai, **JWT chỉ được giải mã ra để đọc mà không kiểm tra chữ ký**. JWT gồm hai phần: nội dung và chữ ký. Nhiều lập trình viên chỉ 'decode' lấy nội dung mà quên bước 'verify' chữ ký. Hậu quả là **kẻ tấn công tự chế một token, ghi mình là admin**, hệ thống vẫn tin — vì nó có đọc chữ ký đâu mà biết là giả.
 
-## SLIDE 5 — KIẾN TRÚC BẢO MẬT (2 phút)
+**Nhóm 2 — Sai sót kiểm soát truy cập (Broken Access Control).** Nhóm này liên quan đến 'bạn được phép làm gì'.
 
-"Luồng đi của một request thể hiện rõ mô hình Zero Trust:
+Một là **API quản trị không có lớp bảo vệ riêng**: các endpoint admin lẽ ra chỉ dành cho quản trị viên, nhưng lại không kiểm tra vai trò, nên một user thường vẫn gọi được — đây chính là lỗi leo thang đặc quyền.
 
-1. **Tại Envoy API Gateway (Edge - cửa ngõ ngoài cùng):**
-   - Hoạt động như SSL Termination (điểm cuối giải mã HTTPS để giảm tải cho bên trong). VPN WireGuard đóng các port HTTP thuần.
-   - Áp dụng Rate Limiting (giới hạn tốc độ request) chặn brute-force.
-   - Xác minh chữ ký JWT cơ bản trước khi điều hướng request vào trong.
+Hai là **thao túng trạng thái đơn vận chuyển qua webhook giả**: đơn vị vận chuyển báo trạng thái về hệ thống qua webhook. Nếu webhook không kiểm tra chữ ký, kẻ tấn công **tự gửi một webhook giả báo 'đã giao hàng'**, hệ thống ghi nhận đơn hoàn tất mà thực tế hàng chưa hề rời kho — gây thất thoát.
 
-2. **Tại tầng Microservices:**
-   - Khi dịch vụ Đơn hàng gọi Thanh toán, phải gửi: (1) Identity của User (JWT) + (2) **Chữ ký HMAC kèm Timestamp**. Điều này chứng minh 'ai là user' và xác thực 'service nào đang gọi'.
-   - Đối với Kafka (Bất đồng bộ): Payload được ký điện tử **ECDSA** (thuật toán chữ ký nhỏ gọn, tối ưu tốc độ). Consumer xác minh chữ ký hợp lệ mới xử lý, chặn bơm dữ liệu độc hại vào message queue.
-
-3. **Tại hệ thống quản lý khóa:**
-   - Vault là 'ngân hàng khóa'. Các service dùng AppRole lấy token tạm thời kéo API key hoặc gửi dữ liệu qua API `/encrypt` của Vault Transit."
+Điểm chung của cả hai nhóm này là cho phép **vượt quyền và giả mạo danh tính**. Cách nhóm em vá lại — đặt API Gateway làm cổng kiểm soát duy nhất, bắt buộc verify chữ ký JWT, ký webhook, và phân quyền theo vai trò — em sẽ trình bày kỹ ở phần kiến trúc."
 
 _(Chuyển slide)_
 
 ---
 
-## SLIDE 6 — TRIỂN KHAI VÀ CÔ LẬP MẠNG (1 phút)
+## SLIDE 4 — SECURITY RISKS (3. Insecure Design & 4. Injection) (1 phút 30s)
 
-"Hệ thống triển khai 4 máy ảo riêng biệt, kết nối qua VPN Tailscale (WireGuard) mã hóa End-to-End (mã hóa từ đầu gửi đến tận đầu nhận), chặn truy cập trực tiếp từ Internet.
-Thiết kế này nhằm thu hẹp tối đa **Phạm vi đánh giá PCI-DSS - PCI Scope** (khoanh vùng các máy chủ xử lý thẻ để hạn chế số lượng máy phải kiểm định bảo mật hằng năm):
+"Sang nhóm thứ ba và thứ tư.
 
-- **Node 1:** Envoy Gateway (Cửa ngõ).
-- **Node 2:** Core Services (Order, Catalog).
-- **Node 3:** Payment & Vault.
-- **Node 4:** Database Cluster.
+**Nhóm 3 — Thiết kế thiếu an toàn (Insecure Design)** theo em là **nhóm nguy hiểm nhất**, vì nó không phải lỗi code vặt mà nằm ngay trong **logic nghiệp vụ** — không có công cụ quét tự động nào bắt được, phải hiểu hệ thống mới thấy. Có bốn lỗ hổng:
 
-Cách ly Node 3 (chứa tác vụ tài chính và quản lý khóa) giúp hệ thống chỉ cần kiểm định PCI khắt khe trên đúng node này, tiết kiệm lớn chi phí vận hành bảo mật."
+Một, **đua lệnh — race condition — dẫn đến tính tiền hai lần**. Khi người dùng bấm nút thanh toán hai lần thật nhanh, hoặc mạng chập chờn khiến request gửi lặp, hai tiến trình cùng chạy song song và hệ thống **charge tiền hai lần** cho một đơn. Đây là lỗi kinh điển trong thanh toán.
+
+Hai, **ghi nhận sự kiện trước khi xử lý logic**. Hệ thống báo 'thành công' và phát sự kiện đi trước khi thật sự hoàn tất xử lý. Nếu bước sau lỗi, ta đã lỡ thông báo thành công rồi — dẫn đến **dữ liệu giữa các service lệch nhau**, ví dụ đã gửi email xác nhận nhưng đơn thực ra thất bại.
+
+Ba, **tính giá tiền dựa trên dữ liệu từ client**. Nếu server tin vào con số giá mà trình duyệt gửi lên, kẻ tấn công chỉ cần **sửa giá ngay trên trình duyệt** — ví dụ từ 10 triệu xuống 1 đồng — rồi gửi đi. Đây chính là kịch bản em sẽ demo trực tiếp ở phần sau.
+
+Bốn, **lỗi quy đổi tiền tệ làm hoàn tiền sai số lượng** — khi xử lý nhiều đơn vị tiền tệ, sai sót làm tròn hay đổi tỉ giá có thể khiến hệ thống **hoàn nhiều tiền hơn số khách đã trả**.
+
+**Nhóm 4 — Injection.** Ở đây là **rò rỉ token qua lỗ hổng trên trình duyệt**, điển hình là tấn công **XSS** — kẻ tấn công chèn được mã JavaScript độc vào trang, đánh cắp token đăng nhập đang lưu ở trình duyệt nạn nhân, rồi dùng token đó **chiếm phiên** của họ.
+
+Toàn bộ nhóm này được nhóm em xử lý bằng **idempotency key** — mỗi giao dịch có một khóa định danh để dù gọi lặp cũng chỉ trừ tiền một lần; **kiểm tra và tính giá hoàn toàn ở phía server**, tuyệt đối không tin client; và **Saga Pattern** để mỗi bước trong quy trình đều có thể rollback an toàn khi có lỗi."
 
 _(Chuyển slide)_
 
 ---
 
-## SLIDE 7 — DEMO HỆ THỐNG (3 phút)
+## SLIDE 5 — SECURITY RISKS (5. Mishandling of Exceptional Conditions) (1 phút)
 
-"Nhóm xin demo trực tiếp 4 kịch bản phòng thủ:
+"Và nhóm cuối cùng — **Xử lý sai các tình huống ngoại lệ**. Nhóm này tinh vi ở chỗ nó không phải lỗi khi hệ thống chạy bình thường, mà là lỗi **khi có sự cố xảy ra**. Có hai điểm.
 
-1. **Chống mạo danh JWT (alg: none / Invalid Signature):**
-   - Đóng vai kẻ tấn công, sửa payload JWT từ `user` thành `admin`.
-   - Hệ thống trả về 401 Unauthorized do sai chữ ký RS256. Đổi thuật toán sang `none`, API Gateway tiếp tục chặn đứng.
-2. **Chống Replay Attack API Nội bộ:**
-   - Can thiệp bắt gói tin giữa Order và Payment, chèn lại gói tin cũ hợp lệ.
-   - Service từ chối xử lý do phát hiện Timestamp đã quá hạn hoặc Nonce bị trùng.
-3. **Thao túng giá (Data Tampering):**
-   - Kẻ tấn công sửa trường `total_price` ở Frontend xuống 1 USD.
-   - Backend tự tính toán đối chiếu qua DB nội bộ, phát hiện bất đồng bộ và hủy giao dịch.
-4. **Bảo mật DB (Field-level Encryption - mã hóa từng trường dữ liệu):**
-   - Truy cập thẳng DB bằng quyền Admin. Cột thông tin thẻ/PII khách hàng bị mã hóa toàn bộ bằng thuật toán AES-256-GCM thành Ciphertext (đoạn văn bản vô nghĩa), DBA không thể đọc được plain-text (văn bản gốc)."
+Một, **'âm thầm dự phòng' — Silent Fallback**. Hãy hình dung: một cơ chế bảo mật, ví dụ dịch vụ kiểm tra chữ ký, bất ngờ gặp lỗi hoặc quá tải. Thay vì báo lỗi và dừng lại, hệ thống được lập trình kiểu 'thôi cứ cho qua cho mượt'. Vô tình, **toàn bộ lớp bảo mật đó bị vô hiệu hóa mà không một ai hay biết** — kẻ tấn công chỉ cần làm cho cơ chế bảo mật lỗi là cửa mở toang.
 
-_(Thao tác demo dứt khoát, show rõ terminal log / Grafana để hội đồng thấy request bị chặn ở bước nào)_
+Hai, **thông báo lỗi rò rỉ thông tin hệ thống**. Khi có exception, hệ thống trả nguyên một thông báo lỗi kỹ thuật ra ngoài cho người dùng — chứa **stack trace, đường dẫn file nội bộ, phiên bản thư viện, thậm chí cấu trúc database hay câu truy vấn SQL**. Với kẻ tấn công, mỗi thông báo lỗi như vậy là một mảnh bản đồ giúp chúng hiểu hệ thống và tìm đường khai thác sâu hơn.
+
+Nguyên tắc khắc phục của nhóm em là **fail-closed** — tức là khi một cơ chế bảo mật gặp lỗi thì mặc định phải **từ chối, đóng cửa**, chứ tuyệt đối không cho đi tiếp; và **che giấu toàn bộ chi tiết lỗi kỹ thuật**, chỉ trả cho người dùng một thông báo chung chung, còn chi tiết thì ghi vào log nội bộ để nhóm vận hành xử lý.
+
+Như vậy, năm nhóm rủi ro này cho thấy rõ hệ thống có thể bị tấn công ở đâu và ai sẽ chịu thiệt hại. Chính từ bức tranh rủi ro đó, nhóm em mới xác định được mục tiêu cụ thể của đồ án — em xin sang slide tiếp theo."
+
+_(Chuyển slide)_
+
+---
+
+## SLIDE 6 — PROJECT GOAL (1 phút 30s)
+
+"Sau khi đã thấy rõ hệ thống đối mặt với những rủi ro nào, mục tiêu của đồ án trở nên rất tự nhiên: **từ mỗi rủi ro vừa nhận diện, đặt ra một cơ chế mật mã tương ứng để bịt lại** — và chứng minh bằng thực nghiệm rằng lớp bảo vệ đó **không làm chậm trải nghiệm người dùng**.
+
+Nhưng để dễ hình dung 'bảo vệ để làm gì', nhóm em quy các rủi ro đó về **ba bên cần được bảo vệ**, vì suy cho cùng mọi rủi ro đều làm tổn thương một trong ba bên này.
+
+*(Chỉ vào nhóm 1)* **Thứ nhất — Khách hàng.** Từ các rủi ro giả mạo danh tính, đánh cắp token qua XSS, và lộ dữ liệu, khách hàng cần được bảo vệ khỏi **lộ số thẻ, lộ thông tin cá nhân, và bị chiếm tài khoản**. Mục tiêu cho nhóm này: số thẻ dùng **tokenization** — không bao giờ lưu thẻ thật; phiên đăng nhập bảo vệ bằng **JWT ký ES256 (ECDSA) cộng MFA**; dữ liệu cá nhân **mã hóa AES-256-GCM** từng trường, đến cả quản trị viên cơ sở dữ liệu cũng không đọc được.
+
+*(Chỉ vào nhóm 2)* **Thứ hai — Người bán.** Từ các rủi ro webhook giả báo 'đã giao', đơn giả báo 'đã thanh toán', và sửa giá phía client, người bán cần được bảo vệ khỏi **xuất hàng mà không thu được tiền, và thất thoát doanh thu**. Mục tiêu: **ký và xác minh mọi webhook**, **tính giá hoàn toàn ở phía server**, và dùng **idempotency** để một đơn không bị xử lý nhầm hai lần.
+
+*(Chỉ vào nhóm 3)* **Thứ ba — Nội bộ hệ thống, hay doanh nghiệp.** Từ các rủi ro tin tưởng mù quáng vào header, service nội bộ bị giả mạo, race condition charge hai lần, và vi phạm PCI-DSS, hệ thống cần được bảo vệ khỏi **service giả mạo, gian lận thanh toán, và rủi ro pháp lý**. Mục tiêu: mọi lời gọi nội bộ phải **ký HMAC kèm danh tính** — không cho nặc danh; sự kiện Kafka **ký ECDSA** chống bơm sự kiện giả; toàn bộ khóa giao cho **Vault** quản lý tập trung và ghi log; và cô lập mạng để **thu hẹp phạm vi PCI-DSS**.
+
+Và xuyên suốt cả ba bên là **hai nguyên tắc**: **phòng thủ theo chiều sâu** — mỗi tài sản một lớp riêng, thủng lớp này còn lớp khác; và **hiệu năng đo được** — toàn bộ phần mật mã được benchmark để chứng minh chi phí nằm dưới ngưỡng người dùng cảm nhận. Nói ngắn gọn: **bảo mật mà không hy sinh tốc độ**.
+
+Tiếp theo, em xin trình bày **kiến trúc giải pháp** đã hiện thực hóa các mục tiêu này."
+
+_(Chuyển slide)_
+
+---
+
+## SLIDE 7 — KIẾN TRÚC GIẢI PHÁP (2 phút 30s)
+
+"Đây là toàn cảnh kiến trúc. Em xin đi theo đúng đường đi của một request từ trái sang phải để hội đồng thấy mỗi chặng được bảo vệ ra sao. Nguyên tắc xuyên suốt là **Zero Trust** — không thành phần nào tin tưởng thành phần khác một cách mặc định — và **Defense in Depth** — mỗi chặng có một lớp mật mã riêng, thủng một lớp cũng chưa sập hệ thống.
+
+1. **Client → Nginx proxy (ingress):** người dùng kết nối vào bằng **HTTPS**. Nginx là điểm chạm đầu tiên ở vùng ingress, làm nhiệm vụ **TLS termination** — giải mã HTTPS tại biên trước khi đẩy vào trong.
+
+2. **Nginx → Envoy (API Gateway):** Envoy là **cổng định tuyến trung tâm**. Mọi request đều phải qua đây — đây là chỗ áp **rate limiting** chống brute-force và kiểm tra token trước khi cho vào hệ thống.
+
+3. **Envoy → Keycloak — Authenticate:** nếu request chưa có token, Envoy đẩy người dùng qua **Keycloak** để đăng nhập. Keycloak cấp **JWT ký bằng ES256 — tức ECDSA trên đường cong elliptic** — Keycloak giữ Private Key để ký, các service chỉ cần Public Key để tự xác minh độc lập, không cần hỏi lại Keycloak.
+
+4. **Envoy → Core Services — JWT:** sau khi có token, Envoy gắn **JWT** vào mỗi request rồi định tuyến tới khối **Core Services** gồm các microservice nghiệp vụ: **Catalog, Cart, Order**. Mỗi service **tự verify chữ ký JWT** — không service nào tin tưởng mặc định service khác, đúng tinh thần Zero Trust.
+
+5. **Order → Payment (vùng PCI-DSS):** khi đặt hàng, Order gọi sang **Payment** — nằm trong **vùng cô lập PCI-DSS** cùng với Vault. Đây là vùng nhạy cảm nhất vì dính tới tiền và khóa, nên được khoanh riêng để thu hẹp phạm vi kiểm định PCI. Em xin lưu ý: lời gọi nội bộ này **không hề nặc danh** — ngoài JWT mang danh tính người dùng, bản thân service gọi còn phải kèm **chữ ký HMAC + timestamp**, nên một service giả mạo lọt vào mạng nội bộ cũng không thể tự ý gọi Payment.
+
+6. **Payment → Vault — secret key:** Payment **không hardcode khóa**. Nó xin **secret key** từ **Vault** ngay lúc cần. Vault là 'két sắt' tập trung, ghi log mọi lần truy cập.
+
+7. **Payment → Stripe API:** Payment dùng key vừa lấy để gọi **Stripe API** xử lý thanh toán. Số thẻ thật **không bao giờ chạm vào hệ thống** — Stripe trả về token, ta chỉ lưu token (Tokenization).
+
+8. **Vault Transit — mã hóa dữ liệu:** với dữ liệu cá nhân (PII), Order gửi qua **Vault Transit** để mã hóa **AES-256-GCM** trước khi lưu — khóa không bao giờ rời khỏi Vault.
+
+9. **Core Services → Database (TLS):** mọi kết nối tới **Database** đều đi qua **TLS** — dữ liệu trên đường truyền luôn được mã hóa, không ai nghe lén được. Quan trọng hơn, dữ liệu nhạy cảm khi nằm trong DB cũng **không phải plaintext**: các cột PII đã được mã hóa AES-256-GCM ở bước trước, nên ngay cả khi ai đó đọc thẳng được database thì cũng chỉ thấy **ciphertext vô nghĩa** — tức bảo vệ cả lúc truyền (in-transit) lẫn lúc lưu (at-rest).
+
+**Tóm lại:** mỗi chặng có một lớp mật mã riêng — TLS ở biên và tới DB, JWT ES256 cho danh tính, HMAC + timestamp cho gọi nội bộ, Vault cho khóa, AES-GCM cho dữ liệu cả khi truyền lẫn khi lưu, và vùng PCI-DSS cô lập phần thanh toán. Đó chính là **phòng thủ theo chiều sâu**: không có một điểm nào mà thủng là sập toàn bộ."
+
+_(Chuyển slide)_
+
+---
+
+## SLIDE 8 — PHƯƠNG ÁN TRIỂN KHAI (1 phút 30s)
+
+"Về mặt hiện thực, toàn bộ hệ thống được triển khai trên **2 máy host vật lý**, tách theo mức độ nhạy cảm của dữ liệu chứ không gom chung một chỗ.
+
+**Máy Host A — chứa 3 máy ảo (VM)** đảm nhận toàn bộ phần xử lý:
+- **VM1 — vùng vào (ingress):** **Nginx proxy + Envoy API Gateway + Keycloak**. Đây là vùng duy nhất tiếp xúc bên ngoài: Nginx nhận HTTPS, Envoy định tuyến và kiểm token, Keycloak cấp JWT (ES256).
+- **VM2 — dịch vụ nghiệp vụ:** **Catalog, Cart, Order**. Envoy gắn **Bearer JWT** rồi mới chuyển request vào đây.
+- **VM3 — vùng PCI-DSS:** cô lập riêng **Payment + Vault**. Đây là điểm mấu chốt — tách phần thanh toán và khóa ra một VM riêng giúp **thu hẹp phạm vi đánh giá PCI-DSS**, càng gọn thì số máy phải kiểm định khắt khe càng ít, giảm cả rủi ro lẫn chi phí.
+
+**Máy Host B — vùng dữ liệu:** chứa **Database và Kafka**, tách hẳn khỏi phần xử lý.
+
+Hai host nối với nhau qua **Tailscale — đường hầm VPN WireGuard + TLS mã hóa end-to-end** — nên dù traffic đi giữa hai máy (ví dụ Payment ghi xuống Database, hay bắn sự kiện sang Kafka) cũng **không hề lộ ra Internet**. Riêng **Payment gọi thẳng Stripe API** ra ngoài để xử lý thẻ. Sự kiện trao đổi qua **Kafka** còn được **ký số ECDSA và verify khi consume**, chống bơm sự kiện giả vào hàng đợi.
+
+Và về quản lý bí mật: **mã nguồn tuyệt đối không hardcode khóa**. Mỗi service lúc khởi động tự lấy key từ **Vault qua AppRole**; nhóm em còn quét **gitleaks** để đảm bảo **0 key thật trong toàn bộ lịch sử git**.
+
+Một điểm thiết kế quan trọng về luồng nghiệp vụ — **Saga Pattern**: đặt hàng → giữ kho → kiểm tra gian lận → charge Stripe 3DS → xác nhận đơn → trừ kho → giao hàng → gửi email. Bất kỳ bước nào lỗi thì hệ thống **tự động rollback và hoàn hàng**, tránh tình trạng đơn treo hay trừ tiền mà không giao."
+
+_(Chuyển slide)_
+
+---
+
+## SLIDE 9 — KẾT QUẢ TRIỂN KHAI (1 phút 30s)
+
+"Chúng em không dừng ở lý thuyết mà **chạy 26 bài test trực tiếp trên hệ thống đang chạy thật**, chia thành 5 nhóm, kết quả **23/26 đạt**.
+
+**Nhóm 1 — Đăng nhập & JWT, 4/5:** test token ký kiểu `alg:none` thì hệ thống từ chối; token giả mạo trả về 401; token hết hạn cũng 401; sai `audience` bị chặn.
+
+**Nhóm 2 — Thanh toán, 6/7:** gửi webhook giả không đúng chữ ký HMAC thì trả về 400; đặc biệt là test **trả tiền hai lần** — lần đầu mất 438 mili-giây, lần thứ hai nhờ idempotency chỉ còn 5 mili-giây và bị chặn, không charge trùng.
+
+**Nhóm 3 — Tấn công API, đạt tuyệt đối 7/7:** thử **SQL injection** thì WAF trả về 403; bắn **quá 100 request mỗi phút** thì rate limit trả về 429; cùng các test chống giả mạo lời gọi nội bộ.
+
+**Nhóm 4 — Quản lý key, 4/4:** test **seal/unseal Vault**, test **xoay vòng khóa (key rotation)**, và đo độ trễ lấy key từ KMS là 24,6 mili-giây.
+
+**Nhóm 5 — Chuỗi cung ứng, 2/3:** quét thấy **CVE giảm từ 40 xuống 8**; **không còn key thật nào trong lịch sử git**; riêng phần ký artifact vẫn còn trong backlog.
+
+**Về mức cải thiện tổng thể:** lỗ hổng nghiêm trọng (HIGH/CRITICAL) đưa về 0; điểm **OWASP API Top 10 từ 2 lên đủ 10/10**; tuân thủ **PCI-DSS từ 2 lên 8 trên 9**.
+
+Và câu hỏi lớn nhất — **lớp mật mã này có làm chậm hệ thống không?** Câu trả lời là **không**. Tổng overhead **dưới 6%**: mã hóa AES hay ký HMAC chỉ tốn chưa tới **0,002 mili-giây**, Vault nhờ cache 5 phút nên gần như bằng 0. Chỗ người dùng thật sự phải chờ chỉ là Stripe xử lý thanh toán **200–500 mili-giây** — đó là yếu tố bên ngoài, không phải do mật mã.
+
+Tóm lại: **mọi tài sản nhạy cảm đều được bảo vệ và kiểm chứng bằng thực nghiệm — mà người dùng không hề cảm nhận được độ trễ.**"
+
+_(Chuyển slide)_
+
+---
+
+## PHẦN DEMO (câu mở đầu)
+
+"Sau phần kiến trúc và kết quả, nhóm em xin **demo trực tiếp 4 kịch bản** để chứng minh hệ thống chống đỡ tấn công thật. Mỗi kịch bản em sẽ mở video quay lại quá trình chạy thật trên hệ thống."
+
+---
+
+## SLIDE 10 — DEMO: LUỒNG THANH TOÁN TÍCH HỢP STRIPE (45s)
+
+"Đầu tiên là **luồng happy path** — một giao dịch mua hàng hoàn chỉnh, để hội đồng thấy hệ thống chạy thật trước khi em tấn công nó.
+
+Em đăng nhập vào UIT Store, chọn 4 sản phẩm, tổng tiền gần 12,7 triệu. Lưu ý trên thanh địa chỉ là **HTTPS · TLS 1.3** — kết nối đã được mã hóa. Khi bấm 'Đặt hàng & Thanh toán', đơn được đẩy sang **Order Service**, rồi **Payment Service gọi sang Stripe** để xử lý thẻ. Toàn bộ số thẻ thật **do Stripe giữ — hệ thống của em không bao giờ chạm vào** (Tokenization). Thanh toán xong, người dùng nhận email xác nhận."
+
+_(Mở video, để chạy tới bước Stripe trả về thành công)_
+
+---
+
+## SLIDE 11 — DEMO: CHỐNG SỬA GÓI TIN (Data Tampering) (45s)
+
+"Kịch bản thứ hai: kẻ tấn công **sửa giá ngay trên đường truyền**. Sản phẩm Samsung Galaxy Tab giá **9.490.000 đồng**.
+
+Em đóng vai attacker, can thiệp request và **sửa trường giá xuống còn 1 đồng** trước khi gửi lên server. Nhưng backend **không tin giá từ client** — nó tự đối chiếu lại giá gốc trong database, đồng thời gói tin nội bộ được **ký HMAC**, nên mọi chỉnh sửa đều phá vỡ chữ ký. Kết quả: hệ thống **phát hiện bất thường và từ chối giao dịch**."
+
+_(Mở video, dừng lại ở thông báo giao dịch bị chặn)_
+
+---
+
+## SLIDE 12 — DEMO: CHỐNG IDENTITY SPOOFING (45s)
+
+"Kịch bản thứ ba: **giả mạo danh tính**. Đây là tài khoản 'Nguyễn Đức Đại', quyền `user` bình thường.
+
+Em thử **sửa payload trong JWT để biến mình thành người dùng khác hoặc nâng quyền**. Nhưng JWT được **ký bằng ES256 (ECDSA)** — Keycloak giữ private key, các service chỉ có public key để verify. Vừa đổi một ký tự trong payload là **chữ ký không còn khớp**, hệ thống lập tức trả về **401 Unauthorized**. Không thể mạo danh ai khác."
+
+_(Mở video, dừng ở phản hồi 401)_
+
+---
+
+## SLIDE 13 — DEMO: CHỐNG alg: none (45s)
+
+"Kịch bản cuối — kỹ thuật kinh điển nhất: **tấn công `alg: none`**. Ý tưởng của attacker là **sửa header thuật toán của JWT thành `none` để xóa luôn phần chữ ký**, hòng lừa server bỏ qua bước xác minh.
+
+Trong hệ thống của em, middleware xác minh JWT **ép cứng thuật toán ES256 (ECDSA)** — bất kỳ token nào khai báo `none` hay thuật toán khác đều **bị từ chối ngay**, không cần xét tới nội dung. Đây là điểm mà rất nhiều hệ thống thực tế dính lỗ hổng, còn hệ thống của em đã chặn từ gốc.
+
+_(Mở video, dừng ở kết quả bị reject)_
+
+Như vậy là đủ 4 kịch bản: thanh toán an toàn, chống sửa gói tin, chống mạo danh, và chống `alg: none`. Em xin chuyển sang phần kết luận."
 
 ---
 
@@ -156,7 +276,7 @@ Cảm ơn hội đồng đã lắng nghe. Nhóm xin phép nhận câu hỏi ph�
 **2. Mật mã ứng dụng:**
 
 - **Symmetric (AES-256-GCM):** Mã hóa tĩnh PII (Tên, Địa chỉ). Giao tiếp với Vault qua `VaultTransit` API.
-- **Asymmetric (RS256):** Keycloak giữ Private Key ký JWT. Services giữ Public Key xác minh. Kiến trúc lý tưởng cho phân tán vì không chia sẻ Private Key.
+- **Asymmetric (ES256 / ECDSA):** Keycloak giữ Private Key (đường cong elliptic) ký JWT. Services giữ Public Key xác minh. Kiến trúc lý tưởng cho phân tán vì không chia sẻ Private Key; chữ ký ECDSA ngắn gọn hơn RSA nên token nhẹ và verify nhanh.
 - **HMAC (Hash-based Message Authentication Code):** Sinh chữ ký API nội bộ. Đảm bảo toàn vẹn dữ liệu, chống mạo danh.
 - **Envelope Encryption (Mã hóa bao thư):** Dùng Data Encryption Key (DEK) mã hóa dữ liệu, sau đó dùng Key Encryption Key (KEK) mã hóa DEK. Giúp hệ thống dễ dàng Key Rotation định kỳ mà không phải giải mã lại toàn bộ Database.
 - **Tokenization (Stripe):** Thẻ thật được cổng thanh toán đổi thành chuỗi Token ngẫu nhiên (chỉ có ý nghĩa 1 chiều). Hệ thống nội bộ lưu Token này, triệt tiêu rủi ro lộ số thẻ.
@@ -189,9 +309,13 @@ Về bản chất, Keycloak là một nền tảng Quản lý Định danh và T
 3. **Trình quản lý Phiên (Session Management):** Theo dõi xem ai đang đăng nhập, thiết bị nào đang được sử dụng. Nếu bạn bấm "Đăng xuất khỏi mọi thiết bị", module này sẽ ra lệnh vô hiệu hóa toàn bộ Token của bạn.
 4. **Cổng Liên kết Định danh (Identity Brokering):** Đây là module giúp hệ thống của bạn có nút _"Đăng nhập bằng Google/Facebook"_. Keycloak sẽ tự động đi nói chuyện với Google, lấy thông tin về và quy chuẩn lại thành JWT nội bộ của hệ thống bạn.
 5. **Bảng điều khiển Quản trị (Admin Console):** Một giao diện dành riêng cho Admin để tạo người dùng mới, phân quyền (Role-Based Access Control), hoặc cấu hình mức độ bảo mật (như ép buộc xác thực 2 lớp - 2FA).
-   Keycloak tạo và kí JWT bằng thuật toán RS256.
+   Keycloak tạo và kí JWT bằng thuật toán ES256 (ECDSA).
 
 ## mTLS (Mutual Transport Layer Security)
+
+> ⚠️ **TRẠNG THÁI THỰC TẾ (đọc kỹ trước khi trả lời phản biện):** Trong bản chạy hiện tại, **mTLS chưa hoạt động đầy đủ** — đang phải hardcode do vướng cấu hình route giữa các service. Vì vậy, lớp xác thực service-to-service đang dựa vào **chữ ký HMAC + timestamp** (cộng JWT mang danh tính user), chứ **không** nên trình bày mTLS như cơ chế đang chạy.
+>
+> **Nếu hội đồng hỏi "có dùng mTLS không?":** trả lời thẳng — *"mTLS đã được thiết kế trong kiến trúc, nhưng ở bản hiện tại còn vướng cấu hình routing nên đang là hạng mục backlog; hiện tại giao tiếp nội bộ được bảo vệ bằng HMAC + timestamp kèm danh tính JWT, vẫn đủ chống service giả mạo và replay."* — đây là cách trả lời trung thực, đúng tinh thần mục 8.2 (tìm và vá lỗ hổng thật là một phần của đồ án).
 
 Là một cơ chế xác thực hai chiều bắt buộc **cả hai bên** giao tiếp phải xuất trình chứng chỉ điện tử - certificate để xác minh lẫn nhau trước khi trao đổi dữ liệu.
 Trong nền tảng thương mại điện tử, mTLS không dùng cho khách hàng bên ngoài mà được áp dụng triệt để cho giao tiếp nội bộ giữa các Microservices. Mỗi dịch vụ được cấp một danh tính riêng (thông qua hệ thống như SPIFFE/SPIRE hoặc lưới dịch vụ Istio) kèm theo một chứng chỉ điện tử để liên lạc. Toàn bộ các lời gọi API nội bộ này đều được xác thực và cấp quyền nghiêm ngặt dựa trên nguyên tắc đặc quyền tối thiểu (least privilege).

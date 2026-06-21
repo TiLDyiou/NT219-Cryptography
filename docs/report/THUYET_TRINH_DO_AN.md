@@ -35,25 +35,35 @@ NT219 · Nhóm B1.12 · MMT&TT
 
 ## SLIDE 3 — SECURITY RISKS
 
-**Các rủi ro chính trong hệ thống e-commerce:**
+**Từ Project Goal → các rủi ro chính trong e-commerce (map OWASP):**
 
-| Rủi ro                             | Kịch bản                                                   | Hậu quả                   |
-| ---------------------------------- | ---------------------------------------------------------- | ------------------------- |
-| Lưu số thẻ trong DB                | Bị hack → lộ toàn bộ số thẻ khách hàng                     | Vi phạm PCI-DSS           |
-| JWT không có thời hạn              | Token bị đánh cắp → dùng mãi mãi                           | Chiếm tài khoản           |
-| Service nội bộ không xác thực nhau | Hacker vào mạng nội bộ → gọi thẳng API thanh toán          | Giao dịch trái phép       |
-| Webhook không kiểm tra chữ ký      | Gửi webhook giả "đã thanh toán" → xuất hàng không thu tiền | Thất thoát doanh thu      |
-| Không giới hạn request             | Bot thử mật khẩu hàng nghìn lần/giờ                        | Chiếm tài khoản hàng loạt |
-| API key cứng trong code            | Push lên GitHub → bị thu thập tự động                      | Mất tiền không kiểm soát  |
+| Rủi ro                             | Kịch bản                                                   | Hậu quả                   | OWASP            |
+| ---------------------------------- | ---------------------------------------------------------- | ------------------------- | ---------------- |
+| Lưu số thẻ trong DB                | Bị hack → lộ toàn bộ số thẻ khách hàng                     | Vi phạm PCI-DSS           | A02 Crypto Fail  |
+| JWT giả / không verify chữ ký      | Token bị đánh cắp/giả → mạo danh, dùng mãi mãi             | Chiếm tài khoản           | API2 · A07       |
+| Truy cập tài nguyên user khác      | Đổi ID trong request → đọc/sửa đơn hàng người khác         | Lộ & sửa dữ liệu (IDOR)   | API1 BOLA · A01  |
+| Thao túng giá phía client          | Client tự đặt giá khi checkout → mua giá 1đ                | Thất thoát doanh thu      | API3/API6        |
+| Service nội bộ không xác thực nhau | Hacker vào mạng nội bộ → gọi thẳng API thanh toán          | Giao dịch trái phép       | API2 · A05       |
+| Webhook không kiểm tra chữ ký      | Gửi webhook giả "đã thanh toán" → xuất hàng không thu tiền | Thất thoát doanh thu      | API8/API10 · A08 |
+| Template injection (SSTI)          | Sửa template email không auth → chèn payload               | RCE / lộ dữ liệu          | A03 Injection    |
+| Không giới hạn request             | Bot thử mật khẩu hàng nghìn lần/giờ                        | Chiếm tài khoản hàng loạt | API4 · A05       |
+| API key cứng trong code            | Push lên GitHub → bị thu thập tự động                      | Mất tiền không kiểm soát  | A05 Misconfig    |
 
-**Rủi ro thực tế tìm thấy trong chính codebase nhóm:**
+**Rủi ro thực tế tìm thấy trong chính codebase nhóm — và đã khắc phục:**
 
-| Mức độ       | Lỗ hổng                                                      | Đã fix |
-| ------------ | ------------------------------------------------------------ | ------ |
-| Nghiêm trọng | Tin tưởng `X-User-Id` header không verify — ai cũng giả được | ✅     |
-| Cao          | `REQUIRE_INBOUND_HMAC=False` — mọi service gọi được Payment  | ✅     |
-| Cao          | `dev_stub_on_failure=True` — kho lỗi vẫn xác nhận đơn hàng   | ✅     |
-| Trung bình   | Webhook lỗi trả HTTP 500 → Stripe retry vô tận               | ✅     |
+| Mức độ       | Lỗ hổng (PoC khai thác bằng `curl`)                          | OWASP            | Đã fix |
+| ------------ | ------------------------------------------------------------ | ---------------- | ------ |
+| Nghiêm trọng | Tin `X-User-Id` thô + JWT chỉ base64-decode → ai cũng mạo danh | API1/API2 · A07  | ✅     |
+| Nghiêm trọng | Client tự đặt giá `unit_price_snapshot` khi checkout         | API3/API6        | ✅     |
+| Nghiêm trọng | Route admin template noti không auth + SSTI                  | API5 · A03       | ✅     |
+| Cao          | Webhook shipping `/mock` hở + không verify chữ ký GHN        | API8/API10 · A08 | ✅     |
+| Cao          | `REQUIRE_INBOUND_HMAC=False` — mọi service gọi được Payment  | API2             | ✅     |
+| Cao          | `dev_stub_on_failure=True` — kho lỗi vẫn xác nhận đơn hàng   | API6             | ✅     |
+| Trung bình   | Webhook lỗi trả HTTP 500 → Stripe retry vô tận               | API10            | ✅     |
+
+**Cách fix:** verify **JWT RS256 + JWKS** ở mọi service (không còn tin header thô) · giá lấy **server-side từ catalog** · bắt buộc **admin token / HMAC** cho route nội bộ · **HMAC verify** webhook + tắt route mock ở production.
+
+> **Còn lại (backlog vận hành, không phải lỗi thiết kế):** mTLS tại gateway, HSM thay software-key, mã hóa PII at-rest, đổi password mặc định PostgreSQL.
 
 ---
 
