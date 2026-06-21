@@ -23,24 +23,28 @@ class PaymentHttpClient(PaymentGateway):
     def __init__(self, config: PaymentServiceConfig, crypto_service: CryptoService):
         self._config = config
         self._crypto = crypto_service
+        
+        verify_ctx: ssl.SSLContext | bool | str = True
+        if config.mtls_enabled:
+            if config.ca_cert_path:
+                import ssl
+                verify_ctx = ssl.create_default_context(cafile=config.ca_cert_path)
+                verify_ctx.check_hostname = False
+                if config.client_cert_path and config.client_key_path:
+                    verify_ctx.load_cert_chain(
+                        certfile=config.client_cert_path,
+                        keyfile=config.client_key_path,
+                    )
+                else:
+                    logger.warning("mTLS enabled but cert paths missing")
+            else:
+                verify_ctx = False
+
         self._client = httpx.AsyncClient(
             base_url=config.base_url,
             timeout=config.timeout_seconds,
-            verify=self._build_ssl_context(),
+            verify=verify_ctx,
         )
-
-    def _build_ssl_context(self) -> ssl.SSLContext | bool:
-        if not self._config.mtls_enabled:
-            return True
-        if not self._config.client_cert_path or not self._config.client_key_path:
-            logger.warning("mTLS enabled but cert paths missing; falling back to verify=True")
-            return True
-        ctx = ssl.create_default_context(cafile=self._config.ca_cert_path)
-        ctx.load_cert_chain(
-            certfile=self._config.client_cert_path,
-            keyfile=self._config.client_key_path,
-        )
-        return ctx
 
     async def charge(self, request: PaymentChargeRequest) -> PaymentChargeResult:
         path = "/api/v1/payments/charge"

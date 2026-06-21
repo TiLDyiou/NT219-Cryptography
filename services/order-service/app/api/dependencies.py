@@ -102,9 +102,24 @@ async def bind_checkout_to_server_cart(
     cart_url = (
         f"{settings.CART_SERVICE_URL.rstrip('/')}/api/v1/system/carts/{payload.cart_id}"
     )
+    verify_ctx: ssl.SSLContext | bool | str = True
+    if settings.cart.mtls_enabled:
+        if settings.cart.ca_cert_path:
+            import ssl
+            verify_ctx = ssl.create_default_context(cafile=settings.cart.ca_cert_path)
+            verify_ctx.check_hostname = False
+            if settings.cart.client_cert_path and settings.cart.client_key_path:
+                verify_ctx.load_cert_chain(
+                    certfile=settings.cart.client_cert_path,
+                    keyfile=settings.cart.client_key_path,
+                )
+        else:
+            verify_ctx = False
+
     try:
         async with httpx.AsyncClient(
-            timeout=settings.CHECKOUT_REQUEST_TIMEOUT_SECONDS
+            timeout=settings.CHECKOUT_REQUEST_TIMEOUT_SECONDS,
+            verify=verify_ctx
         ) as client:
             resp = await client.get(
                 cart_url,
@@ -146,8 +161,25 @@ async def bind_checkout_to_server_cart(
 
 async def clear_cart_on_server(cart_id: str, user_id: str) -> None:
     cart_url = f"{settings.CART_SERVICE_URL.rstrip('/')}/api/v1/system/carts/{cart_id}/convert"
+    verify_ctx: ssl.SSLContext | bool | str = True
+    if settings.cart.mtls_enabled:
+        if settings.cart.ca_cert_path:
+            import ssl
+            verify_ctx = ssl.create_default_context(cafile=settings.cart.ca_cert_path)
+            verify_ctx.check_hostname = False
+            if settings.cart.client_cert_path and settings.cart.client_key_path:
+                verify_ctx.load_cert_chain(
+                    certfile=settings.cart.client_cert_path,
+                    keyfile=settings.cart.client_key_path,
+                )
+        else:
+            verify_ctx = False
+
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(
+            timeout=5.0,
+            verify=verify_ctx
+        ) as client:
             await client.post(
                 cart_url,
                 params={"user_id": user_id},

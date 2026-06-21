@@ -63,6 +63,10 @@ class AppContainer:
             order_client=OrderHttpClient(
                 self.settings.ORDER_SERVICE_URL,
                 self.settings.ORDER_SERVICE_INTERNAL_TOKEN,
+                mtls_enabled=self.settings.order.mtls_enabled,
+                client_cert_path=self.settings.order.client_cert_path,
+                client_key_path=self.settings.order.client_key_path,
+                ca_cert_path=self.settings.order.ca_cert_path,
             ),
         )
 
