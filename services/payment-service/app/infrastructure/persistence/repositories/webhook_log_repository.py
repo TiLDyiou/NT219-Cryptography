@@ -22,7 +22,7 @@ class PgWebhookLogRepository(WebhookLogRepository):
 
         if dialect_name == "postgresql":
             from sqlalchemy.dialects.postgresql import insert as pg_insert
-            
+
             stmt = (
                 pg_insert(PspWebhookLogModel)
                 .values(
@@ -54,7 +54,7 @@ class PgWebhookLogRepository(WebhookLogRepository):
             existing = result.scalars().first()
             if existing:
                 return None
-                
+
             db_obj = PspWebhookLogModel(
                 psp_provider=psp_provider,
                 event_type=payload.get("type", "unknown"),

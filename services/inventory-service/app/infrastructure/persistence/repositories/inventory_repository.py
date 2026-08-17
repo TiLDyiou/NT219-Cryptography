@@ -12,7 +12,6 @@ from app.infrastructure.persistence.models import (
     InventoryReservationModel,
     WarehouseModel,
 )
-from app.infrastructure.persistence.models.base import generate_uuid
 
 
 class InventoryRepository:

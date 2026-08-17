@@ -49,7 +49,7 @@ class AppContainer:
         from app.application.use_cases.charge import ChargeUseCase
         from app.infrastructure.persistence.repositories.payment_repository import PgPaymentRepository
         from app.infrastructure.persistence.repositories.outbox_repository import PgOutboxRepository
-        
+
         from app.infrastructure.external.order_client import OrderHttpClient
 
         return ChargeUseCase(
@@ -75,7 +75,7 @@ class AppContainer:
         from app.infrastructure.persistence.repositories.payment_repository import PgPaymentRepository
         from app.infrastructure.persistence.repositories.webhook_log_repository import PgWebhookLogRepository
         from app.infrastructure.persistence.repositories.outbox_repository import PgOutboxRepository
-        
+
         return HandleWebhookUseCase(
             payment_repository=PgPaymentRepository(),
             webhook_log_repository=PgWebhookLogRepository(),
@@ -88,7 +88,7 @@ class AppContainer:
     def get_payment_use_case(self, session: AsyncSession):
         from app.application.use_cases.get_payment import GetPaymentUseCase
         from app.infrastructure.persistence.repositories.payment_repository import PgPaymentRepository
-        
+
         return GetPaymentUseCase(
             payment_repository=PgPaymentRepository(),
             session=session
@@ -98,7 +98,7 @@ class AppContainer:
         from app.application.use_cases.refund import RefundUseCase
         from app.infrastructure.persistence.repositories.payment_repository import PgPaymentRepository
         from app.infrastructure.persistence.repositories.outbox_repository import PgOutboxRepository
-        
+
         return RefundUseCase(
             payment_repository=PgPaymentRepository(),
             outbox_repository=PgOutboxRepository(),
@@ -111,7 +111,7 @@ class AppContainer:
         from app.application.use_cases.generate_settlement import GenerateSettlementUseCase
         from app.infrastructure.persistence.repositories.settlement_repository import PgSettlementRepository
         from app.infrastructure.persistence.repositories.outbox_repository import PgOutboxRepository
-        
+
         return GenerateSettlementUseCase(
             settlement_repository=PgSettlementRepository(),
             outbox_repository=PgOutboxRepository(),
@@ -122,7 +122,7 @@ class AppContainer:
         from app.application.use_cases.process_settlement import ProcessSettlementUseCase
         from app.infrastructure.persistence.repositories.settlement_repository import PgSettlementRepository
         from app.infrastructure.persistence.repositories.outbox_repository import PgOutboxRepository
-        
+
         return ProcessSettlementUseCase(
             settlement_repository=PgSettlementRepository(),
             outbox_repository=PgOutboxRepository(),
@@ -220,10 +220,10 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
                 update_data['webhook_secret'] = secrets['webhook_secret']
             if 'publishable_key' in secrets:
                 update_data['publishable_key'] = secrets['publishable_key']
-            
+
             stripe_config = stripe_config.model_copy(update=update_data)
             logger.info("Stripe credentials loaded from Vault")
-        except Exception as e:
+        except Exception:
             logger.warning("Failed to load Stripe credentials from Vault, using env vars", exc_info=True)
 
     stripe_gateway = StripeClient(stripe_config)

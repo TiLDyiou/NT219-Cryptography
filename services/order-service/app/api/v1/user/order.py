@@ -2,7 +2,6 @@ import logging
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header
-from cryptography.exceptions import InvalidTag
 
 from app.api.dependencies import (
     bind_checkout_to_server_cart,

@@ -32,14 +32,14 @@ def upgrade() -> None:
                 -- Compute partition bounds
                 start_date := date_trunc('month', target_date);
                 end_date := start_date + interval '1 month';
-                
+
                 partition_name := 'payment_audit_log_' || to_char(start_date, 'YYYY_MM');
                 start_date_str := to_char(start_date, 'YYYY-MM-DD');
                 end_date_str := to_char(end_date, 'YYYY-MM-DD');
-                
+
                 -- Check if partition already exists
                 IF NOT EXISTS (
-                    SELECT 1 
+                    SELECT 1
                     FROM pg_class c
                     JOIN pg_namespace n ON n.oid = c.relnamespace
                     WHERE c.relname = partition_name

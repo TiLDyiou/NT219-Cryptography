@@ -20,7 +20,7 @@ from app.infrastructure.audit.kafka_audit_logger import KafkaAuditLogger
 from app.infrastructure.cache.redis_idempotency_store import InMemoryIdempotencyStore
 from app.infrastructure.crypto.vault_crypto_service import LocalDevCryptoService
 from app.infrastructure.messaging.kafka_producer import NullEventPublisher
-from app.infrastructure.persistence.models import Base, InventoryItemModel, WarehouseModel
+from app.infrastructure.persistence.models import Base
 from tests.factories import get_mock_inventory_item_model, get_mock_warehouse_model
 
 

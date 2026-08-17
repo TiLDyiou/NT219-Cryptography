@@ -1,7 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
 
 from app.domain.entities.order_item import OrderEntity
 from app.domain.entities.saga import SagaStateEntity

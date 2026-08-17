@@ -27,15 +27,15 @@ async def charge(
     correlation_id: Optional[str] = Depends(get_correlation_id),
 ):
     container = get_container()
-    
+
     payload = request.model_dump()
     payload["user_id"] = user_id
     payload["idempotency_key"] = idempotency_key
     payload["correlation_id"] = correlation_id
-    
+
     usecase = container.charge_use_case(db)
     result = await usecase.execute(payload)
-    
+
     return APIResponse(success=True, data=result, correlation_id=correlation_id)
 
 

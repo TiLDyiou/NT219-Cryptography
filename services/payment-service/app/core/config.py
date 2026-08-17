@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = int(os.getenv("DATABASE_MAX_OVERFLOW", "20"))
     DATABASE_POOL_TIMEOUT: int = int(os.getenv("DATABASE_POOL_TIMEOUT", "30"))
     DATABASE_POOL_RECYCLE: int = int(os.getenv("DATABASE_POOL_RECYCLE", "1800"))
-    
+
     ALEMBIC_CHECK_ON_STARTUP: bool = os.getenv("ALEMBIC_CHECK_ON_STARTUP", "true").lower() == "true"
 
     INTERNAL_API_TOKEN: str = os.getenv("INTERNAL_API_TOKEN", "payment_internal_dev_token")

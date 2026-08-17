@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import PaymentException, custom_exception_handler
 from app.infrastructure.persistence.database import init_db
-from app.infrastructure.container import init_container, shutdown_container, get_container
+from app.infrastructure.container import init_container, shutdown_container
 from app.infrastructure.messaging.outbox_worker import run_outbox_worker, shutdown_event
 from app.api.v1.router import api_router
 from app.api.middleware.hmac_verification import HmacVerificationMiddleware
@@ -77,13 +77,13 @@ async def lifespan(app: FastAPI):
     validate_production_secrets()
     logger.info("Initializing payment-service database...")
     await init_db()
-    
+
     logger.info("Bootstrapping DI container...")
     container = await init_container()
-    
+
     if settings.ALEMBIC_CHECK_ON_STARTUP:
         check_alembic_head()
-        
+
     logger.info("Starting outbox publisher daemon task...")
     shutdown_event.clear()
     outbox_task = asyncio.create_task(
@@ -92,9 +92,9 @@ async def lifespan(app: FastAPI):
             publisher=container.event_publisher,
         )
     )
-    
+
     yield
-    
+
     logger.info("Shutting down outbox worker...")
     shutdown_event.set()
     if outbox_task:
@@ -103,7 +103,7 @@ async def lifespan(app: FastAPI):
             await outbox_task
         except asyncio.CancelledError:
             pass
-            
+
     logger.info("Shutting down DI container...")
     await shutdown_container()
 

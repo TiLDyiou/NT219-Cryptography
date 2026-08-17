@@ -9,7 +9,7 @@ from app.application.saga.steps import (
     ReserveInventoryStep,
 )
 from app.domain.entities.order_item import OrderEntity
-from app.domain.entities.saga import CHECKOUT_STEPS, SagaStateEntity, SagaStatus
+from app.domain.entities.saga import SagaStateEntity, SagaStatus
 from app.domain.events import order_status_changed
 from app.domain.ports.event_publisher import EventPublisher
 from app.domain.ports.inventory_gateway import InventoryConfirmRequest, InventoryGateway

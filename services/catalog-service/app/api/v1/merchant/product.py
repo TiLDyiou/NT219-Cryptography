@@ -11,7 +11,6 @@ from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 from app.schemas.media import UploadImageResponse
 from app.schemas.response import APIResponse
 from app.crud.product import product as crud_product
-from app.core.exceptions import EntityNotFoundException
 from app.models.product import Product
 from app.models.merchant import Merchant
 

@@ -1,3 +1,4 @@
+import ssl
 from typing import Optional
 
 from fastapi import Depends, Header
@@ -19,6 +20,7 @@ from app.application.use_cases.checkout import (
 from app.core.config import settings
 from app.core.exceptions import BusinessRuleException, UnauthorizedException
 from app.core.jwt_auth import extract_bearer, verify_token
+from app.domain.ports.crypto_service import CryptoService
 from app.infrastructure.container import get_container
 from app.infrastructure.persistence.database import get_db
 from app.schemas.order import CheckoutItem, CheckoutRequest
@@ -105,7 +107,6 @@ async def bind_checkout_to_server_cart(
     verify_ctx: ssl.SSLContext | bool | str = True
     if settings.cart.mtls_enabled:
         if settings.cart.ca_cert_path:
-            import ssl
             verify_ctx = ssl.create_default_context(cafile=settings.cart.ca_cert_path)
             verify_ctx.check_hostname = False
             if settings.cart.client_cert_path and settings.cart.client_key_path:
@@ -164,7 +165,6 @@ async def clear_cart_on_server(cart_id: str, user_id: str) -> None:
     verify_ctx: ssl.SSLContext | bool | str = True
     if settings.cart.mtls_enabled:
         if settings.cart.ca_cert_path:
-            import ssl
             verify_ctx = ssl.create_default_context(cafile=settings.cart.ca_cert_path)
             verify_ctx.check_hostname = False
             if settings.cart.client_cert_path and settings.cart.client_key_path:
@@ -205,8 +205,6 @@ def get_get_order_use_case(db: AsyncSession = Depends(get_db)) -> GetOrderUseCas
 def get_cancel_order_use_case(db: AsyncSession = Depends(get_db)) -> CancelOrderUseCase:
     return get_container().cancel_order_use_case(db)
 
-
-from app.domain.ports.crypto_service import CryptoService
 
 def get_crypto_service() -> CryptoService:
     return get_container().crypto_service

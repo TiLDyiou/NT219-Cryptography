@@ -7,7 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from app.infrastructure.container import init_container, shutdown_container
 from app.infrastructure.persistence.database import init_db
-from app.infrastructure.persistence.models import Base, InventoryItemModel, WarehouseModel
+from app.infrastructure.persistence.models import Base
 from tests.factories import (
     get_mock_inventory_create,
     get_mock_inventory_item_model,

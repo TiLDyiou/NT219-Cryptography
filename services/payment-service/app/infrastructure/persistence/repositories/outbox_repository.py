@@ -17,7 +17,7 @@ class PgOutboxRepository(OutboxRepository):
     ) -> None:
         if not session or not isinstance(session, AsyncSession):
             raise ValueError("AsyncSession required")
-            
+
         db_obj = OutboxEventModel(
             aggregate_type=aggregate_type,
             aggregate_id=aggregate_id,
@@ -33,7 +33,7 @@ class PgOutboxRepository(OutboxRepository):
     async def get_pending_events(self, limit: int, session: Any = None) -> list[dict[str, Any]]:
         if not session or not isinstance(session, AsyncSession):
             raise ValueError("AsyncSession required")
-            
+
         stmt = (
             select(OutboxEventModel)
             .where(OutboxEventModel.status == "pending")
@@ -75,6 +75,6 @@ class PgOutboxRepository(OutboxRepository):
             if db_obj.attempt_count >= 5:
                 db_obj.status = "failed"
             await session.flush()
-            
+
             # Commit immediately to preserve error log if session gets rolled back
             await session.commit()

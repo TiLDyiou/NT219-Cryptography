@@ -40,15 +40,15 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
             update_data = obj_in
         else:
             update_data = obj_in.model_dump(exclude_unset=True)
-            
+
         for field in obj_data:
             if field in update_data:
                 setattr(db_obj, field, update_data[field])
-                
+
         # Handle opt_locking version increment
         if hasattr(db_obj, 'version'):
             db_obj.version += 1
-            
+
         db.add(db_obj)
         await db.commit()
         await db.refresh(db_obj)

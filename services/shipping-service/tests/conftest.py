@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.infrastructure.audit.kafka_audit_logger import KafkaAuditLogger
 from app.infrastructure.crypto.vault_crypto_service import LocalDevCryptoService
-from app.infrastructure.external.carrier_gateway_factory import CarrierGatewayFactory
 from app.infrastructure.messaging.kafka_producer import NullEventPublisher
 from app.infrastructure.persistence.models import Base
 from tests.factories import get_mock_provider_model, get_mock_rate_model

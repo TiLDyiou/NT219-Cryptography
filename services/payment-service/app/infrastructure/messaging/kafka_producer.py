@@ -24,7 +24,7 @@ class KafkaEventPublisher(EventPublisher):
     async def publish(self, event_type: str, aggregate_id: str, payload: dict[str, Any]) -> None:
         # Sign the payload using private key/transit
         signature = await self._crypto.sign_event(payload)
-        
+
         envelope = build_envelope(
             event_type=event_type,
             aggregate_id=aggregate_id,
@@ -36,7 +36,7 @@ class KafkaEventPublisher(EventPublisher):
                 "signed_hash": signature.signed_hash,
             },
         )
-        
+
         topic = self._config.topic_payments
         await self._producer.send_and_wait(
             topic,

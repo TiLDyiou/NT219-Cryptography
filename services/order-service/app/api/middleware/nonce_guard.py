@@ -5,7 +5,6 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.core.config import settings
-from app.core.exceptions import ReplayAttackError
 from app.infrastructure.container import get_container
 
 

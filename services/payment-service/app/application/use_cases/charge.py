@@ -157,7 +157,7 @@ class ChargeUseCase:
                 old_data=None,
                 new_data={"id": tx.id, "status": tx.status.value, "amount": str(tx.amount)},
             )
-            
+
             # Execute Stripe Checkout creation for card payments. Webhook is the source of truth.
             stripe_res = {}
             try:
@@ -272,14 +272,14 @@ class ChargeUseCase:
 
             # Commit the transaction
             await self._session.commit()
-            
+
             # Save to idempotency store cache
             await self._idemp.save_response(
                 user_id=user_id, key=idempotency_key, request_hash=payload_hash, response=response
             )
             return response
 
-        except Exception as e:
+        except Exception:
             logger.exception("Critical error during charge use case")
             await self._session.rollback()
             raise

@@ -1,7 +1,7 @@
 from typing import Any
 from datetime import datetime, timezone
 from decimal import Decimal
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.ports.settlement_repository import SettlementRepository
 from app.infrastructure.persistence.models.settlement import MerchantSettlementModel, SettlementItemModel

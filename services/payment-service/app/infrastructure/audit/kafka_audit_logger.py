@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any
 from datetime import datetime, timezone
@@ -33,7 +32,7 @@ class KafkaAuditLogger:
         2. Publish event to Kafka `audit-logs` topic.
         """
         now = datetime.now(timezone.utc)
-        
+
         # Build canonical payload for HMAC signing
         canonical = {
             "table_name": table_name,
@@ -43,12 +42,10 @@ class KafkaAuditLogger:
             "new_data": new_data,
             "timestamp": now.isoformat(),
         }
-        
-        canonical_str = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
-        
+
         # Sign using cryptographic service (which calls Vault audit key or local dev key)
         signature = await self._crypto.sign_event(canonical)
-        
+
         # 1. DB Write
         audit_db = AuditLogModel(
             table_name=table_name,
@@ -66,7 +63,7 @@ class KafkaAuditLogger:
         )
         session.add(audit_db)
         await session.flush()
-        
+
         # 2. Kafka publish
         try:
             await self._publisher.publish(

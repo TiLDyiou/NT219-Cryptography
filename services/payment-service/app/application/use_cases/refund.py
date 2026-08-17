@@ -1,7 +1,6 @@
 import logging
 from decimal import Decimal
 from typing import Any
-from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.value_objects.payment_status import PaymentStatus

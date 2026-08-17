@@ -30,10 +30,10 @@ async def run_outbox_worker(
                     .limit(BATCH_SIZE)
                     .with_for_update(skip_locked=True)
                 )
-                
+
                 result = await session.execute(stmt)
                 events = result.scalars().all()
-                
+
                 if not events:
                     await asyncio.sleep(0.5)
                     continue
@@ -55,14 +55,14 @@ async def run_outbox_worker(
                         if ev.attempt_count >= MAX_ATTEMPTS:
                             ev.status = "failed"
                             logger.error("Outbox event %s reached max retry attempts. Status set to FAILED", ev.id)
-                            
+
                     await session.flush()
-                
+
                 # Commit all updates for the current batch
                 await session.commit()
-                
+
         except Exception:
             logger.exception("Outbox worker iteration failed")
             await asyncio.sleep(1.0)
-            
+
     logger.info("Outbox worker stopped gracefully")

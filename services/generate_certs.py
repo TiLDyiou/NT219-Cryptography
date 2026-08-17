@@ -8,11 +8,11 @@ from cryptography.hazmat.primitives import serialization
 
 def generate_cert(common_name, is_ca=False, issuer_cert=None, issuer_key=None):
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    
+
     subject = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
     ])
-    
+
     issuer = issuer_cert.subject if issuer_cert else subject
     key_to_sign = issuer_key if issuer_key else private_key
 
@@ -44,11 +44,11 @@ def generate_cert(common_name, is_ca=False, issuer_cert=None, issuer_key=None):
 
 def save_to_disk(filename_prefix, cert, private_key, out_dir):
     os.makedirs(out_dir, exist_ok=True)
-    
+
     cert_path = os.path.join(out_dir, f"{filename_prefix}.crt")
     with open(cert_path, "wb") as f:
         f.write(cert.public_bytes(serialization.Encoding.PEM))
-        
+
     key_path = os.path.join(out_dir, f"{filename_prefix}.key")
     with open(key_path, "wb") as f:
         f.write(private_key.private_bytes(
@@ -56,23 +56,23 @@ def save_to_disk(filename_prefix, cert, private_key, out_dir):
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()
         ))
-    
+
     print(f"Saved: {cert_path} and {key_path}")
 
 if __name__ == "__main__":
     certs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "certs"))
     print(f"Generating certificates in: {certs_dir}")
-    
+
     # 1. Root CA
     ca_cert, ca_key = generate_cert("MyInternalCA", is_ca=True)
     save_to_disk("ca", ca_cert, ca_key, certs_dir)
-    
+
     # 2. Order Server Cert
     ingress_cert, ingress_key = generate_cert("ingress-service", is_ca=False, issuer_cert=ca_cert, issuer_key=ca_key)
     save_to_disk("ingress", ingress_cert, ingress_key, certs_dir)
-    
+
     # 3. Payment Client Cert
     ingress2_cert, ingress2_key = generate_cert("ingress2-service", is_ca=False, issuer_cert=ca_cert, issuer_key=ca_key)
     save_to_disk("ingress2", ingress2_cert, ingress2_key, certs_dir)
-    
+
     print("\nGeneration Complete! You can now use these paths in your .env and uvicorn command.")

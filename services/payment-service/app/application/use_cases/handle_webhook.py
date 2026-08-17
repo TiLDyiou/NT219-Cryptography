@@ -9,7 +9,7 @@ from app.domain.ports.webhook_log_repository import WebhookLogRepository
 from app.domain.ports.outbox_repository import OutboxRepository
 from app.domain.ports.stripe_gateway import StripeGateway
 from app.infrastructure.audit.kafka_audit_logger import KafkaAuditLogger
-from app.core.exceptions import EntityNotFoundException, BusinessRuleException
+from app.core.exceptions import EntityNotFoundException
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class HandleWebhookUseCase:
         event = self._stripe.verify_webhook_signature(payload_bytes, sig_header)
         event_id = event["id"]
         event_type = event["type"]
-        
+
         logger.info("Processing Stripe Webhook event: %s (ID: %s)", event_type, event_id)
 
         # 2. Enforce atomic deduplication (R2)
@@ -93,7 +93,7 @@ class HandleWebhookUseCase:
             # We get transaction by intent_id using database locks
             from sqlalchemy import select
             from app.infrastructure.persistence.models.payment_transaction import PaymentTransactionModel
-            
+
             stmt = select(PaymentTransactionModel).with_for_update()
             if order_id:
                 stmt = stmt.where(PaymentTransactionModel.order_id == order_id)
@@ -110,12 +110,12 @@ class HandleWebhookUseCase:
             # R3: Guard illegal state transitions (e.g., succeeded -> requires_action)
             if PaymentStatus.can_transition(current_status, target_status):
                 logger.info("Transitioning payment %s from %s to %s", db_obj.id, current_status, target_status)
-                
+
                 # Fetch entity to mutate
                 tx = await self._repo.get_transaction_by_id(db_obj.id, session=self._session)
                 if not tx:
                     raise EntityNotFoundException("PaymentTransaction", db_obj.id)
-                    
+
                 tx.status = target_status
                 tx.psp_status = canonical_status
                 if intent_id and str(intent_id).startswith("pi_"):
@@ -139,13 +139,13 @@ class HandleWebhookUseCase:
                         payload=event_out.to_dict(),
                         session=self._session,
                     )
-                    
+
                 # If transitions to failed
                 elif target_status == PaymentStatus.FAILED:
                     tx.failed_at = datetime.now(timezone.utc)
                     tx.error_code = stripe_state.get("last_payment_error", {}).get("code", "stripe_webhook_decline")
                     tx.error_message = stripe_state.get("last_payment_error", {}).get("message", "Stripe async failure")
-                    
+
                     from app.domain.events import PaymentFailed
                     event_out = PaymentFailed(
                         payment_id=tx.id,
@@ -163,7 +163,7 @@ class HandleWebhookUseCase:
 
                 # Save transaction
                 await self._repo.save_transaction(tx, session=self._session)
-                
+
                 # Log audit
                 await self._audit.log_change(
                     session=self._session,
@@ -183,11 +183,11 @@ class HandleWebhookUseCase:
 
             # 5. Mark webhook processed
             await self._wh_log.mark_as_processed(log_id, session=self._session)
-            
+
             await self._session.commit()
             return {"success": True, "status": target_status.value}
 
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to process webhook transaction log")
             await self._session.rollback()
             raise

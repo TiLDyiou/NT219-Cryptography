@@ -50,7 +50,7 @@ async def list_public_products(
     """
     skip = (page - 1) * size
     products, total = await crud_product.get_public_list(db, skip=skip, limit=size, status=status)
-    
+
     return APIResponse(
         success=True,
         data=await _attach_merchant_names(db, products),
@@ -70,6 +70,6 @@ async def get_public_product(product_id: str, db: AsyncSession = Depends(get_db)
         or product.status != "active"
     ):
         raise EntityNotFoundException(entity="Product", id=product_id)
-        
+
     data = (await _attach_merchant_names(db, [product]))[0]
     return APIResponse(success=True, data=data)

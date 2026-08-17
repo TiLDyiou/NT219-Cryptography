@@ -32,19 +32,19 @@ class ConfirmOrderUseCase:
         correlation_id: str | None = None,
     ) -> OrderEntity:
         order = await self._orders.get_merchant_order(merchant_id, order_id)
-        
+
         from app.core.exceptions import BusinessRuleException
-        
+
         # Determine if order can be confirmed
         if order.status not in (OrderStatus.PENDING_PAYMENT, OrderStatus.PAYMENT_PROCESSING, OrderStatus.CONFIRMED):
             raise BusinessRuleException(f"Cannot confirm order in status: {order.status.value}")
-        
+
         # Even if confirmed already, we can be idempotent or just return. Let's do a strict transition.
         old_status = order.status.value
         if order.status != OrderStatus.CONFIRMED:
             order.transition_to(OrderStatus.CONFIRMED)
             updated = await self._orders.update_order(order)
-            
+
             await self._events.publish(
                 order_status_changed(
                     order_id=order.id,

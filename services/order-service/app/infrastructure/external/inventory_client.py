@@ -27,7 +27,6 @@ class InventoryHttpClient(InventoryGateway):
         verify_ctx: ssl.SSLContext | bool | str = True
         if config.mtls_enabled:
             if config.ca_cert_path:
-                import ssl
                 verify_ctx = ssl.create_default_context(cafile=config.ca_cert_path)
                 verify_ctx.check_hostname = False
                 if config.client_cert_path and config.client_key_path:

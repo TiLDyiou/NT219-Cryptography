@@ -19,9 +19,9 @@ async def generate_settlement(
 ):
     container = get_container()
     usecase = container.generate_settlement_use_case(db)
-    
+
     settlement_id = await usecase.execute(merchant_id, commission_rate)
-    
+
     return APIResponse(
         success=True,
         data={"settlement_id": settlement_id, "status": "generated" if settlement_id else "no_unsettled_txs"},
@@ -37,7 +37,7 @@ async def process_settlement(
 ):
     container = get_container()
     usecase = container.process_settlement_use_case(db)
-    
+
     result = await usecase.execute(settlement_id)
-    
+
     return APIResponse(success=True, data=result, correlation_id=correlation_id)

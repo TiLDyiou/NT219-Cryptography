@@ -53,7 +53,7 @@ async def register_merchant(
     db.add(db_obj)
     await db.commit()
     await db.refresh(db_obj)
-    
+
     return APIResponse(success=True, data=MerchantResponse.model_validate(db_obj))
 
 @router.get("/me", response_model=APIResponse[MerchantResponse])

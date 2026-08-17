@@ -12,7 +12,7 @@ class PgPaymentRepository(PaymentRepository):
     async def save_transaction(self, tx: PaymentTransaction, session: Any = None) -> PaymentTransaction:
         if not session or not isinstance(session, AsyncSession):
             raise ValueError("AsyncSession required")
-            
+
         # Get existing record
         db_obj = await session.get(PaymentTransactionModel, tx.id)
         if db_obj:
@@ -20,7 +20,7 @@ class PgPaymentRepository(PaymentRepository):
             if db_obj.version != tx.version:
                 from app.core.exceptions import OptimisticLockException
                 raise OptimisticLockException(expected_version=tx.version, current_version=db_obj.version)
-                
+
             db_obj.status = tx.status.value
             db_obj.psp_transaction_id = tx.psp_intent_id
             db_obj.psp_status = tx.psp_status
@@ -32,7 +32,7 @@ class PgPaymentRepository(PaymentRepository):
             db_obj.paid_at = tx.paid_at
             db_obj.failed_at = tx.failed_at
             db_obj.updated_at = tx.updated_at
-            
+
             await session.flush()
             tx.version = db_obj.version
             return tx
@@ -92,7 +92,7 @@ class PgPaymentRepository(PaymentRepository):
     async def save_payment_method(self, pm_data: dict[str, Any], session: Any = None) -> None:
         if not session or not isinstance(session, AsyncSession):
             raise ValueError("AsyncSession required")
-        
+
         # Check if already exists
         stmt = select(PaymentMethodModel).where(
             PaymentMethodModel.psp_payment_method_id == pm_data["psp_payment_method_id"]
@@ -101,7 +101,7 @@ class PgPaymentRepository(PaymentRepository):
         existing = result.scalars().first()
         if existing:
             return
-            
+
         db_obj = PaymentMethodModel(
             user_id=pm_data["user_id"],
             method_type=pm_data["method_type"],

@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.ports.settlement_repository import SettlementRepository
 from app.domain.ports.outbox_repository import OutboxRepository
@@ -22,7 +21,7 @@ class GenerateSettlementUseCase:
 
     async def execute(self, merchant_id: str, commission_rate: float = 0.0500) -> str | None:
         logger.info("Generating weekly settlement for merchant %s", merchant_id)
-        
+
         # Period: past 7 days
         now = datetime.now(timezone.utc)
         start_date = now - timedelta(days=7)

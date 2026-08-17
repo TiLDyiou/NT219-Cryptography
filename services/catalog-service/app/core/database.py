@@ -1,6 +1,5 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from typing import AsyncGenerator
-from fastapi import Request
 from sqlalchemy import event
 
 from app.core.config import settings
@@ -29,10 +28,8 @@ AsyncSessionLocal = async_sessionmaker(
 
 async def init_db():
     from app.models.base import Base
-    # import các model cần tạo bảng 
-    from app.models.merchant import Merchant
-    from app.models.product import Product
-    
+    # import các model cần tạo bảng
+
     async with engine.begin() as conn:
         # Trong production nên chạy alembic, đây là cho test/dev setup nhanh
         await conn.run_sync(Base.metadata.create_all)

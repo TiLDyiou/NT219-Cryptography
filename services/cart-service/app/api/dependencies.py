@@ -3,7 +3,6 @@ from typing import Optional
 from fastapi import Header
 
 from app.core.config import settings
-from app.core.database import get_db
 from app.core.exceptions import UnauthorizedException
 from app.core.jwt_auth import extract_bearer, verify_token
 

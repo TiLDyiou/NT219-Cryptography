@@ -17,7 +17,7 @@ class AuditLogModel(Base):
     actor_id = Column(String(36), nullable=True)
     actor_type = Column(String(20), nullable=True)  # user|merchant|admin|system|migration
     ip_address = Column(String(64), nullable=True)
-    user_agent = Column(Text, nullable=True) if False else Column(String(500), nullable=True)  # custom mapping
+    user_agent = Column(String(500), nullable=True)
     correlation_id = Column(String(255), nullable=True)
     hmac_signature = Column(String(128), nullable=True)  # STRIDE DB tamper detection
     hmac_key_version = Column(Integer, nullable=False, default=1)

@@ -4,7 +4,6 @@ C-11/M-12: cart KHÔNG được tin unit_price_snapshot / product_name / merchan
 client gửi (kẻ tấn công có thể đặt giá 0đ). Giá và chủ sở hữu lấy từ catalog.
 """
 from decimal import Decimal
-from typing import Optional
 
 import httpx
 

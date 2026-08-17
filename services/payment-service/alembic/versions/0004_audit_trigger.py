@@ -36,7 +36,7 @@ def upgrade() -> None:
                 ELSIF TG_OP = 'UPDATE' THEN
                     old_row := to_jsonb(OLD);
                     new_row := to_jsonb(NEW);
-                    
+
                     -- Compute changed fields
                     SELECT array_agg(key) INTO diff_cols
                     FROM jsonb_each(new_row)
@@ -85,7 +85,7 @@ def upgrade() -> None:
                     1,
                     NOW()
                 );
-                
+
                 RETURN NEW;
             END;
             $$ LANGUAGE plpgsql;

@@ -9,7 +9,7 @@ from app.schemas.merchant import MerchantCreate
 async def run_tests():
     print("=== CHUẨN BỊ MÔI TRƯỜNG DB ===")
     await init_db()
-    
+
     # Tạo merchant giả để thoả mãn Foreign Key constraint
     async with AsyncSessionLocal() as db:
         existing = await crud_merchant.get(db, id="m_123")
@@ -22,10 +22,10 @@ async def run_tests():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         print("=== CHẠY CÁC BƯỚC TỰ KIỂM TRA LỖI CATALOG API ===")
-        
+
         # 1. Validation Lỗi
         print("\n1. Test Validation Error (Price < 0):")
-        res1 = await client.post("/api/v1/merchant/products", 
+        res1 = await client.post("/api/v1/merchant/products",
             headers={"Authorization": "Bearer m_123"},
             json={
                 "sku": "SKU-ERR",
@@ -36,10 +36,10 @@ async def run_tests():
         print(f"Status: {res1.status_code}")
         print(f"Response: {res1.json()}")
         assert res1.status_code == 422 # Unprocessable Entity
-        
+
         # 2. Tạo sản phẩm thành công
         print("\n2. Tạo sản phẩm thành công:")
-        res_create = await client.post("/api/v1/merchant/products", 
+        res_create = await client.post("/api/v1/merchant/products",
             headers={"Authorization": "Bearer m_123"},
             json={
                 "sku": "SKU-OK",
@@ -55,7 +55,7 @@ async def run_tests():
 
         # 3. Test Optimistic Locking (Update với version cũ)
         print("\n3. Test Optimistic Locking (Truyền sai version):")
-        res_opt = await client.put(f"/api/v1/merchant/products/{product_id}", 
+        res_opt = await client.put(f"/api/v1/merchant/products/{product_id}",
             headers={"Authorization": "Bearer m_123"},
             json={
                 "base_price": 200000,
@@ -68,7 +68,7 @@ async def run_tests():
 
         # 4. Test RLS Violation (Sửa SP của merchant khác)
         print("\n4. Test RLS Violation (Thử sửa product của m_123 bằng acc m_456):")
-        res_rls = await client.put(f"/api/v1/merchant/products/{product_id}", 
+        res_rls = await client.put(f"/api/v1/merchant/products/{product_id}",
             headers={"Authorization": "Bearer m_456"}, # Fake attacker
             json={
                 "base_price": 50000,
@@ -84,19 +84,19 @@ async def run_tests():
         res_pub = await client.get("/api/v1/public/products")
         print(f"Status: {res_pub.status_code}")
         print(f"Data count: {len(res_pub.json()['data'])}")
-        
+
         # 6. Delete
         print("\n6. Xóa item thành công:")
         res_del = await client.delete(f"/api/v1/merchant/products/{product_id}", headers={"Authorization": "Bearer m_123"})
         print(f"Status: {res_del.status_code}")
-        
+
         # 7. Lại get detail sẽ lỗi Not Found vì đã soft delete
         print("\n7. Get lại detail item đã bị xóa (Test NotFound):")
         res_notfound = await client.get(f"/api/v1/public/products/{product_id}")
         print(f"Status: {res_notfound.status_code}")
         print(f"Response: {res_notfound.json()}")
         assert res_notfound.status_code == 404
-        
+
         print("\n=== THE END ===")
 
 if __name__ == "__main__":

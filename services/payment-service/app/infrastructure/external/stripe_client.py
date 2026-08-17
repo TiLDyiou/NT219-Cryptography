@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from decimal import Decimal
 from typing import Any
 import stripe
@@ -28,7 +27,7 @@ def mask_psp_response(response: dict[str, Any]) -> dict[str, Any]:
     if not response:
         return response
     masked = dict(response)
-    
+
     # Redact customer / source specifics if nested
     if "charges" in masked and "data" in masked["charges"]:
         for ch in masked["charges"]["data"]:
@@ -36,7 +35,7 @@ def mask_psp_response(response: dict[str, Any]) -> dict[str, Any]:
                 card = ch["payment_method_details"]["card"]
                 if "fingerprint" in card:
                     card["fingerprint"] = "[REDACTED_FINGERPRINT]"
-                    
+
     if "payment_method" in masked and isinstance(masked["payment_method"], dict):
         pm = masked["payment_method"]
         if "card" in pm:
