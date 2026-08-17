@@ -127,6 +127,9 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             logger.warning("Vault connection failed; using local dev crypto", exc_info=True)
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
     else:
+        if cfg.is_production:
+            logger.error("Vault must be enabled in production environment")
+            raise RuntimeError("Vault must be enabled in production environment")
         crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
 
     if cfg.redis.enabled:

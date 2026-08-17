@@ -104,7 +104,6 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
     redis_client = None
     kafka_producer = None
 
-    crypto_service: CryptoService = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
     if cfg.vault.enabled:
         try:
             vault_client = VaultClient(cfg.vault)
@@ -122,7 +121,13 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
                 logger.error("Vault required in production but unavailable", exc_info=True)
                 raise
             logger.warning("Vault connection failed; using local dev crypto", exc_info=True)
+            crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
             vault_client = None
+    else:
+        if cfg.is_production:
+            logger.error("Vault must be enabled in production environment")
+            raise RuntimeError("Vault must be enabled in production environment")
+        crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
 
     if cfg.redis.enabled:
         try:

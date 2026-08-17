@@ -131,6 +131,9 @@ async def build_container(cfg: Settings | None = None) -> AppContainer:
             crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
             payment_event_verifier = crypto_service
     else:
+        if cfg.is_production:
+            logger.error("Vault must be enabled in production environment")
+            raise RuntimeError("Vault must be enabled in production environment")
         crypto_service = LocalDevCryptoService(cfg.LOCAL_CRYPTO_SECRET)
         payment_event_verifier = crypto_service
 

@@ -1,19 +1,35 @@
 .cursor/*
 .vscode/*
 .DS_Store
-**.env
-**__pycache__/
-services/catalog-service/uploads/
-
-
-
-# Secrets — never commit
+*.env
 services/**/.env
 services/*/.env
 !services/**/.env.example
 !services/*/.env.example
-*.db
-*.sqlite
+
+# Node & Frontend
+node_modules/
+**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python & DB
 **/__pycache__/
 **/*.pyc
 **/*.pyo
+*.db
+*.sqlite
+services/catalog-service/uploads/
+
+# Certificates & Keys (generated on demand)
+*.key
+*.crt
+services/certs/*.key
+services/certs/*.crt
+
+# Office & Binaries & Temp
+*.docx
+*.doc
+~$*
+*.tmp
