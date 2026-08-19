@@ -2,12 +2,10 @@ global:
   scrape_interval: 15s
 
 scrape_configs:
-  # NODE-1: Ingress (Keycloak)
   - job_name: 'keycloak'
     static_configs:
       - targets: ['${VM1_IP}:8080']
 
-  # NODE-2: Service Mesh
   - job_name: 'catalog-service'
     static_configs:
       - targets: ['${VM2_IP}:8001']
@@ -27,7 +25,6 @@ scrape_configs:
     static_configs:
       - targets: ['${VM2_IP}:8008']
 
-  # NODE-3: PCI DSS
   - job_name: 'payment-service'
     static_configs:
       - targets: ['${VM3_IP}:8004']

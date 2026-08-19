@@ -1,4 +1,3 @@
--- Tạo các database cho uitstore (catalog_db đã được tạo qua POSTGRES_DB)
 CREATE DATABASE cart_db        OWNER uitstore;
 CREATE DATABASE order_db       OWNER uitstore;
 CREATE DATABASE payment_db     OWNER uitstore;

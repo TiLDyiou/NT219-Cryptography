@@ -94,7 +94,6 @@ static_resources:
                       address: 127.0.0.1
                       port_value: 8080
 
-    # Tất cả đều trỏ vào NODE-2 (Service Mesh)
     - name: catalog_service
       connect_timeout: 5s
       type: STRICT_DNS

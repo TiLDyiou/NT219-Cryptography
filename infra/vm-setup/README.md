@@ -76,7 +76,7 @@ Chạy từ máy host (macOS):
 
 ```bash
 for VM_IP in <NODE1_IP> <NODE2_IP> <NODE3_IP> <NODE4_IP>; do
-    scp -r /Users/nergy/NT219-Cryptography/ user@${VM_IP}:/opt/uitstore
+    scp -r ./ user@${VM_IP}:/opt/uitstore
 done
 ```
 
@@ -195,10 +195,10 @@ bash test-auth.sh
 | Dịch vụ | URL | Credentials |
 |---|---|---|
 | **Frontend** | `http://<NODE1_IP>/` | — |
-| **Keycloak Admin** | `http://<NODE1_IP>:8080` | admin / admin123 |
+| **Keycloak Admin** | `http://<NODE1_IP>:8080` | admin / $KEYCLOAK_ADMIN_PASSWORD |
 | **Envoy Admin** | `http://<NODE1_IP>:9901` | — |
 | **Vault UI** | `http://<NODE3_IP>:8200` | root token từ `/root/vault-init.txt` |
-| **Grafana** | `http://<NODE4_IP>:3000` | admin / admin |
+| **Grafana** | `http://<NODE4_IP>:3000` | admin / $GF_SECURITY_ADMIN_PASSWORD |
 | **Kibana** | `http://<NODE4_IP>:5601` | — |
 | **Prometheus** | `http://<NODE4_IP>:9090` | — |
 | API Catalog | `http://<NODE2_IP>:8001/docs` | — |

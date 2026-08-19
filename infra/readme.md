@@ -1,7 +1,5 @@
 # Infrastructure
 
-[Cường]
-
 Toàn bộ hướng dẫn cài đặt: **[vm-setup/README.md](vm-setup/README.md)**
 
 ---

@@ -1,23 +1,14 @@
 #!/bin/bash
-# NODE-3: PCI DSS ZONE - Khởi động
-# Chạy SAU NODE-4 (cần DB/Kafka), TRƯỚC NODE-2
+set -euo pipefail
 
 VM4_IP="${VM4_IP:-192.168.122.14}"
-NODE3_IP=$(hostname -I | awk '{print $1}')
+NODE3_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 
-echo "============================================="
-echo "  NODE-3: Khởi động PCI DSS Zone"
-echo "  IP: ${NODE3_IP}"
-echo "============================================="
+nc -z -w3 "${VM4_IP}" 5432 2>/dev/null || true
+nc -z -w3 "${VM4_IP}" 9092 2>/dev/null || true
 
-echo ""
-echo ">>> Kiểm tra kết nối NODE-4 (${VM4_IP})..."
-nc -z -w3 "${VM4_IP}" 5432 && echo "  PostgreSQL - OK" || echo "  PostgreSQL - KHÔNG KẾT NỐI ĐƯỢC!"
-nc -z -w3 "${VM4_IP}" 9092 && echo "  Kafka      - OK" || echo "  Kafka      - KHÔNG KẾT NỐI ĐƯỢC!"
-
-echo ""
-echo "[1/2] HashiCorp Vault..."
-systemctl start vault && sleep 5
+systemctl start vault
+sleep 2
 
 export VAULT_ADDR="http://127.0.0.1:8200"
 SVC_DIR="/opt/uitstore/services/payment-service"
@@ -26,8 +17,6 @@ INITIALIZED=$(vault operator init -status -format=json 2>/dev/null \
     | jq -r '.initialized' 2>/dev/null || echo "false")
 
 if [ "$INITIALIZED" = "false" ]; then
-    echo "  [INIT] Khởi tạo Vault lần đầu..."
-
     INIT_JSON=$(vault operator init -key-shares=1 -key-threshold=1 -format=json)
     echo "$INIT_JSON" > /root/vault-init.txt
     chmod 600 /root/vault-init.txt
@@ -38,11 +27,9 @@ if [ "$INITIALIZED" = "false" ]; then
     vault operator unseal "$UNSEAL_KEY"
     export VAULT_TOKEN="$ROOT_TOKEN"
 
-    # Secrets engines
-    vault secrets enable -path=secret kv-v2
-    vault secrets enable transit
+    vault secrets enable -path=secret kv-v2 2>/dev/null || true
+    vault secrets enable transit 2>/dev/null || true
 
-    # Transit keys
     for KEY_SPEC in \
         "payment-key:aes256-gcm96" \
         "payment-sign-key:ecdsa-p256" \
@@ -59,28 +46,27 @@ if [ "$INITIALIZED" = "false" ]; then
         "shipping-audit-key:aes256-gcm96"
     do
         KEY="${KEY_SPEC%%:*}"; TYPE="${KEY_SPEC##*:}"
-        vault write -f "transit/keys/${KEY}" type="${TYPE}" && echo "    key: ${KEY}"
+        vault write -f "transit/keys/${KEY}" type="${TYPE}" 2>/dev/null || true
     done
 
-    # Initial secrets
     vault kv put secret/payment/stripe \
-        api_key="sk_test_REPLACE_ME" webhook_secret="whsec_REPLACE_ME" publishable_key="pk_test_REPLACE_ME"
-    vault kv put secret/catalog/db  password="catalog_dev_pass"
-    vault kv put secret/cart/db     password="cart_dev_pass"
-    vault kv put secret/order/db    password="order_dev_pass"
-    vault kv put secret/payment/db  password="payment_dev_pass"
-    vault kv put secret/shipping/db password="shipping_dev_pass"
+        api_key="${STRIPE_API_KEY:-sk_test_placeholder}" \
+        webhook_secret="${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}" \
+        publishable_key="${STRIPE_PUB_KEY:-pk_test_placeholder}"
+    vault kv put secret/catalog/db  password="${CATALOG_DB_PASS:-$(openssl rand -hex 16)}"
+    vault kv put secret/cart/db     password="${CART_DB_PASS:-$(openssl rand -hex 16)}"
+    vault kv put secret/order/db    password="${ORDER_DB_PASS:-$(openssl rand -hex 16)}"
+    vault kv put secret/payment/db  password="${PAYMENT_DB_PASS:-$(openssl rand -hex 16)}"
+    vault kv put secret/shipping/db password="${SHIPPING_DB_PASS:-$(openssl rand -hex 16)}"
     vault kv put secret/shipping/ghn \
-        api_key="REPLACE_ME_GHN" webhook_secret="dev-ghn-webhook-secret"
+        api_key="${GHN_API_KEY:-ghn_placeholder}" webhook_secret="${GHN_WEBHOOK_SECRET:-ghn_secret_placeholder}"
 
-    # Policies
     vault policy write payment-svc  /etc/vault.d/policies/payment-svc.hcl
     vault policy write catalog-svc  /etc/vault.d/policies/catalog-svc.hcl
     vault policy write order-svc    /etc/vault.d/policies/order-svc.hcl
     vault policy write shipping-svc /etc/vault.d/policies/shipping-svc.hcl
 
-    # AppRole
-    vault auth enable approle
+    vault auth enable approle 2>/dev/null || true
 
     vault write auth/approle/role/payment-service \
         token_policies="payment-svc" token_ttl=1h secret_id_ttl=0
@@ -97,13 +83,12 @@ if [ "$INITIALIZED" = "false" ]; then
     SHIPPING_ROLE_ID=$(vault read -field=role_id auth/approle/role/shipping-service/role-id)
     SHIPPING_SECRET_ID=$(vault write -f -field=secret_id auth/approle/role/shipping-service/secret-id)
 
-    # Cập nhật payment-service .env với AppRole credentials
-    sed -i "s|VAULT_TOKEN=mock_token|VAULT_TOKEN=${ROOT_TOKEN}|" "${SVC_DIR}/.env"
+    if [ -f "${SVC_DIR}/.env" ]; then
+        sed -i "s|VAULT_TOKEN=mock_token|VAULT_ROLE_ID=${PAYMENT_ROLE_ID}\nVAULT_SECRET_ID=${PAYMENT_SECRET_ID}|" "${SVC_DIR}/.env"
+    fi
 
-    # Lưu AppRole credentials cho NODE-2 (order/shipping cần)
     cat > /root/vault-approle.txt <<EOF
-# Dán vào .env của order-service và shipping-service trên NODE-2
-VAULT_ADDR=http://${NODE3_IP}:8200
+VAULT_ADDR=http://${NODE3_IP:-127.0.0.1}:8200
 ORDER_VAULT_ROLE_ID=${ORDER_ROLE_ID}
 ORDER_VAULT_SECRET_ID=${ORDER_SECRET_ID}
 SHIPPING_VAULT_ROLE_ID=${SHIPPING_ROLE_ID}
@@ -111,37 +96,9 @@ SHIPPING_VAULT_SECRET_ID=${SHIPPING_SECRET_ID}
 EOF
     chmod 600 /root/vault-approle.txt
 
-    echo "  Vault init HOÀN TẤT!"
-    echo "  → Unseal key + root token: /root/vault-init.txt"
-    echo "  → AppRole credentials cho NODE-2: /root/vault-approle.txt"
-
 elif [ -f /root/vault-init.txt ]; then
-    # Đã init — chỉ cần unseal sau restart
     UNSEAL_KEY=$(jq -r '.unseal_keys_b64[0]' /root/vault-init.txt)
-    vault operator unseal "$UNSEAL_KEY" 2>/dev/null \
-        && echo "  Vault unsealed - OK" || echo "  Vault đã unsealed"
-else
-    echo "  [WARNING] Vault đã init nhưng không tìm thấy /root/vault-init.txt"
-    echo "  Unseal thủ công: vault operator unseal <KEY>"
+    vault operator unseal "$UNSEAL_KEY" 2>/dev/null || true
 fi
 
-echo ""
-echo "[2/2] Payment Service..."
-systemctl start payment-service && sleep 3
-systemctl is-active payment-service && echo "  payment-service :8004 - OK" || echo "  payment-service - FAILED"
-
-echo ""
-echo ">>> Kiểm tra ports..."
-for PORT in 8200 8004; do
-    ss -tlnp 2>/dev/null | grep -q ":${PORT} " \
-        && echo "  :${PORT} - OPEN" || echo "  :${PORT} - closed"
-done
-
-echo ""
-echo "============================================="
-echo "  NODE-3 đang chạy!"
-echo "  Vault UI:      http://${NODE3_IP}:8200"
-echo "  Payment API:   http://${NODE3_IP}:8004/docs"
-echo ""
-echo "  → Khởi động NODE-2 tiếp theo"
-echo "============================================="
+systemctl start payment-service

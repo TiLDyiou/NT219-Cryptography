@@ -42,10 +42,10 @@ local function check_patterns(input, patterns, category)
   return nil
 end
 
-local function blocked_response(reason, category, request_id)
+local function blocked_response(request_id)
   return string.format(
-    '{"error":"blocked_by_waf","reason":"%s","category":"%s","request_id":"%s"}',
-    reason, category, request_id or "unknown"
+    '{"error":"forbidden","message":"Access denied","request_id":"%s"}',
+    request_id or "unknown"
   )
 end
 
@@ -56,47 +56,45 @@ function envoy_on_request(request_handle)
   local path       = request_handle:headers():get(":path") or "/"
   local user_agent = request_handle:headers():get("user-agent") or ""
 
-
   local ua_lower = user_agent:lower()
   for _, agent in ipairs(bad_agents) do
     if ua_lower:find(agent, 1, true) then
-      request_handle:logWarn(string.format("[WAF] BLOCKED scanner ip=%s agent=%s", client_ip, agent))
+      request_handle:logWarn(string.format("[WAF] BLOCKED ip=%s id=%s", client_ip, request_id))
       request_handle:respond(
         {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="scanner"},
-        blocked_response("Automated scanner detected", "scanner", request_id))
+        blocked_response(request_id))
       return
     end
   end
 
   local match = check_patterns(path, traversal_patterns, "path_traversal")
   if match then
-    request_handle:logWarn(string.format("[WAF] BLOCKED path_traversal ip=%s path=%s", client_ip, path:sub(1,100)))
+    request_handle:logWarn(string.format("[WAF] BLOCKED ip=%s id=%s", client_ip, request_id))
     request_handle:respond(
       {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="path_traversal"},
-      blocked_response("Path traversal attempt detected", "path_traversal", request_id))
+      blocked_response(request_id))
     return
   end
 
   match = check_patterns(path, sqli_patterns, "sqli")
   if match then
-    request_handle:logWarn(string.format("[WAF] BLOCKED sqli ip=%s path=%s", client_ip, path:sub(1,100)))
+    request_handle:logWarn(string.format("[WAF] BLOCKED ip=%s id=%s", client_ip, request_id))
     request_handle:respond(
       {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="sqli"},
-      blocked_response("SQL injection attempt detected", "sqli", request_id))
+      blocked_response(request_id))
     return
   end
 
   match = check_patterns(path, xss_patterns, "xss")
   if match then
-    request_handle:logWarn(string.format("[WAF] BLOCKED xss ip=%s path=%s", client_ip, path:sub(1,100)))
+    request_handle:logWarn(string.format("[WAF] BLOCKED ip=%s id=%s", client_ip, request_id))
     request_handle:respond(
       {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="xss"},
-      blocked_response("XSS attempt detected", "xss", request_id))
+      blocked_response(request_id))
     return
   end
 
   if method == "POST" or method == "PUT" or method == "PATCH" then
-    -- Chỉ quét body dạng JSON; multipart/binary (upload ảnh) không áp dụng rule text SQLi/XSS
     local content_type = (request_handle:headers():get("content-type") or ""):lower()
     local scan_body = content_type:find("application/json", 1, true) ~= nil
       or content_type:find("application/merge-patch+json", 1, true) ~= nil
@@ -109,14 +107,14 @@ function envoy_on_request(request_handle)
         if match then
           request_handle:respond(
             {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="sqli_body"},
-            blocked_response("SQL injection in body detected", "sqli_body", request_id))
+            blocked_response(request_id))
           return
         end
         match = check_patterns(body_str, xss_patterns, "xss_body")
         if match then
           request_handle:respond(
             {[":status"]="403",["content-type"]="application/json",["x-waf-block"]="xss_body"},
-            blocked_response("XSS in body detected", "xss_body", request_id))
+            blocked_response(request_id))
           return
         end
       end
@@ -131,4 +129,5 @@ function envoy_on_response(response_handle)
   response_handle:headers():add("X-Frame-Options", "DENY")
   response_handle:headers():add("X-XSS-Protection", "1; mode=block")
   response_handle:headers():add("Referrer-Policy", "strict-origin-when-cross-origin")
+  response_handle:headers():add("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 end
